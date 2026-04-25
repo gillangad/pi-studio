@@ -250,6 +250,10 @@ function registerIpcHandlers() {
     async (_event, payload?: { projectId?: string }) => host?.getProjectFileTree(payload?.projectId),
   );
   ipcMain.handle(
+    IPC_CHANNELS.invoke.searchSessions,
+    async (_event, payload?: { query?: string }) => host?.searchSessions(payload?.query ?? ""),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.invoke.getBrowserCdpTarget,
     async (_event, payload?: { url?: string; title?: string }) => resolveBrowserCdpTarget(payload),
   );

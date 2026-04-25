@@ -53,6 +53,16 @@ export type ThreadSummary = {
 
 export type ProjectThreadsMap = Record<string, ThreadSummary[]>;
 
+export type SessionSearchResult = {
+  projectId: string;
+  projectName: string;
+  sessionFile: string;
+  threadTitle: string;
+  ageLabel: string;
+  excerpt: string;
+  matchedIn: "title" | "content";
+};
+
 export type ModelSummary = {
   provider: string;
   id: string;

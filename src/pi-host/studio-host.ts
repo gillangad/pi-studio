@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { dialog } from "electron";
@@ -22,6 +23,7 @@ import type {
   ProjectRecord,
   ProjectThreadsMap,
   ResourceSummary,
+  SessionSearchResult,
   TerminalState,
   StreamingBehaviorPreference,
   StudioMode,
@@ -115,6 +117,7 @@ const OLD_THREAD_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 const RESOURCE_LOADER_RELOAD_INTERVAL_MS = 15_000;
 const FILE_TREE_DEPTH_LIMIT = 4;
 const FILE_TREE_IGNORES = new Set([".git", "node_modules", "out", "dist", ".next"]);
+const SEARCH_RESULT_LIMIT = 50;
 
 type ResourceLoaderProfile = "default" | "studioBuiltins";
 
@@ -1154,6 +1157,53 @@ export class StudioHost {
     return this.readDirectoryTree(project.path, 0);
   }
 
+  async searchSessions(query: string): Promise<SessionSearchResult[]> {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    const results: SessionSearchResult[] = [];
+
+    for (const project of this.workspaceState.projects) {
+      const threads = this.threadCache[project.id] ?? [];
+
+      for (const thread of threads) {
+        if (results.length >= SEARCH_RESULT_LIMIT) {
+          return results;
+        }
+
+        if (thread.title.toLowerCase().includes(normalizedQuery)) {
+          results.push({
+            projectId: project.id,
+            projectName: project.name,
+            sessionFile: thread.sessionFile,
+            threadTitle: thread.title,
+            ageLabel: thread.ageLabel,
+            excerpt: thread.title,
+            matchedIn: "title",
+          });
+          continue;
+        }
+
+        const excerpt = await this.searchSessionFile(thread.sessionFile, normalizedQuery);
+        if (!excerpt) continue;
+
+        results.push({
+          projectId: project.id,
+          projectName: project.name,
+          sessionFile: thread.sessionFile,
+          threadTitle: thread.title,
+          ageLabel: thread.ageLabel,
+          excerpt,
+          matchedIn: "content",
+        });
+      }
+    }
+
+    return results;
+  }
+
   dispose() {
     for (const runtime of Object.values(this.guiSessions)) {
       runtime.unsubscribe?.();
@@ -1438,6 +1488,71 @@ export class StudioHost {
     for (const project of this.workspaceState.projects) {
       await this.refreshProjectThreads(project);
     }
+  }
+
+  private async searchSessionFile(sessionFile: string, query: string) {
+    try {
+      const raw = await readFile(sessionFile, "utf8");
+      const searchText = this.extractSearchText(raw);
+      if (!searchText) return null;
+
+      const normalized = searchText.toLowerCase();
+      const matchIndex = normalized.indexOf(query);
+      if (matchIndex < 0) return null;
+
+      return this.buildSearchExcerpt(searchText, matchIndex, query.length);
+    } catch {
+      return null;
+    }
+  }
+
+  private extractSearchText(raw: string) {
+    const snippets: string[] = [];
+
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        this.collectSearchableStrings(parsed, snippets);
+      } catch {
+        snippets.push(trimmed);
+      }
+    }
+
+    return snippets.join(" ").replace(/\s+/g, " ").trim();
+  }
+
+  private collectSearchableStrings(value: unknown, output: string[]) {
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed) {
+        output.push(trimmed);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        this.collectSearchableStrings(entry, output);
+      }
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      for (const entry of Object.values(value)) {
+        this.collectSearchableStrings(entry, output);
+      }
+    }
+  }
+
+  private buildSearchExcerpt(searchText: string, matchIndex: number, queryLength: number) {
+    const start = Math.max(0, matchIndex - 44);
+    const end = Math.min(searchText.length, matchIndex + queryLength + 84);
+    const prefix = start > 0 ? "..." : "";
+    const suffix = end < searchText.length ? "..." : "";
+    return `${prefix}${searchText.slice(start, end).trim()}${suffix}`;
   }
 
   private refreshActiveThreadFlags() {

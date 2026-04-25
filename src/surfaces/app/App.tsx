@@ -272,6 +272,7 @@ export function App() {
         onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
         onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
         onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+        onSearchSessions={actions.searchSessions}
         onCreateThread={(projectId) => {
           setPendingGuiThreadKey(null);
           void actions.createThread(projectId);

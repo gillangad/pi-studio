@@ -2,20 +2,16 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleEllipsis,
   FolderPlus,
   FolderOpen,
-  GripHorizontal,
   Moon,
   NotebookPen,
-  Puzzle,
   Search,
   Settings,
   Sun,
-  Clock3,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import type { ProjectRecord, ProjectThreadsMap, StudioMode, ThreadSummary } from "../../shared/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ProjectRecord, ProjectThreadsMap, SessionSearchResult, StudioMode } from "../../shared/types";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
@@ -36,6 +32,7 @@ type SidebarProps = {
   onReorderProjects: (projectIds: string[]) => void;
   onRenameProject: (projectId: string, name: string) => void;
   onRemoveProject: (projectId: string) => void;
+  onSearchSessions: (query: string) => Promise<SessionSearchResult[]> | SessionSearchResult[];
   onCreateThread: (projectId: string) => void;
   onOpenThread: (projectId: string, sessionFile: string) => void;
   onToggleThreadPinned: (projectId: string, sessionFile: string) => void;
@@ -58,17 +55,22 @@ export function Sidebar({
   onReorderProjects,
   onRenameProject,
   onRemoveProject,
+  onSearchSessions,
   onCreateThread,
   onOpenThread,
   onToggleThreadPinned,
   onToggleThreadArchived,
 }: SidebarProps) {
   const [collapsedProjectIds, setCollapsedProjectIds] = useState<Record<string, boolean>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SessionSearchResult[]>([]);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [projectNameDraft, setProjectNameDraft] = useState("");
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!activeProjectId) return;
@@ -85,19 +87,48 @@ export function Sidebar({
     });
   }, [activeProjectId]);
 
-  const visibleProjects = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  useEffect(() => {
+    if (!searchOpen) return;
+    searchInputRef.current?.focus();
+  }, [searchOpen]);
 
-    if (!query) return projects;
+  useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
 
-    return projects.filter((project) => {
-      if (project.name.toLowerCase().includes(query)) return true;
-      if (project.path.toLowerCase().includes(query)) return true;
+    let cancelled = false;
+    setSearching(true);
 
-      const threads = threadsByProject[project.id] ?? [];
-      return threads.some((thread) => thread.title.toLowerCase().includes(query));
-    });
-  }, [projects, searchQuery, threadsByProject]);
+    const timeout = window.setTimeout(() => {
+      Promise.resolve(onSearchSessions(normalizedQuery))
+        .then((results) => {
+          if (!cancelled) {
+            setSearchResults(results);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSearchResults([]);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSearching(false);
+          }
+        });
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [onSearchSessions, searchQuery]);
+
+  const visibleProjects = projects;
 
   const reorder = (targetProjectId: string) => {
     if (!draggingProjectId || draggingProjectId === targetProjectId) return;
@@ -125,6 +156,34 @@ export function Sidebar({
       ),
     [projects, threadsByProject],
   );
+
+  const openProjectLatestThread = (project: ProjectRecord) => {
+    const threads = threadsByProject[project.id] ?? [];
+    const latestThread = threads[0] ?? null;
+
+    setSettingsMenuOpen(false);
+    setCollapsedProjectIds((current) => ({
+      ...current,
+      [project.id]: false,
+    }));
+
+    if (latestThread) {
+      onOpenThread(project.id, latestThread.sessionFile);
+      return;
+    }
+
+    onCreateThread(project.id);
+  };
+
+  const handleNewChat = () => {
+    const project =
+      projects.find((entry) => entry.id === activeProjectId) ??
+      projects[0] ??
+      null;
+
+    if (!project) return;
+    onCreateThread(project.id);
+  };
 
   return (
     <aside
@@ -175,7 +234,7 @@ export function Sidebar({
                   type="button"
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn("h-10 w-full rounded-md text-sm font-semibold", isActive && "ring-1 ring-primary/50")}
-                  onClick={() => onSelectProject(project.id)}
+                  onClick={() => openProjectLatestThread(project)}
                   title={project.name}
                   aria-label={project.name}
                 >
@@ -188,31 +247,70 @@ export function Sidebar({
       ) : (
         <section className="flex min-h-0 flex-1 flex-col px-3 pb-3">
           <div className="space-y-1 pb-4">
-            <Button variant="ghost" className="h-10 w-full justify-start gap-3 rounded-xl px-3 text-[15px] font-medium text-foreground">
+            <Button
+              variant="ghost"
+              className="h-10 w-full justify-start gap-3 rounded-xl px-3 text-[15px] font-medium text-foreground"
+              onClick={handleNewChat}
+            >
               <NotebookPen size={17} />
               <span>New chat</span>
             </Button>
             <button
               type="button"
               className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-accent/20"
+              onClick={() => setSearchOpen((current) => !current || !searchQuery)}
+              aria-expanded={searchOpen || searchQuery.length > 0}
             >
               <Search size={17} className="text-foreground" />
               <span>Search</span>
             </button>
-            <button
-              type="button"
-              className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-accent/20"
-            >
-              <Puzzle size={17} className="text-foreground" />
-              <span>Plugins</span>
-            </button>
-            <button
-              type="button"
-              className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-accent/20"
-            >
-              <Clock3 size={17} className="text-foreground" />
-              <span>Automations</span>
-            </button>
+
+            {searchOpen || searchQuery.length > 0 ? (
+              <div className="space-y-2 px-1 pt-1">
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search sessions"
+                  className="h-10 w-full rounded-xl border border-input bg-background/70 px-3 text-sm text-foreground outline-none ring-ring/70 focus:ring-2"
+                  aria-label="Search sessions"
+                />
+
+                <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+                  {searching ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">Searching...</div>
+                  ) : null}
+
+                  {!searching && searchQuery.trim().length > 0
+                    ? searchResults.map((result) => (
+                        <button
+                          key={`${result.projectId}-${result.sessionFile}`}
+                          type="button"
+                          className="w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/20"
+                          onClick={() => {
+                            onOpenThread(result.projectId, result.sessionFile);
+                            setCollapsedProjectIds((current) => ({
+                              ...current,
+                              [result.projectId]: false,
+                            }));
+                          }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-sm font-medium text-foreground">{result.threadTitle}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">{result.ageLabel}</span>
+                          </div>
+                          <div className="mt-1 truncate text-xs text-muted-foreground">{result.projectName}</div>
+                          <div className="mt-1 text-xs text-muted-foreground">{result.excerpt}</div>
+                        </button>
+                      ))
+                    : null}
+
+                  {!searching && searchQuery.trim().length > 0 && searchResults.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No session matches yet.</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {pinnedThreads.length > 0 ? (
@@ -241,21 +339,16 @@ export function Sidebar({
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             <div className="flex items-center justify-between px-2 pb-0.5">
               <span className="text-[13px] font-medium text-muted-foreground">Projects</span>
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" aria-label="Filter projects">
-                  <GripHorizontal size={14} />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={onAddProject}
-                  aria-label="Add project"
-                  className="h-7 w-7 text-muted-foreground"
-                >
-                  <FolderPlus size={14} />
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onAddProject}
+                aria-label="Add project"
+                className="h-7 w-7 text-muted-foreground"
+              >
+                <FolderPlus size={14} />
+              </Button>
             </div>
 
             {visibleProjects.map((project) => {
@@ -275,6 +368,23 @@ export function Sidebar({
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-1">
                     <div className="flex min-w-0 items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground"
+                        onClick={() => {
+                          setCollapsedProjectIds((current) => ({
+                            ...current,
+                            [project.id]: !isCollapsed,
+                          }));
+                        }}
+                        aria-label={isCollapsed ? `Expand ${project.name}` : `Collapse ${project.name}`}
+                        aria-expanded={!isCollapsed}
+                        aria-controls={`sidebar-project-threads-${project.id}`}
+                      >
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      </Button>
                       <FolderOpen size={16} className={cn("shrink-0 text-muted-foreground", isActiveProject && "text-foreground")} />
 
                       {editingProjectId === project.id ? (
@@ -314,11 +424,7 @@ export function Sidebar({
                           )}
                           aria-current={isActiveProject ? "page" : undefined}
                           onClick={() => {
-                            onSelectProject(project.id);
-                            setCollapsedProjectIds((current) => ({
-                              ...current,
-                              [project.id]: false,
-                            }));
+                            openProjectLatestThread(project);
                           }}
                           onDoubleClick={() => {
                             setEditingProjectId(project.id);
@@ -331,25 +437,6 @@ export function Sidebar({
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {isActiveProject ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground"
-                          onClick={() => {
-                            setCollapsedProjectIds((current) => ({
-                              ...current,
-                              [project.id]: !isCollapsed,
-                            }));
-                          }}
-                          aria-label={isCollapsed ? `Expand ${project.name}` : `Collapse ${project.name}`}
-                          aria-expanded={!isCollapsed}
-                          aria-controls={`sidebar-project-threads-${project.id}`}
-                        >
-                          <CircleEllipsis size={14} />
-                        </Button>
-                      ) : null}
                       <Button
                         type="button"
                         variant="ghost"
@@ -400,26 +487,6 @@ export function Sidebar({
               );
             })}
 
-            {visibleProjects.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                No projects match search.
-              </div>
-            ) : null}
-
-            <div className="pt-4">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <span className="text-[13px] font-medium text-muted-foreground">Chats</span>
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" aria-label="Filter chats">
-                    <GripHorizontal size={14} />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" aria-label="Create chat">
-                    <NotebookPen size={14} />
-                  </Button>
-                </div>
-              </div>
-              <div className="px-2 text-[15px] text-muted-foreground">No chats</div>
-            </div>
           </div>
         </section>
       )}

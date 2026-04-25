@@ -39,7 +39,10 @@ import type { DesktopBridge } from "../../src/shared/ipc";
 import type { FileTreeNode, StudioSnapshot } from "../../src/shared/types";
 
 const snapshot: StudioSnapshot = {
-  projects: [{ id: "p1", name: "demo", path: "/tmp/demo", isFavorite: false, isGitRepo: false, isGitHubRepo: false }],
+  projects: [
+    { id: "p1", name: "demo", path: "/tmp/demo", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
+    { id: "p2", name: "alpha", path: "/tmp/alpha", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
+  ],
   threadsByProject: {
     p1: [
       {
@@ -65,6 +68,21 @@ const snapshot: StudioSnapshot = {
         ageLabel: "8d",
         messageCount: 2,
         isPinned: true,
+        isArchived: false,
+        running: false,
+      },
+    ],
+    p2: [
+      {
+        id: "t3",
+        sessionId: "s3",
+        sessionFile: "/tmp/alpha/session.jsonl",
+        title: "Alpha latest",
+        updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        updatedAtMs: Date.now() - 2 * 60 * 60 * 1000,
+        ageLabel: "2h",
+        messageCount: 3,
+        isPinned: false,
         isArchived: false,
         running: false,
       },
@@ -180,6 +198,17 @@ describe("App", () => {
       addGitComment: vi.fn().mockResolvedValue(snapshot),
       removeGitComment: vi.fn().mockResolvedValue(snapshot),
       getProjectFileTree: vi.fn().mockResolvedValue(projectTree),
+      searchSessions: vi.fn().mockResolvedValue([
+        {
+          projectId: "p2",
+          projectName: "alpha",
+          sessionFile: "/tmp/alpha/session.jsonl",
+          threadTitle: "Alpha latest",
+          ageLabel: "2h",
+          excerpt: "match inside session",
+          matchedIn: "content",
+        },
+      ]),
       getBrowserCdpTarget: vi.fn().mockResolvedValue(null),
       onSnapshot: vi.fn().mockReturnValue(() => {}),
       onTuiData: vi.fn().mockReturnValue(() => {}),
@@ -199,6 +228,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getAllByText("demo").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
@@ -227,6 +257,50 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create thread in demo" }));
 
     expect(bridge.createThread).toHaveBeenCalledWith("p1", undefined);
+  });
+
+  it("opens the latest thread when clicking a project name", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "alpha" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "alpha" }));
+
+    expect(bridge.openThread).toHaveBeenCalledWith("p2", "/tmp/alpha/session.jsonl", undefined);
+  });
+
+  it("searches session content and opens a matching result", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Search" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Search sessions" }), {
+      target: { value: "match" },
+    });
+
+    await waitFor(() => {
+      expect(bridge.searchSessions).toHaveBeenCalledWith({ query: "match" });
+      expect(screen.getByRole("button", { name: /Alpha latest/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Alpha latest/i }));
+
+    expect(bridge.openThread).toHaveBeenCalledWith("p2", "/tmp/alpha/session.jsonl", undefined);
   });
 
   it("toggles the browser surface for the active thread", async () => {

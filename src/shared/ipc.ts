@@ -2,6 +2,7 @@ import type {
   FileTreeNode,
   GitComment,
   GitDiffBaseline,
+  SessionSearchResult,
   StudioMode,
   StudioSnapshot,
   StreamingBehaviorPreference,
@@ -44,6 +45,7 @@ export const IPC_CHANNELS = {
     addGitComment: "pi-studio:add-git-comment",
     removeGitComment: "pi-studio:remove-git-comment",
     getProjectFileTree: "pi-studio:get-project-file-tree",
+    searchSessions: "pi-studio:search-sessions",
     getBrowserCdpTarget: "pi-studio:get-browser-cdp-target",
   },
   push: {
@@ -97,6 +99,10 @@ export type ProjectFileTreePayload = {
   projectId?: string;
 };
 
+export type SearchSessionsPayload = {
+  query: string;
+};
+
 export type BrowserCdpTarget = {
   id: string;
   webSocketDebuggerUrl: string;
@@ -138,6 +144,7 @@ export type DesktopBridge = {
   addGitComment(payload: GitCommentPayload): Promise<StudioSnapshot>;
   removeGitComment(commentId: string): Promise<StudioSnapshot>;
   getProjectFileTree(payload?: ProjectFileTreePayload): Promise<FileTreeNode[]>;
+  searchSessions(payload: SearchSessionsPayload): Promise<SessionSearchResult[]>;
   getBrowserCdpTarget(payload: BrowserCdpTargetPayload): Promise<BrowserCdpTarget | null>;
   onSnapshot(callback: (snapshot: StudioSnapshot) => void): () => void;
   onTuiData(callback: (chunk: TerminalChunk) => void): () => void;

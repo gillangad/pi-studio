@@ -82,6 +82,7 @@ export function useStudioState() {
         addGitComment: unavailable,
         removeGitComment: unavailable,
         getProjectFileTree: unavailable,
+        searchSessions: unavailable,
         resizeTui: (..._args: unknown[]) => {},
         writeToTui: (..._args: unknown[]) => {},
         resizeTerminal: (..._args: unknown[]) => {},
@@ -133,6 +134,7 @@ export function useStudioState() {
       addGitComment: (filePath: string, text: string) => bridge.addGitComment({ filePath, text }),
       removeGitComment: (commentId: string) => bridge.removeGitComment(commentId),
       getProjectFileTree: (projectId?: string) => bridge.getProjectFileTree(projectId ? { projectId } : undefined),
+      searchSessions: (query: string) => bridge.searchSessions({ query }),
       onTuiData: bridge.onTuiData,
       onTerminalData: bridge.onTerminalData,
     };

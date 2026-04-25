@@ -57,6 +57,7 @@ const bridge: DesktopBridge = {
   addGitComment: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.addGitComment, payload),
   removeGitComment: (commentId) => ipcRenderer.invoke(IPC_CHANNELS.invoke.removeGitComment, commentId),
   getProjectFileTree: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.getProjectFileTree, payload),
+  searchSessions: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.searchSessions, payload),
   getBrowserCdpTarget: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.getBrowserCdpTarget, payload),
   onSnapshot: (callback) => subscribe(IPC_CHANNELS.push.snapshot, callback),
   onTuiData: (callback) => subscribe(IPC_CHANNELS.push.tuiData, callback),
