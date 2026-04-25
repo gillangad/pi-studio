@@ -1,0 +1,208 @@
+export type StudioMode = "gui" | "tui" | "git" | "extensions" | "skills" | "settings";
+
+export type UiMessageRole =
+  | "user"
+  | "assistant"
+  | "toolResult"
+  | "bashExecution"
+  | "custom"
+  | "branchSummary"
+  | "compactionSummary"
+  | "system";
+
+export type UiMessage = {
+  id: string;
+  role: UiMessageRole;
+  content: string[];
+  timestamp?: string | number;
+  toolName?: string;
+  isError?: boolean;
+  command?: string;
+  output?: string[];
+  exitCode?: number | null;
+  cancelled?: boolean;
+  truncated?: boolean;
+  customType?: string;
+  thinkingContent?: string[];
+  thinkingHeaders?: string[];
+  thinkingRedacted?: boolean;
+};
+
+export type ProjectRecord = {
+  id: string;
+  name: string;
+  path: string;
+  isFavorite?: boolean;
+  isGitRepo?: boolean;
+  isGitHubRepo?: boolean;
+};
+
+export type ThreadSummary = {
+  id: string;
+  sessionId: string;
+  sessionFile: string;
+  title: string;
+  updatedAt: string;
+  updatedAtMs: number;
+  ageLabel: string;
+  messageCount: number;
+  isPinned: boolean;
+  isArchived: boolean;
+  running: boolean;
+};
+
+export type ProjectThreadsMap = Record<string, ThreadSummary[]>;
+
+export type ModelSummary = {
+  provider: string;
+  id: string;
+  name: string;
+  reasoning: boolean;
+};
+
+export type StreamingBehaviorPreference = "steer" | "followUp";
+
+export type AttachmentSummary = {
+  id: string;
+  name: string;
+  path: string;
+};
+
+export type FileTreeNode = {
+  name: string;
+  path: string;
+  kind: "file" | "directory";
+  children?: FileTreeNode[];
+};
+
+export type ResourceSummary = {
+  extensions: number;
+  skills: number;
+  prompts: number;
+  themes: number;
+  agentsFiles: number;
+  extensionNames: string[];
+  skillNames: string[];
+  promptNames: string[];
+  themeNames: string[];
+  agentsFilePaths: string[];
+};
+
+export type GuiSessionState = {
+  sessionId: string;
+  projectId: string | null;
+  sessionFile: string | null;
+  sessionTitle: string;
+  cwd: string | null;
+  isStreaming: boolean;
+  messages: UiMessage[];
+  resources: ResourceSummary;
+  statusText: string | null;
+  errorText: string | null;
+  model: ModelSummary | null;
+  availableModels: ModelSummary[];
+  thinkingLevel: string;
+  availableThinkingLevels: string[];
+  streamingBehaviorPreference: StreamingBehaviorPreference;
+  attachments: AttachmentSummary[];
+};
+
+export type GuiState = GuiSessionState & {
+  activeSessionId?: string;
+  sessions?: Record<string, GuiSessionState>;
+};
+
+export type TuiState = {
+  active: boolean;
+  projectId: string | null;
+  cwd: string | null;
+  status: "idle" | "starting" | "running" | "stopped" | "error";
+  errorText: string | null;
+  runningInBackground: boolean;
+  sessions?: Record<
+    string,
+    {
+      sessionId: string;
+      active: boolean;
+      projectId: string | null;
+      cwd: string | null;
+      status: "idle" | "starting" | "running" | "stopped" | "error";
+      errorText: string | null;
+    }
+  >;
+};
+
+export type TerminalState = {
+  active: boolean;
+  projectId: string | null;
+  cwd: string | null;
+  status: "idle" | "starting" | "running" | "stopped" | "error";
+  errorText: string | null;
+  sessions?: Record<
+    string,
+    {
+      sessionId: string;
+      active: boolean;
+      projectId: string | null;
+      cwd: string | null;
+      status: "idle" | "starting" | "running" | "stopped" | "error";
+      errorText: string | null;
+    }
+  >;
+};
+
+export type GitDiffBaseline = "working" | "head" | "head~1";
+
+export type GitChangedFile = {
+  path: string;
+  status: string;
+};
+
+export type GitComment = {
+  id: string;
+  filePath: string;
+  text: string;
+  createdAt: string;
+};
+
+export type GitState = {
+  projectId: string | null;
+  isGitRepo: boolean;
+  branch: string | null;
+  baseline: GitDiffBaseline;
+  changedFiles: GitChangedFile[];
+  diffText: string;
+  comments: GitComment[];
+  loading: boolean;
+  errorText: string | null;
+};
+
+export type SettingsState = {
+  agentDir: string | null;
+  currentProjectPath: string | null;
+  currentSessionFile: string | null;
+  currentMode: StudioMode;
+};
+
+export type StudioSnapshot = {
+  projects: ProjectRecord[];
+  threadsByProject: ProjectThreadsMap;
+  activeProjectId: string | null;
+  activeMode: StudioMode;
+  gui: GuiState;
+  tui: TuiState;
+  terminal: TerminalState;
+  git: GitState;
+  settings: SettingsState;
+};
+
+export type TerminalChunk = {
+  data: string;
+  sessionId?: string;
+};
+
+export type TerminalResize = {
+  cols: number;
+  rows: number;
+  sessionId?: string;
+};

@@ -1,0 +1,28 @@
+node_modules/
+out/
+dist/
+.DS_Store
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.npmrc
+.yarnrc
+.yarnrc.yml
+
+# Local reference material and scratch projects
+projects/
+
+# Documentation
+AGENTS.md
+docs/
+
+# Ignore markdown files except the repo README
+*.md
+!README.md
