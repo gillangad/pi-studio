@@ -188,8 +188,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "shell-sidebar-dark relative flex h-full shrink-0 flex-col border-r border-border/70 transition-all duration-200",
-        collapsed ? "w-[74px]" : "w-[320px]",
+        "shell-sidebar-dark relative flex h-full w-full shrink-0 flex-col border-r border-border/70 transition-all duration-200",
       )}
       aria-label="Workspace sidebar"
     >
