@@ -25,6 +25,10 @@ type FileTreeState = {
   errorText: string | null;
 };
 
+const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
+const SIDEBAR_EXPANDED_MAX_WIDTH = 420;
+const SIDEBAR_COLLAPSED_WIDTH = 74;
+
 function threadKey(projectId: string, sessionFile: string) {
   return `${projectId}::${sessionFile}`;
 }
@@ -43,6 +47,20 @@ function readInitialTheme(): StudioTheme {
 
 function readInitialSidebarCollapsed() {
   return window.localStorage.getItem("pi-studio-sidebar-collapsed") === "true";
+}
+
+function clampSidebarWidth(width: number) {
+  return Math.min(SIDEBAR_EXPANDED_MAX_WIDTH, Math.max(SIDEBAR_EXPANDED_MIN_WIDTH, width));
+}
+
+function readInitialSidebarWidth() {
+  const raw = window.localStorage.getItem("pi-studio-sidebar-width");
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return 320;
+  }
+
+  return clampSidebarWidth(parsed);
 }
 
 function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
@@ -65,6 +83,7 @@ export function App() {
   const { snapshot, bootstrapError, actions } = useStudioState();
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
+  const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
 
   const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
   const [pendingGuiThreadKey, setPendingGuiThreadKey] = useState<string | null>(null);
@@ -90,6 +109,10 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-sidebar-collapsed", String(sidebarCollapsed));
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    window.localStorage.setItem("pi-studio-sidebar-width", String(sidebarWidth));
+  }, [sidebarWidth]);
 
   useEffect(() => {
     window.localStorage.setItem("pi-studio-utility-panel-by-thread", JSON.stringify(utilityPanelByThread));
@@ -237,6 +260,30 @@ export function App() {
       }[selectedUtilityPanel]
     : null;
 
+  const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
+
+  const startSidebarResize = useCallback(
+    (pointerStartX: number) => {
+      if (sidebarCollapsed) return;
+
+      const widthAtStart = sidebarWidth;
+
+      const handleMove = (event: PointerEvent) => {
+        const nextWidth = clampSidebarWidth(widthAtStart + event.clientX - pointerStartX);
+        setSidebarWidth(nextWidth);
+      };
+
+      const handleEnd = () => {
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleEnd);
+      };
+
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleEnd);
+    },
+    [sidebarCollapsed, sidebarWidth],
+  );
+
   if (!snapshot) {
     return (
       <main className="flex h-screen w-screen items-center justify-center bg-background p-8">
@@ -256,37 +303,63 @@ export function App() {
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <Sidebar
-        projects={snapshot.projects}
-        activeProjectId={snapshot.activeProjectId}
-        threadsByProject={snapshot.threadsByProject}
-        activeSessionFile={snapshot.gui.sessionFile}
-        activeMode={activeMode}
-        theme={theme}
-        collapsed={sidebarCollapsed}
-        onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-        onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-        onSetMode={(mode) => void actions.setMode(mode)}
-        onAddProject={() => void actions.addProject()}
-        onSelectProject={(projectId) => void actions.selectProject(projectId)}
-        onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
-        onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
-        onRemoveProject={(projectId) => void actions.removeProject(projectId)}
-        onSearchSessions={actions.searchSessions}
-        onCreateThread={(projectId) => {
-          setPendingGuiThreadKey(null);
-          void actions.createThread(projectId);
-        }}
-        onOpenThread={(projectId, sessionFile) => {
-          openGuiThread(projectId, sessionFile);
-        }}
-        onToggleThreadPinned={(projectId, sessionFile) =>
-          void actions.toggleThreadPinned(projectId, sessionFile)
-        }
-        onToggleThreadArchived={(projectId, sessionFile) =>
-          void actions.toggleThreadArchived(projectId, sessionFile)
-        }
-      />
+      <div className="relative shrink-0" style={{ width: `${sidebarRenderedWidth}px` }}>
+        <Sidebar
+          projects={snapshot.projects}
+          activeProjectId={snapshot.activeProjectId}
+          threadsByProject={snapshot.threadsByProject}
+          activeSessionFile={snapshot.gui.sessionFile}
+          activeMode={activeMode}
+          theme={theme}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+          onSetMode={(mode) => void actions.setMode(mode)}
+          onAddProject={() => void actions.addProject()}
+          onSelectProject={(projectId) => void actions.selectProject(projectId)}
+          onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
+          onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
+          onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+          onSearchSessions={actions.searchSessions}
+          onCreateThread={(projectId) => {
+            setPendingGuiThreadKey(null);
+            void actions.createThread(projectId);
+          }}
+          onOpenThread={(projectId, sessionFile) => {
+            openGuiThread(projectId, sessionFile);
+          }}
+          onToggleThreadPinned={(projectId, sessionFile) =>
+            void actions.toggleThreadPinned(projectId, sessionFile)
+          }
+          onToggleThreadArchived={(projectId, sessionFile) =>
+            void actions.toggleThreadArchived(projectId, sessionFile)
+          }
+        />
+
+        {!sidebarCollapsed ? (
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize sidebar"
+            tabIndex={0}
+            className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              startSidebarResize(event.clientX);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                setSidebarWidth((current) => clampSidebarWidth(current - 16));
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                setSidebarWidth((current) => clampSidebarWidth(current + 16));
+              }
+            }}
+          />
+        ) : null}
+      </div>
 
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1">

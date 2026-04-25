@@ -239,7 +239,29 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle diff panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add attachment" })).toBeInTheDocument();
+      expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
     });
+  });
+
+  it("resizes the sidebar with the separator controls", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole("separator", { name: "Resize sidebar" });
+    const sidebarShell = handle.parentElement;
+    if (!sidebarShell) {
+      throw new Error("sidebar shell missing");
+    }
+
+    const startingWidth = Number.parseInt(sidebarShell.style.width, 10);
+    expect(startingWidth).toBeGreaterThanOrEqual(260);
+
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+
+    expect(sidebarShell).toHaveStyle({ width: `${startingWidth + 16}px` });
   });
 
   it("creates a new gui thread from sidebar action", async () => {
