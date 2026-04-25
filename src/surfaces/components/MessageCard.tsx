@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { UiMessage } from "../../shared/types";
@@ -27,13 +28,29 @@ export function MessageCard({ message }: MessageCardProps) {
   }
 
   if (message.role === "assistant") {
+    const [thinkingExpanded, setThinkingExpanded] = useState(false);
+    const thinkingPreview = useMemo(() => {
+      const joined = (message.thinkingContent ?? []).join(" ").replace(/\s+/g, " ").trim();
+      if (!joined) return "";
+      return joined.length > 140 ? `${joined.slice(0, 140).trimEnd()}...` : joined;
+    }, [message.thinkingContent]);
+
     return (
       <article className="w-full max-w-3xl space-y-2 px-1 py-0.5">
         {message.thinkingContent?.length ? (
-          <div className="space-y-1.5 px-0.5 py-1">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Thinking</p>
-            {renderMarkdown(message.thinkingContent, "italic text-muted-foreground")}
-          </div>
+          <button
+            type="button"
+            className="block space-y-1.5 px-0.5 py-1 text-left"
+            onClick={() => setThinkingExpanded((current) => !current)}
+            aria-expanded={thinkingExpanded}
+            aria-label={thinkingExpanded ? "Collapse thinking" : "Expand thinking"}
+          >
+            {thinkingExpanded ? (
+              renderMarkdown(message.thinkingContent, "italic text-muted-foreground")
+            ) : (
+              <p className="text-sm italic leading-relaxed text-muted-foreground">{thinkingPreview}</p>
+            )}
+          </button>
         ) : null}
 
         {renderMarkdown(message.content, "text-foreground")}

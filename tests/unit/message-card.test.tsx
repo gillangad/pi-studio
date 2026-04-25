@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MessageCard } from "../../src/surfaces/components/MessageCard";
 
@@ -20,21 +20,25 @@ describe("MessageCard", () => {
     expect(screen.getByText("const answer = 42;")).toBeInTheDocument();
   });
 
-  it("shows thinking text above the assistant reply", () => {
+  it("shows collapsed thinking preview and expands on click", () => {
     render(
       <MessageCard
         message={{
           id: "m2",
           role: "assistant",
           content: ["Done"],
-          thinkingContent: ["This is the full thinking text."],
+          thinkingContent: ["This is the full thinking text with more detail than the compact preview should show at once."],
         }}
       />,
     );
 
     expect(screen.getByText("Done")).toBeInTheDocument();
-    expect(screen.getByText("Thinking")).toBeInTheDocument();
-    expect(screen.getByText("This is the full thinking text.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /thinking/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expand thinking" })).toBeInTheDocument();
+    expect(screen.getByText(/This is the full thinking text with more detail/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand thinking" }));
+
+    expect(screen.getByRole("button", { name: "Collapse thinking" })).toBeInTheDocument();
+    expect(screen.getByText("This is the full thinking text with more detail than the compact preview should show at once.")).toBeInTheDocument();
   });
 });
