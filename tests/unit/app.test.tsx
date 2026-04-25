@@ -237,7 +237,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle diff panel" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Add attachment" })).toBeInTheDocument();
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
     });

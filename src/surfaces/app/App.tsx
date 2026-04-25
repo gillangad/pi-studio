@@ -1,4 +1,4 @@
-import { FolderTree, GitBranch, Globe, TerminalSquare } from "lucide-react";
+import { FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
@@ -408,17 +408,6 @@ export function App() {
                   <Button
                     type="button"
                     size="icon"
-                    variant={selectedUtilityPanel === "diff" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("diff")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle diff panel"
-                    title="Diff"
-                  >
-                    <GitBranch size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
                     variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("browser")}
                     disabled={!selectedThreadKey}
@@ -433,7 +422,11 @@ export function App() {
               <div
                 className={cn(
                   "grid min-h-0 flex-1",
-                  selectedUtilityPanel ? "grid-cols-[minmax(0,1fr)_420px]" : "grid-cols-1",
+                  selectedUtilityPanel === "terminal"
+                    ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
+                    : selectedUtilityPanel
+                      ? "grid-cols-[minmax(0,1fr)_420px]"
+                      : "grid-cols-1",
                 )}
               >
                 <div className="min-h-0 min-w-0">
