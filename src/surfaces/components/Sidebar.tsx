@@ -192,7 +192,7 @@ export function Sidebar({
       )}
       aria-label="Workspace sidebar"
     >
-      <header className="flex items-center justify-between px-3 py-2.5">
+      <header className="flex items-center px-3 py-2.5">
         <Button
           variant="ghost"
           size="icon"
@@ -205,19 +205,6 @@ export function Sidebar({
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
-
-        {!collapsed ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onAddProject}
-            aria-label="Add project"
-            className="h-8 w-8 text-muted-foreground"
-          >
-            <FolderPlus size={16} />
-          </Button>
-        ) : null}
       </header>
 
       {collapsed ? (
@@ -441,7 +428,13 @@ export function Sidebar({
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-muted-foreground"
-                        onClick={() => onCreateThread(project.id)}
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onCreateThread(project.id);
+                        }}
                         aria-label={`Create thread in ${project.name}`}
                       >
                         <NotebookPen size={14} />

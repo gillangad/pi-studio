@@ -283,6 +283,23 @@ describe("App", () => {
     expect(bridge.createThread).toHaveBeenCalledWith("p1", undefined);
   });
 
+  it("creates a new gui thread for an inactive project from its row action", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Create thread in alpha" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create thread in alpha" }));
+
+    expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
+  });
+
   it("opens the latest thread when clicking a project name", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
     if (!bridge) {
