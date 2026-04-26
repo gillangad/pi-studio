@@ -253,6 +253,25 @@ function registerIpcHandlers() {
     IPC_CHANNELS.invoke.searchSessions,
     async (_event, payload?: { query?: string }) => host?.searchSessions(payload?.query ?? ""),
   );
+  ipcMain.handle(IPC_CHANNELS.invoke.getSessionTree, async (_event, payload?: { sessionId?: string }) =>
+    host?.getSessionTree(payload?.sessionId),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.invoke.navigateTree,
+    async (
+      _event,
+      payload: {
+        sessionId?: string;
+        targetId: string;
+        options?: {
+          summarize?: boolean;
+          customInstructions?: string;
+          replaceInstructions?: boolean;
+          label?: string;
+        };
+      },
+    ) => host?.navigateTree(payload.targetId, payload.options, payload.sessionId),
+  );
   ipcMain.handle(
     IPC_CHANNELS.invoke.getBrowserCdpTarget,
     async (_event, payload?: { url?: string; title?: string }) => resolveBrowserCdpTarget(payload),

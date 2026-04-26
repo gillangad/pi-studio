@@ -63,6 +63,49 @@ export type SessionSearchResult = {
   matchedIn: "title" | "content";
 };
 
+export type SessionTreeFilterMode = "default" | "user-only" | "all";
+
+export type SessionTreeEntryKind =
+  | "message"
+  | "branch_summary"
+  | "compaction"
+  | "custom"
+  | "custom_message"
+  | "label"
+  | "session_info"
+  | "model_change"
+  | "thinking_level_change";
+
+export type SessionTreeNode = {
+  id: string;
+  parentId: string | null;
+  timestamp: string;
+  label?: string;
+  labelTimestamp?: string;
+  kind: SessionTreeEntryKind;
+  role?: UiMessageRole;
+  preview: string;
+  children: SessionTreeNode[];
+};
+
+export type SessionTreeSnapshot = {
+  leafId: string | null;
+  nodes: SessionTreeNode[];
+};
+
+export type NavigateTreeOptions = {
+  summarize?: boolean;
+  customInstructions?: string;
+  replaceInstructions?: boolean;
+  label?: string;
+};
+
+export type NavigateTreeResult = {
+  cancelled: boolean;
+  aborted?: boolean;
+  editorText?: string;
+};
+
 export type ModelSummary = {
   provider: string;
   id: string;

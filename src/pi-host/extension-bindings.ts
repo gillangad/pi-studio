@@ -1,8 +1,18 @@
 export function createNoopExtensionBindings(options: {
   getEditorText: () => string;
+  setEditorText: (text: string) => void;
   onStatus: (message: string) => void;
   onCreateSession: () => Promise<void>;
   onSwitchSession: (sessionPath: string) => Promise<boolean>;
+  onNavigateTree: (
+    targetId: string,
+    options?: {
+      summarize?: boolean;
+      customInstructions?: string;
+      replaceInstructions?: boolean;
+      label?: string;
+    },
+  ) => Promise<{ cancelled: boolean; aborted?: boolean; editorText?: string }>;
 }) {
   const uiContext = {
     select: async () => undefined,
@@ -23,7 +33,7 @@ export function createNoopExtensionBindings(options: {
     setTitle: () => {},
     custom: async () => undefined,
     pasteToEditor: () => {},
-    setEditorText: () => {},
+    setEditorText: options.setEditorText,
     getEditorText: options.getEditorText,
     editor: async () => undefined,
     setEditorComponent: () => {},
@@ -48,7 +58,8 @@ export function createNoopExtensionBindings(options: {
         return { cancelled: false };
       },
       fork: async () => ({ cancelled: true }),
-      navigateTree: async () => ({ cancelled: true }),
+      navigateTree: async (targetId: string, commandOptions?: Record<string, unknown>) =>
+        options.onNavigateTree(targetId, commandOptions),
       switchSession: async (sessionPath: string) => {
         const success = await options.onSwitchSession(sessionPath);
         return { cancelled: !success };

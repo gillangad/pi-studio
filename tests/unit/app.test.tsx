@@ -209,6 +209,8 @@ describe("App", () => {
           matchedIn: "content",
         },
       ]),
+      getSessionTree: vi.fn().mockResolvedValue({ leafId: null, nodes: [] }),
+      navigateTree: vi.fn().mockResolvedValue({ cancelled: false }),
       getBrowserCdpTarget: vi.fn().mockResolvedValue(null),
       onSnapshot: vi.fn().mockReturnValue(() => {}),
       onTuiData: vi.fn().mockReturnValue(() => {}),

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { GuiState, UiMessage } from "../../shared/types";
+import type { GuiState, SessionTreeSnapshot, UiMessage } from "../../shared/types";
 import { cn } from "../lib/utils";
 import { Composer } from "./Composer";
 import { MessageCard } from "./MessageCard";
+import { SessionTreeDialog } from "./SessionTreeDialog";
 import { ToolCallsCard } from "./ToolCallsCard";
 import { WorkTraceCard } from "./WorkTraceCard";
 
@@ -16,6 +17,12 @@ type ChatViewProps = {
   onPickAttachments: (sessionId?: string) => Promise<unknown> | unknown;
   onRemoveAttachment: (attachmentId: string, sessionId?: string) => Promise<unknown> | unknown;
   onClearAttachments: (sessionId?: string) => Promise<unknown> | unknown;
+  onGetSessionTree: (sessionId?: string) => Promise<SessionTreeSnapshot>;
+  onNavigateTree: (
+    targetId: string,
+    options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
+    sessionId?: string,
+  ) => Promise<{ cancelled: boolean; aborted?: boolean; editorText?: string }>;
 };
 
 export function ChatView({
@@ -28,9 +35,15 @@ export function ChatView({
   onPickAttachments,
   onRemoveAttachment,
   onClearAttachments,
+  onGetSessionTree,
+  onNavigateTree,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [composerValue, setComposerValue] = useState("");
+  const [treeDialogOpen, setTreeDialogOpen] = useState(false);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [treeErrorText, setTreeErrorText] = useState<string | null>(null);
+  const [treeSnapshot, setTreeSnapshot] = useState<SessionTreeSnapshot>({ leafId: null, nodes: [] });
 
   const timelineItems = useMemo(() => {
     type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
@@ -128,9 +141,31 @@ export function ChatView({
     container.scrollTop = container.scrollHeight;
   }, [timelineItems, gui.isStreaming]);
 
+  const openTreeDialog = async () => {
+    setTreeDialogOpen(true);
+    setTreeLoading(true);
+    setTreeErrorText(null);
+
+    try {
+      const snapshot = await onGetSessionTree(sessionId);
+      setTreeSnapshot(snapshot);
+    } catch (error) {
+      setTreeErrorText(error instanceof Error ? error.message : String(error));
+      setTreeSnapshot({ leafId: null, nodes: [] });
+    } finally {
+      setTreeLoading(false);
+    }
+  };
+
   const send = () => {
     const trimmed = composerValue.trim();
     if (!trimmed || gui.isStreaming) return;
+
+    if (/^\/tree(?:\s+.*)?$/i.test(trimmed)) {
+      setComposerValue("");
+      void openTreeDialog();
+      return;
+    }
 
     void onSendPrompt(trimmed, sessionId);
     setComposerValue("");
@@ -187,6 +222,25 @@ export function ChatView({
           onClearAttachments={() => void onClearAttachments(sessionId)}
         />
       </div>
+
+      <SessionTreeDialog
+        open={treeDialogOpen}
+        loading={treeLoading}
+        errorText={treeErrorText}
+        nodes={treeSnapshot.nodes}
+        leafId={treeSnapshot.leafId}
+        onClose={() => {
+          setTreeDialogOpen(false);
+          setTreeLoading(false);
+          setTreeErrorText(null);
+        }}
+        onApplyEditorText={(text) => {
+          if (!composerValue.trim()) {
+            setComposerValue(text);
+          }
+        }}
+        onNavigate={(targetId, options) => onNavigateTree(targetId, options, sessionId)}
+      />
     </section>
   );
 }

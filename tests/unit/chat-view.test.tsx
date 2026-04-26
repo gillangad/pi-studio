@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { GuiState } from "../../src/shared/types";
+import type { GuiState, SessionTreeSnapshot } from "../../src/shared/types";
 import { ChatView } from "../../src/surfaces/components/ChatView";
 
 function createGuiState(messages: GuiState["messages"], isStreaming = false): GuiState {
@@ -36,6 +36,31 @@ function createGuiState(messages: GuiState["messages"], isStreaming = false): Gu
   };
 }
 
+const emptyTree: SessionTreeSnapshot = {
+  leafId: "a1",
+  nodes: [
+    {
+      id: "u1",
+      parentId: null,
+      timestamp: new Date().toISOString(),
+      kind: "message",
+      role: "user",
+      preview: "Original question",
+      children: [
+        {
+          id: "a1",
+          parentId: "u1",
+          timestamp: new Date().toISOString(),
+          kind: "message",
+          role: "assistant",
+          preview: "Initial answer",
+          children: [],
+        },
+      ],
+    },
+  ],
+};
+
 describe("ChatView", () => {
   it("collapses work trace items before the final assistant answer", () => {
     render(
@@ -54,6 +79,8 @@ describe("ChatView", () => {
         onPickAttachments={vi.fn()}
         onRemoveAttachment={vi.fn()}
         onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
       />,
     );
 
@@ -85,11 +112,69 @@ describe("ChatView", () => {
         onPickAttachments={vi.fn()}
         onRemoveAttachment={vi.fn()}
         onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
       />,
     );
 
     expect(screen.getByText("Looking around")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Read\s+src\/file\.ts/ })).toBeInTheDocument();
     expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
+  });
+
+  it("opens the GUI tree flow for /tree instead of sending a prompt", async () => {
+    const onSendPrompt = vi.fn();
+    const onGetSessionTree = vi.fn().mockResolvedValue(emptyTree);
+    const onNavigateTree = vi.fn().mockResolvedValue({
+      cancelled: false,
+      editorText: "Original question",
+    });
+
+    render(
+      <ChatView
+        gui={createGuiState([])}
+        onSendPrompt={onSendPrompt}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={onGetSessionTree}
+        onNavigateTree={onNavigateTree}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Ask for follow-up changes"), {
+      target: { value: "/tree" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("/tree")).toBeInTheDocument();
+      expect(onGetSessionTree).toHaveBeenCalledWith(undefined);
+    });
+
+    expect(onSendPrompt).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByText("/tree").closest("[tabindex='-1']") ?? screen.getByText("/tree"), {
+      key: "ArrowUp",
+    });
+    fireEvent.keyDown(screen.getByText("/tree").closest("[tabindex='-1']") ?? screen.getByText("/tree"), {
+      key: "Enter",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "No summary" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "No summary" }));
+
+    await waitFor(() => {
+      expect(onNavigateTree).toHaveBeenCalledWith("u1", { summarize: false }, undefined);
+      expect(screen.queryByText("/tree")).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByDisplayValue("Original question")).toBeInTheDocument();
   });
 });

@@ -83,6 +83,8 @@ export function useStudioState() {
         removeGitComment: unavailable,
         getProjectFileTree: unavailable,
         searchSessions: unavailable,
+        getSessionTree: unavailable,
+        navigateTree: unavailable,
         resizeTui: (..._args: unknown[]) => {},
         writeToTui: (..._args: unknown[]) => {},
         resizeTerminal: (..._args: unknown[]) => {},
@@ -135,6 +137,12 @@ export function useStudioState() {
       removeGitComment: (commentId: string) => bridge.removeGitComment(commentId),
       getProjectFileTree: (projectId?: string) => bridge.getProjectFileTree(projectId ? { projectId } : undefined),
       searchSessions: (query: string) => bridge.searchSessions({ query }),
+      getSessionTree: (sessionId?: string) => bridge.getSessionTree(sessionId ? { sessionId } : undefined),
+      navigateTree: (
+        targetId: string,
+        options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
+        sessionId?: string,
+      ) => bridge.navigateTree({ targetId, options, ...(sessionId ? { sessionId } : {}) }),
       onTuiData: bridge.onTuiData,
       onTerminalData: bridge.onTerminalData,
     };

@@ -20,10 +20,14 @@ import type {
   GitState,
   FileTreeNode,
   ModelSummary,
+  NavigateTreeOptions,
+  NavigateTreeResult,
   ProjectRecord,
   ProjectThreadsMap,
   ResourceSummary,
   SessionSearchResult,
+  SessionTreeNode,
+  SessionTreeSnapshot,
   TerminalState,
   StreamingBehaviorPreference,
   StudioMode,
@@ -74,6 +78,28 @@ type GuiSessionRuntime = {
   availableThinkingLevels: string[];
   attachments: AttachmentSummary[];
   resourceLoader: any;
+};
+
+type SessionTreeEntryLike = {
+  entry: {
+  id: string;
+  parentId: string | null;
+  timestamp: string;
+  type: string;
+  summary?: string;
+  customType?: string;
+  thinkingLevel?: string;
+  provider?: string;
+  modelId?: string;
+  message?: {
+    role?: string;
+    content?: string | Array<{ type?: string; text?: string; thinking?: string }>;
+  };
+  content?: string | Array<{ type?: string; text?: string }>;
+  };
+  label?: string;
+  labelTimestamp?: string;
+  children?: SessionTreeEntryLike[];
 };
 
 type TuiSessionRuntime = {
@@ -1204,6 +1230,66 @@ export class StudioHost {
     return results;
   }
 
+  async getSessionTree(sessionId = this.activeGuiSessionId): Promise<SessionTreeSnapshot> {
+    const runtime = this.getGuiRuntime(sessionId);
+    const sessionManager = runtime?.session?.sessionManager;
+    if (!sessionManager || typeof sessionManager.getTree !== "function") {
+      return { leafId: null, nodes: [] };
+    }
+
+    const rawTree = sessionManager.getTree() as SessionTreeEntryLike[];
+    const leafId =
+      typeof sessionManager.getLeafId === "function"
+        ? (sessionManager.getLeafId() as string | null)
+        : null;
+
+    return {
+      leafId,
+      nodes: rawTree.map((node) => this.mapSessionTreeNode(node)),
+    };
+  }
+
+  async navigateTree(
+    targetId: string,
+    options?: NavigateTreeOptions,
+    sessionId = this.activeGuiSessionId,
+  ): Promise<NavigateTreeResult> {
+    const runtime = this.getGuiRuntime(sessionId);
+    if (!runtime?.session || !targetId) {
+      return { cancelled: true };
+    }
+
+    try {
+      const result = (await runtime.session.navigateTree(targetId, options ?? {})) as NavigateTreeResult;
+
+      if (result.aborted) {
+        runtime.statusText = "Branch summarization cancelled";
+      } else if (result.cancelled) {
+        runtime.statusText = "Navigation cancelled";
+      } else {
+        runtime.statusText = "Navigated to selected point";
+        runtime.errorText = null;
+      }
+
+      this.syncSessionState(sessionId);
+      const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
+      if (project) {
+        void this.refreshProjectThreads(project).catch(() => {
+          // Non-blocking refresh after tree navigation.
+        });
+      }
+
+      return result;
+    } catch (error) {
+      runtime.errorText = error instanceof Error ? error.message : String(error);
+      if (sessionId === this.activeGuiSessionId) {
+        this.syncLegacyGuiStateFromRuntime(sessionId);
+      }
+      this.emitSnapshot();
+      return { cancelled: true };
+    }
+  }
+
   dispose() {
     for (const runtime of Object.values(this.guiSessions)) {
       runtime.unsubscribe?.();
@@ -1420,6 +1506,9 @@ export class StudioHost {
 
     const bindings = createNoopExtensionBindings({
       getEditorText: () => this.editorDraft,
+      setEditorText: (text) => {
+        this.editorDraft = text;
+      },
       onStatus: (message) => {
         const runtime = this.getGuiRuntime(sessionId);
         if (!runtime) return;
@@ -1446,6 +1535,7 @@ export class StudioHost {
         await this.openSessionForProject(project, { kind: "open", sessionFile: sessionPath }, sessionId);
         return true;
       },
+      onNavigateTree: (targetId, options) => this.navigateTree(targetId, options, sessionId),
     });
 
     try {
@@ -1504,6 +1594,117 @@ export class StudioHost {
     } catch {
       return null;
     }
+  }
+
+  private mapSessionTreeNode(node: SessionTreeEntryLike): SessionTreeNode {
+    return {
+      id: node.entry.id,
+      parentId: node.entry.parentId,
+      timestamp: node.entry.timestamp,
+      label: node.label,
+      labelTimestamp: node.labelTimestamp,
+      kind: this.sessionTreeKind(node.entry),
+      role: this.sessionTreeRole(node.entry),
+      preview: this.sessionTreePreview(node.entry),
+      children: (node.children ?? []).map((child) => this.mapSessionTreeNode(child)),
+    };
+  }
+
+  private sessionTreeKind(entry: SessionTreeEntryLike["entry"]): SessionTreeNode["kind"] {
+    switch (entry.type) {
+      case "branch_summary":
+      case "compaction":
+      case "custom":
+      case "custom_message":
+      case "label":
+      case "session_info":
+      case "model_change":
+      case "thinking_level_change":
+      case "message":
+        return entry.type;
+      default:
+        return "custom";
+    }
+  }
+
+  private sessionTreeRole(entry: SessionTreeEntryLike["entry"]): SessionTreeNode["role"] | undefined {
+    if (entry.type !== "message") return undefined;
+
+    switch (entry.message?.role) {
+      case "user":
+      case "assistant":
+      case "toolResult":
+      case "bashExecution":
+      case "custom":
+      case "branchSummary":
+      case "compactionSummary":
+      case "system":
+        return entry.message.role;
+      default:
+        return undefined;
+    }
+  }
+
+  private sessionTreePreview(entry: SessionTreeEntryLike["entry"]) {
+    switch (entry.type) {
+      case "message":
+        return this.sessionTreeMessagePreview(entry.message);
+      case "branch_summary":
+        return `[branch summary] ${entry.summary ?? ""}`.trim();
+      case "compaction":
+        return `[compaction] ${entry.summary ?? ""}`.trim();
+      case "custom_message":
+        return this.sessionTreeTextPreview(entry.content, `[${entry.customType ?? "custom"}]`);
+      case "custom":
+        return `[${entry.customType ?? "custom"}]`;
+      case "label":
+        return "[label]";
+      case "session_info":
+        return "[session info]";
+      case "model_change":
+        return `[model] ${entry.provider ?? ""} ${entry.modelId ?? ""}`.trim();
+      case "thinking_level_change":
+        return `[thinking] ${entry.thinkingLevel ?? ""}`.trim();
+      default:
+        return `[${entry.type}]`;
+    }
+  }
+
+  private sessionTreeMessagePreview(message: SessionTreeEntryLike["entry"]["message"]) {
+    if (!message) return "[message]";
+
+    if (message.role === "user") {
+      return this.sessionTreeTextPreview(message.content, "user");
+    }
+
+    if (message.role === "assistant") {
+      return this.sessionTreeTextPreview(message.content, "assistant");
+    }
+
+    return `[${message.role ?? "message"}]`;
+  }
+
+  private sessionTreeTextPreview(
+    content: string | Array<{ type?: string; text?: string; thinking?: string }> | undefined,
+    fallback: string,
+  ) {
+    const parts: string[] = [];
+
+    if (typeof content === "string") {
+      parts.push(content);
+    } else if (Array.isArray(content)) {
+      for (const block of content) {
+        if (block?.type === "text" && typeof block.text === "string" && block.text.trim()) {
+          parts.push(block.text);
+        } else if (block?.type === "thinking" && typeof block.thinking === "string" && block.thinking.trim()) {
+          parts.push(block.thinking);
+        }
+      }
+    }
+
+    const joined = parts.join(" ").replace(/\s+/g, " ").trim();
+    if (!joined) return fallback;
+    return joined.length > 120 ? `${joined.slice(0, 117)}...` : joined;
   }
 
   private extractSearchText(raw: string) {

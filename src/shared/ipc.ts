@@ -2,7 +2,10 @@ import type {
   FileTreeNode,
   GitComment,
   GitDiffBaseline,
+  NavigateTreeOptions,
+  NavigateTreeResult,
   SessionSearchResult,
+  SessionTreeSnapshot,
   StudioMode,
   StudioSnapshot,
   StreamingBehaviorPreference,
@@ -46,6 +49,8 @@ export const IPC_CHANNELS = {
     removeGitComment: "pi-studio:remove-git-comment",
     getProjectFileTree: "pi-studio:get-project-file-tree",
     searchSessions: "pi-studio:search-sessions",
+    getSessionTree: "pi-studio:get-session-tree",
+    navigateTree: "pi-studio:navigate-tree",
     getBrowserCdpTarget: "pi-studio:get-browser-cdp-target",
   },
   push: {
@@ -103,6 +108,11 @@ export type SearchSessionsPayload = {
   query: string;
 };
 
+export type NavigateTreePayload = GuiSessionPayload & {
+  targetId: string;
+  options?: NavigateTreeOptions;
+};
+
 export type BrowserCdpTarget = {
   id: string;
   webSocketDebuggerUrl: string;
@@ -145,6 +155,8 @@ export type DesktopBridge = {
   removeGitComment(commentId: string): Promise<StudioSnapshot>;
   getProjectFileTree(payload?: ProjectFileTreePayload): Promise<FileTreeNode[]>;
   searchSessions(payload: SearchSessionsPayload): Promise<SessionSearchResult[]>;
+  getSessionTree(payload?: GuiSessionPayload): Promise<SessionTreeSnapshot>;
+  navigateTree(payload: NavigateTreePayload): Promise<NavigateTreeResult>;
   getBrowserCdpTarget(payload: BrowserCdpTargetPayload): Promise<BrowserCdpTarget | null>;
   onSnapshot(callback: (snapshot: StudioSnapshot) => void): () => void;
   onTuiData(callback: (chunk: TerminalChunk) => void): () => void;
