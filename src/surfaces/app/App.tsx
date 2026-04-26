@@ -64,6 +64,10 @@ function readInitialSidebarWidth() {
   return clampSidebarWidth(parsed);
 }
 
+function readInitialMasterSessionVisible() {
+  return window.localStorage.getItem("pi-studio-master-session-visible") === "true";
+}
+
 function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
   const raw = window.localStorage.getItem(key);
   if (!raw) return {} as T;
@@ -85,6 +89,7 @@ export function App() {
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
+  const [masterSessionVisible, setMasterSessionVisible] = useState(readInitialMasterSessionVisible);
 
   const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
   const [pendingGuiThreadKey, setPendingGuiThreadKey] = useState<string | null>(null);
@@ -116,6 +121,10 @@ export function App() {
   }, [sidebarWidth]);
 
   useEffect(() => {
+    window.localStorage.setItem("pi-studio-master-session-visible", String(masterSessionVisible));
+  }, [masterSessionVisible]);
+
+  useEffect(() => {
     window.localStorage.setItem("pi-studio-utility-panel-by-thread", JSON.stringify(utilityPanelByThread));
   }, [utilityPanelByThread]);
 
@@ -135,7 +144,7 @@ export function App() {
     snapshot?.activeMode === "extensions" || snapshot?.activeMode === "skills"
       ? "gui"
       : (snapshot?.activeMode ?? "gui");
-  const isWorkspaceMode = activeMode === "gui" || activeMode === "cockpit";
+  const isWorkspaceMode = activeMode === "gui";
 
   const activeGuiThreadKey = useMemo(() => {
     if (!snapshot?.gui.projectId || !snapshot.gui.sessionFile) return null;
@@ -316,6 +325,8 @@ export function App() {
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
           onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+          masterSessionVisible={masterSessionVisible}
+          onToggleMasterSession={() => setMasterSessionVisible((current) => !current)}
           onSetMode={(mode) => void actions.setMode(mode)}
           onAddProject={() => void actions.addProject()}
           onSelectProject={(projectId) => void actions.selectProject(projectId)}
@@ -368,9 +379,9 @@ export function App() {
           {isWorkspaceMode ? (
             <section
               className="flex min-h-0 min-w-0 flex-1 flex-col pt-2"
-              aria-label={activeMode === "cockpit" ? "Cockpit workspace" : "GUI workspace"}
+              aria-label="GUI workspace"
             >
-              {activeMode === "cockpit" ? (
+              {masterSessionVisible ? (
                 <MasterSessionBar
                   master={snapshot.master}
                   onSendPrompt={actions.sendPrompt}
@@ -459,6 +470,7 @@ export function App() {
                       onClearAttachments={actions.clearAttachments}
                       onGetSessionTree={actions.getSessionTree}
                       onNavigateTree={actions.navigateTree}
+                      onRunSlashCommand={actions.runSlashCommand}
                     />
                   ) : (
                     <div className="flex h-full min-h-0 items-center justify-center text-center">

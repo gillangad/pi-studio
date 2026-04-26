@@ -6,6 +6,7 @@ import type {
   NavigateTreeResult,
   SessionSearchResult,
   SessionTreeSnapshot,
+  SlashCommandSummary,
   StudioMode,
   StudioSnapshot,
   StreamingBehaviorPreference,
@@ -51,6 +52,7 @@ export const IPC_CHANNELS = {
     searchSessions: "pi-studio:search-sessions",
     getSessionTree: "pi-studio:get-session-tree",
     navigateTree: "pi-studio:navigate-tree",
+    runSlashCommand: "pi-studio:run-slash-command",
     getBrowserCdpTarget: "pi-studio:get-browser-cdp-target",
   },
   push: {
@@ -113,6 +115,20 @@ export type NavigateTreePayload = GuiSessionPayload & {
   options?: NavigateTreeOptions;
 };
 
+export type RunSlashCommandPayload = GuiSessionPayload & {
+  text: string;
+};
+
+export type RunSlashCommandResult = {
+  handled: boolean;
+  openTree?: boolean;
+  openSettings?: boolean;
+  openModelPicker?: boolean;
+  statusText?: string | null;
+  errorText?: string | null;
+  slashCommands?: SlashCommandSummary[];
+};
+
 export type BrowserCdpTarget = {
   id: string;
   webSocketDebuggerUrl: string;
@@ -157,6 +173,7 @@ export type DesktopBridge = {
   searchSessions(payload: SearchSessionsPayload): Promise<SessionSearchResult[]>;
   getSessionTree(payload?: GuiSessionPayload): Promise<SessionTreeSnapshot>;
   navigateTree(payload: NavigateTreePayload): Promise<NavigateTreeResult>;
+  runSlashCommand(payload: RunSlashCommandPayload): Promise<RunSlashCommandResult>;
   getBrowserCdpTarget(payload: BrowserCdpTargetPayload): Promise<BrowserCdpTarget | null>;
   onSnapshot(callback: (snapshot: StudioSnapshot) => void): () => void;
   onTuiData(callback: (chunk: TerminalChunk) => void): () => void;

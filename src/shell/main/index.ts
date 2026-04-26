@@ -273,6 +273,11 @@ function registerIpcHandlers() {
     ) => host?.navigateTree(payload.targetId, payload.options, payload.sessionId),
   );
   ipcMain.handle(
+    IPC_CHANNELS.invoke.runSlashCommand,
+    async (_event, payload: { text: string; sessionId?: string }) =>
+      host?.runSlashCommand(payload.text, payload.sessionId),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.invoke.getBrowserCdpTarget,
     async (_event, payload?: { url?: string; title?: string }) => resolveBrowserCdpTarget(payload),
   );

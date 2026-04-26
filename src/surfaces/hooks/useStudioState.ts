@@ -85,6 +85,7 @@ export function useStudioState() {
         searchSessions: unavailable,
         getSessionTree: unavailable,
         navigateTree: unavailable,
+        runSlashCommand: unavailable,
         resizeTui: (..._args: unknown[]) => {},
         writeToTui: (..._args: unknown[]) => {},
         resizeTerminal: (..._args: unknown[]) => {},
@@ -143,6 +144,8 @@ export function useStudioState() {
         options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
         sessionId?: string,
       ) => bridge.navigateTree({ targetId, options, ...(sessionId ? { sessionId } : {}) }),
+      runSlashCommand: (text: string, sessionId?: string) =>
+        bridge.runSlashCommand({ text, ...(sessionId ? { sessionId } : {}) }),
       onTuiData: bridge.onTuiData,
       onTerminalData: bridge.onTerminalData,
     };

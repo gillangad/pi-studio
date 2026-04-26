@@ -19,6 +19,7 @@ describe("Composer", () => {
         thinkingLevel="medium"
         availableThinkingLevels={["off", "medium", "high"]}
         attachments={[]}
+        slashCommands={[]}
         onSetModel={() => {}}
         onSetThinkingLevel={() => {}}
         onPickAttachments={() => {}}
@@ -50,6 +51,7 @@ describe("Composer", () => {
         thinkingLevel="medium"
         availableThinkingLevels={["off", "medium", "high"]}
         attachments={[]}
+        slashCommands={[]}
         onSetModel={() => {}}
         onSetThinkingLevel={() => {}}
         onPickAttachments={() => {}}
@@ -86,6 +88,7 @@ describe("Composer", () => {
           "high",
         ]}
         attachments={[]}
+        slashCommands={[]}
         onSetModel={onSetModel}
         onSetThinkingLevel={() => {}}
         onPickAttachments={() => {}}
@@ -116,6 +119,7 @@ describe("Composer", () => {
         thinkingLevel="medium"
         availableThinkingLevels={["off", "medium", "high"]}
         attachments={[]}
+        slashCommands={[]}
         onSetModel={() => {}}
         onSetThinkingLevel={() => {}}
         onPickAttachments={() => {}}
@@ -144,6 +148,7 @@ describe("Composer", () => {
         thinkingLevel="medium"
         availableThinkingLevels={["off", "medium", "high"]}
         attachments={[]}
+        slashCommands={[]}
         onSetModel={() => {}}
         onSetThinkingLevel={() => {}}
         onPickAttachments={onPickAttachments}
@@ -164,7 +169,7 @@ describe("Composer", () => {
     render(
       <Composer
         busy={false}
-        value="/t"
+        value="/"
         onValueChange={onValueChange}
         onSubmit={() => {}}
         onAbort={() => undefined}
@@ -173,6 +178,10 @@ describe("Composer", () => {
         thinkingLevel="medium"
         availableThinkingLevels={["off", "medium", "high"]}
         attachments={[]}
+        slashCommands={[
+          { command: "/tree", description: "Navigate the session tree", source: "builtin" },
+          { command: "/model", description: "Open the model picker", source: "builtin" },
+        ]}
         onSetModel={() => {}}
         onSetThinkingLevel={() => {}}
         onPickAttachments={() => {}}
@@ -183,6 +192,7 @@ describe("Composer", () => {
 
     expect(screen.getByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /\/tree/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /\/model/i })).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
 

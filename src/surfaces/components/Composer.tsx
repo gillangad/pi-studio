@@ -1,6 +1,6 @@
 import { ChevronDown, Mic, Plus, Send, Square, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { AttachmentSummary, ModelSummary } from "../../shared/types";
+import type { AttachmentSummary, ModelSummary, SlashCommandSummary } from "../../shared/types";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -15,19 +15,15 @@ type ComposerProps = {
   thinkingLevel: string;
   availableThinkingLevels: string[];
   attachments: AttachmentSummary[];
+  slashCommands: SlashCommandSummary[];
   onSetModel: (provider: string, modelId: string) => void;
   onSetThinkingLevel: (level: string) => void;
   onPickAttachments: () => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onClearAttachments: () => void;
+  agentMenuOpen?: boolean;
+  onAgentMenuOpenChange?: (open: boolean) => void;
 };
-
-const SLASH_COMMANDS = [
-  {
-    command: "/tree",
-    description: "Navigate the session tree",
-  },
-];
 
 export function Composer({
   busy,
@@ -40,15 +36,30 @@ export function Composer({
   thinkingLevel,
   availableThinkingLevels,
   attachments,
+  slashCommands,
   onSetModel,
   onSetThinkingLevel,
   onPickAttachments,
   onRemoveAttachment,
   onClearAttachments,
+  agentMenuOpen,
+  onAgentMenuOpenChange,
 }: ComposerProps) {
-  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
+  const [internalAgentMenuOpen, setInternalAgentMenuOpen] = useState(false);
   const [abortRequested, setAbortRequested] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
+  const resolvedAgentMenuOpen = agentMenuOpen ?? internalAgentMenuOpen;
+  const setAgentMenuOpen = (open: boolean | ((current: boolean) => boolean)) => {
+    const nextValue =
+      typeof open === "function"
+        ? open(agentMenuOpen ?? internalAgentMenuOpen)
+        : open;
+    if (onAgentMenuOpenChange) {
+      onAgentMenuOpenChange(nextValue);
+    } else {
+      setInternalAgentMenuOpen(nextValue);
+    }
+  };
   const providerOptions = useMemo(
     () => Array.from(new Set(models.map((model) => model.provider))),
     [models],
@@ -77,17 +88,20 @@ export function Composer({
     ? `${currentModel.provider} ${currentModel.name} ${selectedThinkingLevel}`
     : `No model ${selectedThinkingLevel}`;
   const slashQuery = value.trimStart();
+  const slashToken = slashQuery.match(/^\/\S*/)?.[0].toLowerCase() ?? "";
   const slashSuggestions = useMemo(() => {
     if (!slashQuery.startsWith("/")) return [];
-    return SLASH_COMMANDS.filter((entry) => entry.command.startsWith(slashQuery.toLowerCase()));
-  }, [slashQuery]);
+    if (slashToken.length <= 1) return slashCommands;
+    return slashCommands.filter((entry) => entry.command.startsWith(slashToken));
+  }, [slashCommands, slashQuery, slashToken]);
 
   useEffect(() => {
     setSlashIndex(0);
   }, [slashQuery]);
 
   const applySlashSuggestion = (command: string) => {
-    onValueChange(command);
+    const trailing = slashQuery.slice(slashToken.length);
+    onValueChange(`${command}${trailing}`);
   };
 
   return (
@@ -133,7 +147,7 @@ export function Composer({
 
             if (slashSuggestions.length > 0 && !event.shiftKey) {
               const selectedCommand = slashSuggestions[slashIndex]?.command ?? slashSuggestions[0]!.command;
-              if (slashQuery.toLowerCase() !== selectedCommand) {
+              if (slashToken !== selectedCommand) {
                 event.preventDefault();
                 applySlashSuggestion(selectedCommand);
                 return;
@@ -203,7 +217,7 @@ export function Composer({
                 type="button"
                 className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-[14px] text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground"
                 onClick={() => setAgentMenuOpen((current) => !current)}
-                aria-expanded={agentMenuOpen}
+                aria-expanded={resolvedAgentMenuOpen}
                 aria-haspopup="menu"
                 aria-label={modelSummaryLabel}
               >
@@ -211,7 +225,7 @@ export function Composer({
                 <ChevronDown size={14} />
               </button>
 
-              {agentMenuOpen ? (
+              {resolvedAgentMenuOpen ? (
                 <div
                   className="absolute bottom-[calc(100%+8px)] left-0 z-20 grid min-w-[320px] gap-2 rounded-xl border border-border/70 bg-popover p-3 shadow-glass"
                   role="menu"

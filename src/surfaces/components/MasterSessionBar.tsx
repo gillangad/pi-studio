@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, LoaderCircle, Plus, Send, Square } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MasterState } from "../../shared/types";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -16,6 +16,7 @@ type MasterSessionBarProps = {
 export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachments, onOpenTarget }: MasterSessionBarProps) {
   const [value, setValue] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
 
   const latestAssistantText = useMemo(() => {
     for (let index = master.messages.length - 1; index >= 0; index -= 1) {
@@ -26,6 +27,23 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
     }
     return null;
   }, [master.messages]);
+
+  const slashQuery = value.trimStart();
+  const slashToken = slashQuery.match(/^\/\S*/)?.[0].toLowerCase() ?? "";
+  const slashSuggestions = useMemo(() => {
+    if (!slashQuery.startsWith("/")) return [];
+    if (slashToken.length <= 1) return master.slashCommands;
+    return master.slashCommands.filter((entry) => entry.command.startsWith(slashToken));
+  }, [master.slashCommands, slashQuery, slashToken]);
+
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slashQuery]);
+
+  const applySlashSuggestion = (command: string) => {
+    const trailing = slashQuery.slice(slashToken.length);
+    setValue(`${command}${trailing}`);
+  };
 
   const submit = () => {
     const trimmed = value.trim();
@@ -56,7 +74,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
           </div>
         </div>
 
-        <div className="flex items-end gap-3 rounded-[20px] border border-border/65 bg-card/92 px-3 py-2.5">
+        <div className="relative flex items-end gap-3 rounded-[20px] border border-border/65 bg-card/92 px-3 py-2.5">
           <Button
             type="button"
             variant="ghost"
@@ -76,13 +94,67 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
               placeholder="Ask Master Pi to steer the workspace"
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={(event) => {
+                if (slashSuggestions.length > 0 && event.key === "ArrowDown") {
+                  event.preventDefault();
+                  setSlashIndex((current) => (current + 1) % slashSuggestions.length);
+                  return;
+                }
+
+                if (slashSuggestions.length > 0 && event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setSlashIndex((current) => (current - 1 + slashSuggestions.length) % slashSuggestions.length);
+                  return;
+                }
+
                 if (event.key === "Enter" && !event.shiftKey) {
+                  if (slashSuggestions.length > 0) {
+                    const selectedCommand = slashSuggestions[slashIndex]?.command ?? slashSuggestions[0]?.command;
+                    if (selectedCommand && slashToken !== selectedCommand) {
+                      event.preventDefault();
+                      applySlashSuggestion(selectedCommand);
+                      return;
+                    }
+                  }
+
                   event.preventDefault();
                   submit();
                 }
               }}
             />
           </div>
+
+          {slashSuggestions.length > 0 ? (
+            <div
+              className="absolute left-12 right-14 top-[calc(100%-0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-popover/98 shadow-glass"
+              role="listbox"
+              aria-label="Master slash commands"
+            >
+              {slashSuggestions.map((entry, index) => {
+                const active = index === slashIndex;
+                return (
+                  <button
+                    key={entry.command}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left",
+                      active
+                        ? "bg-accent/20 text-foreground"
+                        : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      applySlashSuggestion(entry.command);
+                    }}
+                  >
+                    <span className="font-mono text-sm">{entry.command}</span>
+                    <span className="text-xs">{entry.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
 
           {master.isStreaming ? (
             <Button

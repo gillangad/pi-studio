@@ -5,7 +5,7 @@ import { readdir } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { dialog } from "electron";
+import { app, clipboard, dialog } from "electron";
 import {
   AuthStorage,
   createAgentSession,
@@ -29,6 +29,7 @@ import type {
   ProjectThreadsMap,
   ResourceSummary,
   SessionSearchResult,
+  SlashCommandSummary,
   SessionTreeNode,
   SessionTreeSnapshot,
   TerminalState,
@@ -37,6 +38,7 @@ import type {
   StudioSnapshot,
   ThreadSummary,
 } from "../shared/types";
+import type { RunSlashCommandResult } from "../shared/ipc";
 import { createNoopExtensionBindings } from "./extension-bindings";
 import {
   emptyResourceSummary,
@@ -83,6 +85,7 @@ type GuiSessionRuntime = {
   thinkingLevel: string;
   availableThinkingLevels: string[];
   attachments: AttachmentSummary[];
+  slashCommands: SlashCommandSummary[];
   resourceLoader: any;
 };
 
@@ -154,11 +157,38 @@ const SEARCH_RESULT_LIMIT = 50;
 const MASTER_SESSION_ID = "master";
 const MASTER_WORKSPACE_DIR = path.join(process.env.HOME ?? process.cwd(), ".pi-studio", "master-session");
 const CONTROL_STATE_POLL_INTERVAL_MS = 2_000;
+const BUILTIN_SLASH_COMMANDS = [
+  { name: "settings", description: "Open settings menu" },
+  { name: "model", description: "Select model (opens selector UI)" },
+  { name: "scoped-models", description: "Enable/disable models for Ctrl+P cycling" },
+  { name: "export", description: "Export session (HTML default, or specify path: .html/.jsonl)" },
+  { name: "import", description: "Import and resume a session from a JSONL file" },
+  { name: "share", description: "Share session as a secret GitHub gist" },
+  { name: "copy", description: "Copy last agent message to clipboard" },
+  { name: "name", description: "Set session display name" },
+  { name: "session", description: "Show session info and stats" },
+  { name: "changelog", description: "Show changelog entries" },
+  { name: "hotkeys", description: "Show all keyboard shortcuts" },
+  { name: "fork", description: "Create a new fork from a previous message" },
+  { name: "tree", description: "Navigate session tree (switch branches)" },
+  { name: "login", description: "Login with OAuth provider" },
+  { name: "logout", description: "Logout from OAuth provider" },
+  { name: "new", description: "Start a new session" },
+  { name: "compact", description: "Manually compact the session context" },
+  { name: "resume", description: "Resume a different session" },
+  { name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes" },
+  { name: "quit", description: "Quit pi" },
+] as const;
+const BUILTIN_SLASH_COMMAND_SUMMARIES: SlashCommandSummary[] = BUILTIN_SLASH_COMMANDS.map((entry) => ({
+  command: `/${entry.name}`,
+  description: entry.description,
+  source: "builtin",
+}));
 
 type ResourceLoaderProfile = "default" | "studioBuiltins";
 
 function isPrimaryWorkspaceMode(mode: StudioMode) {
-  return mode === "gui" || mode === "cockpit";
+  return mode === "gui";
 }
 
 export class StudioHost {
@@ -347,6 +377,10 @@ export class StudioHost {
 
     this.workspaceState = state;
 
+    if ((this.workspaceState.activeMode as string) === "cockpit") {
+      this.workspaceState.activeMode = "gui";
+    }
+
     if (changed) {
       await this.persistWorkspace();
     }
@@ -364,6 +398,7 @@ export class StudioHost {
     if (activeProject) {
       await this.openSessionForProject(activeProject, { kind: "continue" });
       await this.refreshGitState();
+      await this.warmTuiForActiveWorkspace();
     }
 
     if (this.workspaceState.activeMode === "tui") {
@@ -407,6 +442,7 @@ export class StudioHost {
       availableThinkingLevels: runtime?.availableThinkingLevels ?? this.availableThinkingLevels,
       streamingBehaviorPreference: this.streamingBehaviorPreference,
       attachments: runtime?.attachments ?? [],
+      slashCommands: runtime?.slashCommands ?? BUILTIN_SLASH_COMMAND_SUMMARIES,
     });
 
     return {
@@ -431,6 +467,7 @@ export class StudioHost {
               thinkingLevel: activeRuntime.thinkingLevel,
               availableThinkingLevels: activeRuntime.availableThinkingLevels,
               attachments: activeRuntime.attachments,
+              slashCommands: activeRuntime.slashCommands,
             }
           : {
               projectId: this.workspaceState.activeProjectId,
@@ -446,6 +483,7 @@ export class StudioHost {
               thinkingLevel: this.thinkingLevel,
               availableThinkingLevels: this.availableThinkingLevels,
               attachments: this.pendingAttachments,
+              slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
             };
 
         return {
@@ -474,6 +512,7 @@ export class StudioHost {
                 availableThinkingLevels: runtime.availableThinkingLevels,
                 streamingBehaviorPreference: this.streamingBehaviorPreference,
                 attachments: runtime.attachments,
+                slashCommands: runtime.slashCommands,
               },
             ]),
           ),
@@ -579,6 +618,7 @@ export class StudioHost {
     await this.refreshProjectThreads(project);
     await this.openSessionForProject(project, { kind: "continue" });
     await this.refreshGitState();
+    await this.warmTuiForActiveWorkspace();
     return this.getSnapshot();
   }
 
@@ -591,6 +631,7 @@ export class StudioHost {
     await this.refreshProjectThreads(project);
     await this.openSessionForProject(project, { kind: "continue" });
     await this.refreshGitState();
+    await this.warmTuiForActiveWorkspace();
 
     if (this.workspaceState.activeMode === "tui") {
       const runningSessionIds = Object.entries(this.tuiSessions)
@@ -735,6 +776,7 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "new" }, sessionId);
+    await this.warmTuiForActiveWorkspace();
     return this.getSnapshot();
   }
 
@@ -764,6 +806,7 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "open", sessionFile }, sessionId);
+    await this.warmTuiForActiveWorkspace();
     return this.getSnapshot();
   }
 
@@ -801,6 +844,223 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
+  private async refreshSlashCommands(sessionId = this.activeGuiSessionId) {
+    const runtime = this.getGuiRuntime(sessionId);
+    if (!runtime?.session) return;
+
+    const dynamicCommands = await Promise.resolve(runtime.session.getCommands?.()).catch(() => []);
+    const mappedDynamic = Array.isArray(dynamicCommands)
+      ? dynamicCommands
+          .map((entry) => {
+            const rawName =
+              typeof entry?.command === "string"
+                ? entry.command
+                : typeof entry?.name === "string"
+                  ? entry.name
+                  : "";
+            if (!rawName) return null;
+            const command = rawName.startsWith("/") ? rawName : `/${rawName}`;
+            return {
+              command,
+              description: typeof entry?.description === "string" ? entry.description : "Run command",
+              source: "resource" as const,
+            };
+          })
+          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      : [];
+
+    const commandMap = new Map<string, SlashCommandSummary>();
+    for (const entry of BUILTIN_SLASH_COMMAND_SUMMARIES) {
+      commandMap.set(entry.command, entry);
+    }
+    for (const entry of mappedDynamic) {
+      commandMap.set(entry.command, entry);
+    }
+
+    runtime.slashCommands = [...commandMap.values()].sort((left, right) => left.command.localeCompare(right.command));
+    if (sessionId === this.activeGuiSessionId) {
+      this.syncLegacyGuiStateFromRuntime(sessionId);
+    }
+  }
+
+  private setRuntimeStatus(
+    runtime: GuiSessionRuntime,
+    result: { statusText?: string | null; errorText?: string | null },
+    sessionId: string,
+  ) {
+    if (result.statusText !== undefined) {
+      runtime.statusText = result.statusText;
+    }
+    if (result.errorText !== undefined) {
+      runtime.errorText = result.errorText;
+    }
+    if (sessionId === this.activeGuiSessionId) {
+      this.syncLegacyGuiStateFromRuntime(sessionId);
+    }
+    this.emitSnapshot();
+  }
+
+  async runSlashCommand(text: string, sessionId = this.activeGuiSessionId): Promise<RunSlashCommandResult> {
+    const runtime = this.getGuiRuntime(sessionId);
+    const commandText = text.trim();
+    if (!runtime?.session || !commandText.startsWith("/")) {
+      return { handled: false };
+    }
+
+    const [, rawCommand = "", rawArgs = ""] = commandText.match(/^\/(\S+)(?:\s+(.*))?$/) ?? [];
+    const command = rawCommand.toLowerCase();
+    const args = rawArgs.trim();
+
+    try {
+      switch (command) {
+        case "tree":
+          return { handled: true, openTree: true };
+        case "settings":
+          await this.setMode("settings");
+          return { handled: true, openSettings: true };
+        case "model":
+        case "scoped-models":
+          return { handled: true, openModelPicker: true };
+        case "new": {
+          const projectId = runtime.projectId || this.workspaceState.activeProjectId;
+          if (!projectId) {
+            this.setRuntimeStatus(runtime, { errorText: "No active project for /new." }, sessionId);
+            return { handled: true, errorText: "No active project for /new." };
+          }
+          await this.createThread(projectId, sessionId);
+          return { handled: true, statusText: "Started a new session." };
+        }
+        case "name": {
+          if (!args) {
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /name <new name>" }, sessionId);
+            return { handled: true, errorText: "Usage: /name <new name>" };
+          }
+          runtime.session.setSessionName?.(args);
+          runtime.sessionTitle = normalizeThreadTitle(args);
+          if (runtime.projectId) {
+            const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
+            if (project) {
+              await this.refreshProjectThreads(project);
+            }
+          }
+          this.setRuntimeStatus(runtime, { statusText: `Renamed session to ${args}.`, errorText: null }, sessionId);
+          return { handled: true, statusText: `Renamed session to ${args}.` };
+        }
+        case "session": {
+          const stats = runtime.session.getSessionStats?.();
+          const summary = stats
+            ? `Session: ${runtime.sessionTitle} | ${stats.totalMessages ?? 0} messages | ${stats.userMessages ?? 0} user | ${stats.assistantMessages ?? 0} assistant`
+            : `Session: ${runtime.sessionTitle}`;
+          this.setRuntimeStatus(runtime, { statusText: summary, errorText: null }, sessionId);
+          return { handled: true, statusText: summary };
+        }
+        case "compact": {
+          await runtime.session.compact?.(args || undefined);
+          await this.refreshSlashCommands(sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Session compacted.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Session compacted." };
+        }
+        case "copy": {
+          clipboard.writeText(runtime.session.getLastAssistantText?.() ?? "");
+          this.setRuntimeStatus(runtime, { statusText: "Copied last assistant message.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Copied last assistant message." };
+        }
+        case "export": {
+          const defaultPath = path.join(
+            runtime.projectPath,
+            `${path.basename(runtime.sessionFile ?? "session", path.extname(runtime.sessionFile ?? "session"))}.html`,
+          );
+          const outputPath = args || defaultPath;
+          if (outputPath.toLowerCase().endsWith(".jsonl")) {
+            runtime.session.exportToJsonl?.(outputPath);
+          } else {
+            await runtime.session.exportToHtml?.(outputPath);
+          }
+          this.setRuntimeStatus(runtime, { statusText: `Exported session to ${outputPath}.`, errorText: null }, sessionId);
+          return { handled: true, statusText: `Exported session to ${outputPath}.` };
+        }
+        case "reload": {
+          await runtime.session.reload?.();
+          await this.refreshSlashCommands(sessionId);
+          runtime.resourceSummary = this.readResourceSummary(runtime.resourceLoader);
+          this.setRuntimeStatus(runtime, { statusText: "Reloaded session resources.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Reloaded session resources.", slashCommands: runtime.slashCommands };
+        }
+        case "fork": {
+          if (!runtime.projectId || !runtime.sessionFile) {
+            this.setRuntimeStatus(runtime, { errorText: "No active session to fork." }, sessionId);
+            return { handled: true, errorText: "No active session to fork." };
+          }
+          const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
+          if (!project) {
+            this.setRuntimeStatus(runtime, { errorText: "Project missing for /fork." }, sessionId);
+            return { handled: true, errorText: "Project missing for /fork." };
+          }
+          const forkedManager = SessionManager.forkFrom(runtime.sessionFile, project.path);
+          const forkedSessionFile = forkedManager.getSessionFile();
+          if (!forkedSessionFile) {
+            this.setRuntimeStatus(runtime, { errorText: "Forked session file was not created." }, sessionId);
+            return { handled: true, errorText: "Forked session file was not created." };
+          }
+          await this.openSessionForProject(project, { kind: "open", sessionFile: forkedSessionFile }, sessionId);
+          this.setRuntimeStatus(this.getGuiRuntime(sessionId) ?? runtime, { statusText: "Forked current session.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Forked current session." };
+        }
+        case "resume": {
+          if (!args) {
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /resume <session file>" }, sessionId);
+            return { handled: true, errorText: "Usage: /resume <session file>" };
+          }
+          const targetPath = path.resolve(runtime.projectPath, args);
+          const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
+          if (!project) {
+            this.setRuntimeStatus(runtime, { errorText: "Project missing for /resume." }, sessionId);
+            return { handled: true, errorText: "Project missing for /resume." };
+          }
+          await this.openSessionForProject(project, { kind: "open", sessionFile: targetPath }, sessionId);
+          return { handled: true, statusText: "Resumed requested session." };
+        }
+        case "import": {
+          if (!args) {
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /import <jsonl file>" }, sessionId);
+            return { handled: true, errorText: "Usage: /import <jsonl file>" };
+          }
+          await runtime.session._runtime?.importFromJsonl?.(args);
+          await this.refreshSlashCommands(sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Imported session file.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Imported session file." };
+        }
+        case "hotkeys":
+          this.setRuntimeStatus(runtime, { statusText: "Hotkeys: Ctrl+L mode, Ctrl+T tools, Ctrl+G external editor, /tree for branches.", errorText: null }, sessionId);
+          return { handled: true, statusText: "Hotkeys: Ctrl+L mode, Ctrl+T tools, Ctrl+G external editor, /tree for branches." };
+        case "changelog":
+          this.setRuntimeStatus(runtime, { statusText: "See the local Pi CHANGELOG.md for release notes.", errorText: null }, sessionId);
+          return { handled: true, statusText: "See the local Pi CHANGELOG.md for release notes." };
+        case "share":
+        case "login":
+        case "logout":
+          this.setRuntimeStatus(runtime, { statusText: `/${command} is not wired into the GUI yet. Use TUI for the full interactive flow.`, errorText: null }, sessionId);
+          return { handled: true, statusText: `/${command} is not wired into the GUI yet.` };
+        case "quit":
+          app.quit();
+          return { handled: true, statusText: "Quitting Pi Studio." };
+        default:
+          await runtime.session.prompt(commandText, {
+            expandPromptTemplates: true,
+            source: "interactive",
+            ...(runtime.session.isStreaming ? { streamingBehavior: this.streamingBehaviorPreference } : {}),
+          });
+          await this.refreshSlashCommands(sessionId);
+          this.emitSnapshot();
+          return { handled: true, slashCommands: runtime.slashCommands };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setRuntimeStatus(runtime, { errorText: message }, sessionId);
+      return { handled: true, errorText: message };
+    }
+  }
+
   async sendPrompt(text: string, sessionId = this.activeGuiSessionId) {
     const message = text.trim();
     const runtime = this.getGuiRuntime(sessionId);
@@ -809,9 +1069,13 @@ export class StudioHost {
     this.editorDraft = "";
 
     const isSlashCommand = /^\/\S+/.test(message);
+    if (isSlashCommand) {
+      return this.runSlashCommand(message, sessionId).then(() => this.getSnapshot());
+    }
+
     const attachments = runtime.attachments.map((entry) => entry.path);
     const composedMessage =
-      !isSlashCommand && attachments.length > 0
+      attachments.length > 0
         ? `${message}\n\nAttached files:\n${attachments.map((entry) => `- ${entry}`).join("\n")}`
         : message;
 
@@ -822,13 +1086,7 @@ export class StudioHost {
         ...(runtime.session.isStreaming ? { streamingBehavior: this.streamingBehaviorPreference } : {}),
       });
 
-      if (!isSlashCommand) {
-        runtime.attachments = [];
-      }
-
-      if (isSlashCommand && attachments.length > 0) {
-        runtime.statusText = "Attachments are ignored for slash commands.";
-      }
+      runtime.attachments = [];
 
       runtime.errorText = null;
     } catch (error) {
@@ -997,10 +1255,18 @@ export class StudioHost {
 
     if (mode === "tui") {
       await this.startTui("default");
+    } else {
+      await this.warmTuiForActiveWorkspace();
     }
 
     this.emitSnapshot();
     return this.getSnapshot();
+  }
+
+  private async warmTuiForActiveWorkspace() {
+    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
+    if (!activeRuntime?.projectId && !this.getActiveProject()) return;
+    await this.startTui("default");
   }
 
   async startTui(sessionId = "default") {
@@ -1506,6 +1772,7 @@ export class StudioHost {
       thinkingLevel: String(session.thinkingLevel ?? this.thinkingLevel),
       availableThinkingLevels: this.safeThinkingLevels(session),
       attachments: [],
+      slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
       resourceLoader,
     };
 
@@ -1516,6 +1783,7 @@ export class StudioHost {
       void this.refreshControlDashboardState(true);
     });
     this.syncSessionState(MASTER_SESSION_ID);
+    await this.refreshSlashCommands(MASTER_SESSION_ID);
   }
 
   private async refreshControlDashboardState(emit = false) {
@@ -1622,6 +1890,7 @@ export class StudioHost {
       thinkingLevel: String(session.thinkingLevel ?? this.thinkingLevel),
       availableThinkingLevels: this.safeThinkingLevels(session),
       attachments: [],
+      slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
       resourceLoader,
     };
 
@@ -1638,6 +1907,7 @@ export class StudioHost {
     });
 
     this.syncSessionState(sessionId);
+    await this.refreshSlashCommands(sessionId);
 
     if (options.kind === "new") {
       await this.refreshProjectThreads(project);

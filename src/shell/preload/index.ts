@@ -60,6 +60,7 @@ const bridge: DesktopBridge = {
   searchSessions: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.searchSessions, payload),
   getSessionTree: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.getSessionTree, payload),
   navigateTree: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.navigateTree, payload),
+  runSlashCommand: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.runSlashCommand, payload),
   getBrowserCdpTarget: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.getBrowserCdpTarget, payload),
   onSnapshot: (callback) => subscribe(IPC_CHANNELS.push.snapshot, callback),
   onTuiData: (callback) => subscribe(IPC_CHANNELS.push.tuiData, callback),

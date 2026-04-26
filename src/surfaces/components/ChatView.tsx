@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { RunSlashCommandResult } from "../../shared/ipc";
 import type { GuiState, SessionTreeSnapshot, UiMessage } from "../../shared/types";
 import { cn } from "../lib/utils";
 import { Composer } from "./Composer";
@@ -23,6 +24,7 @@ type ChatViewProps = {
     options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string },
     sessionId?: string,
   ) => Promise<{ cancelled: boolean; aborted?: boolean; editorText?: string }>;
+  onRunSlashCommand: (text: string, sessionId?: string) => Promise<RunSlashCommandResult>;
 };
 
 export function ChatView({
@@ -37,6 +39,7 @@ export function ChatView({
   onClearAttachments,
   onGetSessionTree,
   onNavigateTree,
+  onRunSlashCommand,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [composerValue, setComposerValue] = useState("");
@@ -44,6 +47,7 @@ export function ChatView({
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeErrorText, setTreeErrorText] = useState<string | null>(null);
   const [treeSnapshot, setTreeSnapshot] = useState<SessionTreeSnapshot>({ leafId: null, nodes: [] });
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
 
   const timelineItems = useMemo(() => {
     type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
@@ -161,9 +165,23 @@ export function ChatView({
     const trimmed = composerValue.trim();
     if (!trimmed || gui.isStreaming) return;
 
-    if (/^\/tree(?:\s+.*)?$/i.test(trimmed)) {
+    if (/^\//.test(trimmed)) {
+      const submittedCommand = trimmed;
       setComposerValue("");
-      void openTreeDialog();
+      void onRunSlashCommand(submittedCommand, sessionId).then((result) => {
+        if (!result.handled) {
+          setComposerValue(submittedCommand);
+          return;
+        }
+
+        if (result.openTree) {
+          void openTreeDialog();
+        }
+
+        if (result.openModelPicker) {
+          setAgentMenuOpen(true);
+        }
+      });
       return;
     }
 
@@ -215,11 +233,14 @@ export function ChatView({
           thinkingLevel={gui.thinkingLevel}
           availableThinkingLevels={gui.availableThinkingLevels}
           attachments={gui.attachments}
+          slashCommands={gui.slashCommands}
           onSetModel={(provider, modelId) => void onSetModel(provider, modelId, sessionId)}
           onSetThinkingLevel={(level) => void onSetThinkingLevel(level, sessionId)}
           onPickAttachments={() => void onPickAttachments(sessionId)}
           onRemoveAttachment={(attachmentId) => void onRemoveAttachment(attachmentId, sessionId)}
           onClearAttachments={() => void onClearAttachments(sessionId)}
+          agentMenuOpen={agentMenuOpen}
+          onAgentMenuOpenChange={setAgentMenuOpen}
         />
       </div>
 

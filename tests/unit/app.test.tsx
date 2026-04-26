@@ -118,6 +118,10 @@ const snapshot: StudioSnapshot = {
     availableThinkingLevels: ["off", "medium", "high"],
     streamingBehaviorPreference: "followUp",
     attachments: [],
+    slashCommands: [
+      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
+      { command: "/model", description: "Open the model picker", source: "builtin" },
+    ],
   },
   master: {
     sessionId: "master",
@@ -153,6 +157,10 @@ const snapshot: StudioSnapshot = {
     availableThinkingLevels: ["off", "medium", "high"],
     streamingBehaviorPreference: "followUp",
     attachments: [],
+    slashCommands: [
+      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
+      { command: "/model", description: "Open the model picker", source: "builtin" },
+    ],
     targets: [
       {
         targetId: "studio-demo",
@@ -226,6 +234,7 @@ const projectTree: FileTreeNode[] = [
 
 describe("App", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     const bridge: DesktopBridge = {
       bootstrap: vi.fn().mockResolvedValue(snapshot),
       addProject: vi.fn().mockResolvedValue(snapshot),
@@ -273,6 +282,7 @@ describe("App", () => {
       ]),
       getSessionTree: vi.fn().mockResolvedValue({ leafId: null, nodes: [] }),
       navigateTree: vi.fn().mockResolvedValue({ cancelled: false }),
+      runSlashCommand: vi.fn().mockResolvedValue({ handled: true }),
       getBrowserCdpTarget: vi.fn().mockResolvedValue(null),
       onSnapshot: vi.fn().mockReturnValue(() => {}),
       onTuiData: vi.fn().mockReturnValue(() => {}),
@@ -299,7 +309,6 @@ describe("App", () => {
       expect(screen.queryByText("I can steer the other sessions from here.")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "Cockpit" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
@@ -310,27 +319,24 @@ describe("App", () => {
     });
   });
 
-  it("shows the master bar only in cockpit mode", async () => {
+  it("shows the master bar only when the settings toggle is enabled", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
     if (!bridge) {
       throw new Error("desktop bridge missing");
     }
 
-    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
-      ...snapshot,
-      activeMode: "cockpit",
-      settings: {
-        ...snapshot.settings,
-        currentMode: "cockpit",
-      },
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.queryByText("Master")).not.toBeInTheDocument();
     });
 
-    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Master session bar/i }));
 
     await waitFor(() => {
       expect(screen.getByText("Master")).toBeInTheDocument();
       expect(screen.getByText("I can steer the other sessions from here.")).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "Cockpit" })).toHaveAttribute("aria-selected", "true");
     });
   });
 
@@ -468,7 +474,7 @@ describe("App", () => {
     expect(bridge.getProjectFileTree).toHaveBeenCalledWith({ projectId: "p1" });
   });
 
-  it("shows only theme controls in the settings menu", async () => {
+  it("shows theme and master-session controls in the settings menu", async () => {
     render(<App />);
 
     await waitFor(() => {
@@ -478,6 +484,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
 
     expect(screen.getByRole("menuitem", { name: /dark mode|light mode/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: /Master session bar/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Extensions/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Skills/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /App settings/i })).not.toBeInTheDocument();

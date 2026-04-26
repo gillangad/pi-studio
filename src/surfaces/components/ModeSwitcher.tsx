@@ -8,13 +8,12 @@ type ModeSwitcherProps = {
 
 const MODES: Array<{ id: StudioMode; label: string }> = [
   { id: "gui", label: "GUI" },
-  { id: "cockpit", label: "Cockpit" },
   { id: "tui", label: "TUI" },
 ];
 
 export function ModeSwitcher({ activeMode, onSelectMode }: ModeSwitcherProps) {
   return (
-    <div className="grid grid-cols-3 gap-1 rounded-lg border border-border/70 bg-background/60 p-1" role="tablist" aria-label="Workspace modes">
+    <div className="grid grid-cols-2 gap-1 rounded-lg border border-border/70 bg-background/60 p-1" role="tablist" aria-label="Workspace modes">
       {MODES.map((mode) => (
         <button
           key={mode.id}

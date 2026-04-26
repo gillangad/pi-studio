@@ -1,4 +1,4 @@
-export type StudioMode = "gui" | "cockpit" | "tui" | "git" | "extensions" | "skills" | "settings";
+export type StudioMode = "gui" | "tui" | "git" | "extensions" | "skills" | "settings";
 
 export type UiMessageRole =
   | "user"
@@ -121,6 +121,12 @@ export type AttachmentSummary = {
   path: string;
 };
 
+export type SlashCommandSummary = {
+  command: string;
+  description: string;
+  source: "builtin" | "resource";
+};
+
 export type FileTreeNode = {
   name: string;
   path: string;
@@ -158,6 +164,7 @@ export type GuiSessionState = {
   availableThinkingLevels: string[];
   streamingBehaviorPreference: StreamingBehaviorPreference;
   attachments: AttachmentSummary[];
+  slashCommands: SlashCommandSummary[];
 };
 
 export type GuiState = GuiSessionState & {

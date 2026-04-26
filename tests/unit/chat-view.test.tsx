@@ -33,6 +33,10 @@ function createGuiState(messages: GuiState["messages"], isStreaming = false): Gu
     availableThinkingLevels: ["off", "medium", "high"],
     streamingBehaviorPreference: "followUp",
     attachments: [],
+    slashCommands: [
+      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
+      { command: "/model", description: "Open the model picker", source: "builtin" },
+    ],
   };
 }
 
@@ -81,6 +85,7 @@ describe("ChatView", () => {
         onClearAttachments={vi.fn()}
         onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
         onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
       />,
     );
 
@@ -114,6 +119,7 @@ describe("ChatView", () => {
         onClearAttachments={vi.fn()}
         onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
         onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
       />,
     );
 
@@ -129,6 +135,7 @@ describe("ChatView", () => {
       cancelled: false,
       editorText: "Original question",
     });
+    const onRunSlashCommand = vi.fn().mockResolvedValue({ handled: true, openTree: true });
 
     render(
       <ChatView
@@ -142,6 +149,7 @@ describe("ChatView", () => {
         onClearAttachments={vi.fn()}
         onGetSessionTree={onGetSessionTree}
         onNavigateTree={onNavigateTree}
+        onRunSlashCommand={onRunSlashCommand}
       />,
     );
 
@@ -152,18 +160,14 @@ describe("ChatView", () => {
     fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
 
     await waitFor(() => {
+      expect(onRunSlashCommand).toHaveBeenCalledWith("/tree", undefined);
       expect(screen.getByRole("heading", { name: "/tree" })).toBeInTheDocument();
       expect(onGetSessionTree).toHaveBeenCalledWith(undefined);
     });
 
     expect(onSendPrompt).not.toHaveBeenCalled();
 
-    fireEvent.keyDown(screen.getByText("/tree").closest("[tabindex='-1']") ?? screen.getByText("/tree"), {
-      key: "ArrowUp",
-    });
-    fireEvent.keyDown(screen.getByText("/tree").closest("[tabindex='-1']") ?? screen.getByText("/tree"), {
-      key: "Enter",
-    });
+    fireEvent.doubleClick(screen.getByRole("button", { name: /Original question/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "No summary" })).toBeInTheDocument();
@@ -226,6 +230,7 @@ describe("ChatView", () => {
         onClearAttachments={vi.fn()}
         onGetSessionTree={onGetSessionTree}
         onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true, openTree: true })}
       />,
     );
 
