@@ -149,9 +149,10 @@ describe("ChatView", () => {
       target: { value: "/tree" },
     });
     fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
 
     await waitFor(() => {
-      expect(screen.getByText("/tree")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "/tree" })).toBeInTheDocument();
       expect(onGetSessionTree).toHaveBeenCalledWith(undefined);
     });
 
@@ -176,5 +177,70 @@ describe("ChatView", () => {
     });
 
     expect(screen.getByDisplayValue("Original question")).toBeInTheDocument();
+  });
+
+  it("shows only user and assistant entries in /tree by default", async () => {
+    const onGetSessionTree = vi.fn().mockResolvedValue({
+      leafId: "assistant-node",
+      nodes: [
+        {
+          id: "user-node",
+          parentId: null,
+          timestamp: new Date().toISOString(),
+          kind: "message",
+          role: "user",
+          preview: "Start here",
+          children: [
+            {
+              id: "thinking-change",
+              parentId: "user-node",
+              timestamp: new Date().toISOString(),
+              kind: "thinking_level_change",
+              preview: "[thinking] high",
+              children: [
+                {
+                  id: "assistant-node",
+                  parentId: "thinking-change",
+                  timestamp: new Date().toISOString(),
+                  kind: "message",
+                  role: "assistant",
+                  preview: "Answer here",
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <ChatView
+        gui={createGuiState([])}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={onGetSessionTree}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Ask for follow-up changes"), {
+      target: { value: "/tree" },
+    });
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Navigate the session tree in-place and optionally summarize the branch you leave behind.")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: /Start here/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Answer here active/i })).toBeInTheDocument();
+    expect(screen.queryByText(/\[thinking\] high/i)).not.toBeInTheDocument();
   });
 });

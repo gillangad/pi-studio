@@ -157,4 +157,35 @@ describe("Composer", () => {
     expect(onPickAttachments).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Attach" })).not.toBeInTheDocument();
   });
+
+  it("shows slash command autocomplete and applies the selected command", () => {
+    const onValueChange = vi.fn();
+
+    render(
+      <Composer
+        busy={false}
+        value="/t"
+        onValueChange={onValueChange}
+        onSubmit={() => {}}
+        onAbort={() => undefined}
+        models={[]}
+        currentModel={null}
+        thinkingLevel="medium"
+        availableThinkingLevels={["off", "medium", "high"]}
+        attachments={[]}
+        onSetModel={() => {}}
+        onSetThinkingLevel={() => {}}
+        onPickAttachments={() => {}}
+        onRemoveAttachment={() => {}}
+        onClearAttachments={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /\/tree/i })).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+
+    expect(onValueChange).toHaveBeenCalledWith("/tree");
+  });
 });

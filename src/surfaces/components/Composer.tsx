@@ -22,6 +22,13 @@ type ComposerProps = {
   onClearAttachments: () => void;
 };
 
+const SLASH_COMMANDS = [
+  {
+    command: "/tree",
+    description: "Navigate the session tree",
+  },
+];
+
 export function Composer({
   busy,
   value,
@@ -41,6 +48,7 @@ export function Composer({
 }: ComposerProps) {
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const [abortRequested, setAbortRequested] = useState(false);
+  const [slashIndex, setSlashIndex] = useState(0);
   const providerOptions = useMemo(
     () => Array.from(new Set(models.map((model) => model.provider))),
     [models],
@@ -68,6 +76,19 @@ export function Composer({
   const modelSummaryLabel = currentModel
     ? `${currentModel.provider} ${currentModel.name} ${selectedThinkingLevel}`
     : `No model ${selectedThinkingLevel}`;
+  const slashQuery = value.trimStart();
+  const slashSuggestions = useMemo(() => {
+    if (!slashQuery.startsWith("/")) return [];
+    return SLASH_COMMANDS.filter((entry) => entry.command.startsWith(slashQuery.toLowerCase()));
+  }, [slashQuery]);
+
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slashQuery]);
+
+  const applySlashSuggestion = (command: string) => {
+    onValueChange(command);
+  };
 
   return (
     <div className="space-y-2.5">
@@ -96,7 +117,35 @@ export function Composer({
           rows={3}
           onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
+            if (slashSuggestions.length > 0 && event.key === "ArrowDown") {
+              event.preventDefault();
+              setSlashIndex((current) => (current + 1) % slashSuggestions.length);
+              return;
+            }
+
+            if (slashSuggestions.length > 0 && event.key === "ArrowUp") {
+              event.preventDefault();
+              setSlashIndex((current) => (current - 1 + slashSuggestions.length) % slashSuggestions.length);
+              return;
+            }
+
             if (event.key !== "Enter") return;
+
+            if (slashSuggestions.length > 0 && !event.shiftKey) {
+              const selectedCommand = slashSuggestions[slashIndex]?.command ?? slashSuggestions[0]!.command;
+              if (slashQuery.toLowerCase() !== selectedCommand) {
+                event.preventDefault();
+                applySlashSuggestion(selectedCommand);
+                return;
+              }
+
+            }
+
+            if (slashSuggestions.length > 0 && !event.shiftKey) {
+              event.preventDefault();
+              onSubmit();
+              return;
+            }
 
             if (event.metaKey || event.ctrlKey || !event.shiftKey) {
               event.preventDefault();
@@ -104,6 +153,37 @@ export function Composer({
             }
           }}
         />
+
+        {slashSuggestions.length > 0 ? (
+          <div
+            className="absolute left-4 right-4 top-[calc(100%-3.75rem)] z-20 overflow-hidden rounded-2xl border border-border/70 bg-popover/98 shadow-glass"
+            role="listbox"
+            aria-label="Slash commands"
+          >
+            {slashSuggestions.map((entry, index) => {
+              const active = index === slashIndex;
+              return (
+                <button
+                  key={entry.command}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  className={[
+                    "flex w-full items-center justify-between gap-4 px-4 py-3 text-left",
+                    active ? "bg-accent/20 text-foreground" : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
+                  ].join(" ")}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    applySlashSuggestion(entry.command);
+                  }}
+                >
+                  <span className="font-mono text-sm">{entry.command}</span>
+                  <span className="text-xs">{entry.description}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
 
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">

@@ -20,37 +20,31 @@ type FlatNode = {
   isLastFlags: boolean[];
 };
 
-const DEFAULT_HIDDEN_KINDS = new Set([
-  "label",
-  "custom",
-  "session_info",
-  "model_change",
-  "thinking_level_change",
-]);
-
 function filterTree(nodes: SessionTreeNode[], filterMode: SessionTreeFilterMode): SessionTreeNode[] {
   const matches = (node: SessionTreeNode) => {
     if (filterMode === "all") return true;
     if (filterMode === "user-only") {
-      return node.role === "user" || node.kind === "custom_message";
+      return node.role === "user";
     }
 
-    return !DEFAULT_HIDDEN_KINDS.has(node.kind);
+    return node.role === "user" || node.role === "assistant";
   };
 
-  const visit = (node: SessionTreeNode): SessionTreeNode | null => {
-    const children = node.children.map(visit).filter((child): child is SessionTreeNode => Boolean(child));
-    if (matches(node) || children.length > 0) {
-      return {
-        ...node,
-        children,
-      };
+  const visit = (node: SessionTreeNode): SessionTreeNode[] => {
+    const children = node.children.flatMap(visit);
+    if (matches(node)) {
+      return [
+        {
+          ...node,
+          children,
+        },
+      ];
     }
 
-    return null;
+    return children;
   };
 
-  return nodes.map(visit).filter((node): node is SessionTreeNode => Boolean(node));
+  return nodes.flatMap(visit);
 }
 
 function flattenTree(nodes: SessionTreeNode[], trail: boolean[] = []): FlatNode[] {
