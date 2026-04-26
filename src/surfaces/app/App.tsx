@@ -4,6 +4,7 @@ import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
 import { BrowserPanel } from "../components/BrowserPanel";
 import { ChatView } from "../components/ChatView";
+import { MasterSessionBar } from "../components/MasterSessionBar";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { TuiView } from "../components/TuiView";
 import { SettingsView } from "../components/SettingsView";
@@ -364,8 +365,18 @@ export function App() {
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1">
           {activeMode === "gui" ? (
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col px-3 pb-3 pt-2" aria-label="GUI workspace">
-              <header className="flex items-center justify-between gap-3 px-4 py-3">
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="GUI workspace">
+              <MasterSessionBar
+                master={snapshot.master}
+                onSendPrompt={actions.sendPrompt}
+                onAbort={actions.abortPrompt}
+                onPickAttachments={actions.pickAttachments}
+                onOpenTarget={(projectId, sessionPath) => {
+                  openGuiThread(projectId, sessionPath);
+                }}
+              />
+
+              <header className="flex items-center justify-between gap-3 px-7 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="truncate text-base font-semibold text-foreground">
@@ -421,7 +432,7 @@ export function App() {
 
               <div
                 className={cn(
-                  "grid min-h-0 flex-1",
+                  "grid min-h-0 flex-1 px-3 pb-3",
                   selectedUtilityPanel === "terminal"
                     ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
                     : selectedUtilityPanel

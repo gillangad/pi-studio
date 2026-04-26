@@ -1,4 +1,5 @@
 import { mkdir, stat, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
@@ -40,9 +41,10 @@ async function pathExists(targetPath: string) {
 }
 
 async function findBundledBuiltinsRoot() {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.resolve(__dirname, "..", "..", "src", "builtins"),
-    path.resolve(__dirname, "builtins"),
+    path.resolve(moduleDir, "..", "..", "src", "builtins"),
+    path.resolve(moduleDir, "builtins"),
   ];
 
   for (const candidate of candidates) {

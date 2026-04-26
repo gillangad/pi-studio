@@ -119,6 +119,68 @@ const snapshot: StudioSnapshot = {
     streamingBehaviorPreference: "followUp",
     attachments: [],
   },
+  master: {
+    sessionId: "master",
+    projectId: null,
+    sessionFile: "/home/test/.pi-studio/master-session/session.jsonl",
+    sessionTitle: "Master",
+    cwd: "/home/test/.pi-studio/master-session",
+    isStreaming: false,
+    messages: [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: ["I can steer the other sessions from here."],
+      },
+    ],
+    resources: {
+      extensions: 1,
+      skills: 0,
+      prompts: 0,
+      themes: 0,
+      agentsFiles: 0,
+      extensionNames: ["pi-control-session"],
+      skillNames: [],
+      promptNames: [],
+      themeNames: [],
+      agentsFilePaths: [],
+    },
+    statusText: null,
+    errorText: null,
+    model: null,
+    availableModels: [],
+    thinkingLevel: "medium",
+    availableThinkingLevels: ["off", "medium", "high"],
+    streamingBehaviorPreference: "followUp",
+    attachments: [],
+    targets: [
+      {
+        targetId: "studio-demo",
+        name: "Thread one",
+        projectId: "p1",
+        projectName: "demo",
+        projectPath: "/tmp/demo",
+        sessionPath: "/tmp/demo/session.jsonl",
+        sessionTitle: "Thread one",
+        status: "idle",
+        statusLabel: "ready",
+        lastRunId: null,
+        lastError: null,
+        latestPrompt: "Review the last change",
+        latestResponse: "The last change looks fine.",
+        latestTimestampMs: Date.now(),
+        latestTimestamp: new Date().toISOString(),
+        lastActivityLabel: "now",
+      },
+    ],
+    summary: {
+      totalTargets: 1,
+      activeTargets: 0,
+      errorTargets: 0,
+      pendingTargets: 0,
+    },
+    updatedAt: Date.now(),
+  },
   tui: {
     active: false,
     projectId: "p1",
@@ -233,6 +295,8 @@ describe("App", () => {
       expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
+      expect(screen.getByText("Master")).toBeInTheDocument();
+      expect(screen.getByText("I can steer the other sessions from here.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
@@ -240,7 +304,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add attachment" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
     });
   });

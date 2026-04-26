@@ -17,7 +17,7 @@ export function shouldUsePiStudioBuiltins({
   threadsForProject,
   metadataBySessionFile,
 }: BuiltinSelectionInput) {
-  if (options.kind === "new") return true;
+  if (options.kind === "new") return false;
 
   if (options.kind === "open") {
     return Boolean(metadataBySessionFile[options.sessionFile]?.piStudioBuiltins);
