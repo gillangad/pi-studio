@@ -21,7 +21,7 @@ function renderMarkdown(content: string[], className: string) {
 export function MessageCard({ message }: MessageCardProps) {
   if (message.role === "user") {
     return (
-      <article className="ml-auto w-full max-w-[680px] rounded-[18px] bg-muted/72 px-4 py-3">
+      <article className="ml-auto w-fit max-w-[680px] rounded-[18px] bg-muted/72 px-4 py-3">
         {renderMarkdown(message.content, "text-foreground")}
       </article>
     );

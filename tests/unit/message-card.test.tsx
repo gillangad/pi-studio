@@ -4,6 +4,23 @@ import { describe, expect, it } from "vitest";
 import { MessageCard } from "../../src/surfaces/components/MessageCard";
 
 describe("MessageCard", () => {
+  it("renders user messages as compact right-aligned bubbles", () => {
+    const { container } = render(
+      <MessageCard
+        message={{
+          id: "u1",
+          role: "user",
+          content: ["hello there"],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("hello there")).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveClass("ml-auto");
+    expect(container.firstElementChild).toHaveClass("w-fit");
+    expect(container.firstElementChild).not.toHaveClass("w-full");
+  });
+
   it("renders markdown content in assistant messages", () => {
     render(
       <MessageCard
