@@ -10,6 +10,7 @@ export type TuiLaunchCommand = {
 type ResolveTuiLaunchCommandOptions = {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
+  sessionFile?: string | null;
   findExecutable?: (candidateNames: string[], pathValue: string) => string | null;
 };
 
@@ -40,6 +41,7 @@ export function findExecutable(candidateNames: string[], pathValue = process.env
 export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions = {}): TuiLaunchCommand {
   const platform = options.platform ?? process.platform;
   const env = options.env ?? process.env;
+  const sessionFile = options.sessionFile ?? null;
   const lookup = options.findExecutable ?? findExecutable;
   const pathValue = env.PATH ?? "";
 
@@ -49,7 +51,7 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
     if (piCommand) {
       return {
         file: piCommand,
-        args: ["-c"],
+        args: sessionFile ? ["--session", sessionFile] : ["-c"],
         source: "pi",
       };
     }
@@ -66,7 +68,7 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
   if (piCommand) {
     return {
       file: piCommand,
-      args: ["-c"],
+      args: sessionFile ? ["--session", sessionFile] : ["-c"],
       source: "pi",
     };
   }

@@ -46,6 +46,7 @@ import {
 } from "./message-mapper";
 import { resolveLaunchProjectPathCandidate } from "./launch-path";
 import { TuiTerminal } from "./tui-terminal";
+import { resolveTuiLaunchTarget } from "./tui-target";
 import {
   ensureWorkspaceSelection,
   type ThreadMetadata,
@@ -113,6 +114,7 @@ type TuiSessionRuntime = {
   errorText: string | null;
   projectId: string | null;
   cwd: string | null;
+  sessionFile: string | null;
 };
 
 type TerminalSessionRuntime = {
@@ -255,6 +257,7 @@ export class StudioHost {
       errorText: null,
       projectId: null,
       cwd: null,
+      sessionFile: null,
     };
 
     this.tuiSessions[sessionId] = runtime;
@@ -1001,15 +1004,20 @@ export class StudioHost {
   }
 
   async startTui(sessionId = "default") {
-    const activeProject = this.getActiveProject();
-    if (!activeProject) return this.getSnapshot();
+    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
+    const launchTarget = resolveTuiLaunchTarget(activeRuntime, this.getActiveProject());
+    if (!launchTarget) return this.getSnapshot();
 
     const runtime = this.ensureTuiSession(sessionId);
 
-    if (runtime.terminal.active && runtime.projectId === activeProject.id) {
+    if (
+      runtime.terminal.active &&
+      runtime.projectId === launchTarget.projectId &&
+      runtime.sessionFile === launchTarget.sessionFile
+    ) {
       runtime.status = "running";
       runtime.errorText = null;
-      runtime.cwd = activeProject.path;
+      runtime.cwd = launchTarget.cwd;
       this.emitSnapshot();
       return this.getSnapshot();
     }
@@ -1019,13 +1027,17 @@ export class StudioHost {
     this.emitSnapshot();
 
     try {
-      if (runtime.terminal.active && runtime.projectId !== activeProject.id) {
+      if (
+        runtime.terminal.active &&
+        (runtime.projectId !== launchTarget.projectId || runtime.sessionFile !== launchTarget.sessionFile)
+      ) {
         runtime.terminal.stop();
       }
 
-      runtime.terminal.start(activeProject.path);
-      runtime.projectId = activeProject.id;
-      runtime.cwd = activeProject.path;
+      runtime.terminal.start(launchTarget.cwd, 120, 32, launchTarget.sessionFile);
+      runtime.projectId = launchTarget.projectId;
+      runtime.cwd = launchTarget.cwd;
+      runtime.sessionFile = launchTarget.sessionFile;
       runtime.status = "running";
     } catch (error) {
       runtime.status = "error";
@@ -1044,6 +1056,7 @@ export class StudioHost {
     runtime.status = "stopped";
     runtime.projectId = null;
     runtime.cwd = null;
+    runtime.sessionFile = null;
     this.emitSnapshot();
     return this.getSnapshot();
   }

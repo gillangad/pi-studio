@@ -38,8 +38,8 @@ export class TuiTerminal {
     return Boolean(this.ptyProcess || this.childProcess);
   }
 
-  start(cwd: string, cols = 120, rows = 32) {
-    const command = resolveTuiLaunchCommand();
+  start(cwd: string, cols = 120, rows = 32, sessionFile?: string | null) {
+    const command = resolveTuiLaunchCommand({ sessionFile });
     const prefixNotice =
       command.source === "fallback-shell"
         ? "\r\n[pi-studio] `pi` is not on PATH, launched your default shell instead.\r\n"

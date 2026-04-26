@@ -16,6 +16,21 @@ describe("resolveTuiLaunchCommand", () => {
     });
   });
 
+  it("opens an explicit session file when provided", () => {
+    const command = resolveTuiLaunchCommand({
+      platform: "linux",
+      env: { PATH: "/usr/bin" },
+      sessionFile: "/tmp/demo/session.jsonl",
+      findExecutable: (candidates) => (candidates.includes("pi") ? "/usr/bin/pi" : null),
+    });
+
+    expect(command).toEqual({
+      file: "/usr/bin/pi",
+      args: ["--session", "/tmp/demo/session.jsonl"],
+      source: "pi",
+    });
+  });
+
   it("falls back to login shell on unix when pi is unavailable", () => {
     const command = resolveTuiLaunchCommand({
       platform: "linux",
