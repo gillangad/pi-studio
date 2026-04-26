@@ -192,7 +192,7 @@ export function Sidebar({
       )}
       aria-label="Workspace sidebar"
     >
-      <header className="flex items-center px-3 py-2.5">
+      <header className="flex items-center px-3 py-2">
         <Button
           variant="ghost"
           size="icon"
@@ -201,7 +201,7 @@ export function Sidebar({
             setSettingsMenuOpen(false);
             onToggleCollapsed();
           }}
-          className="h-8 w-8 text-muted-foreground"
+          className="h-7 w-7 text-muted-foreground"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </Button>
@@ -232,22 +232,22 @@ export function Sidebar({
         </section>
       ) : (
         <section className="flex min-h-0 flex-1 flex-col px-3 pb-3">
-          <div className="space-y-0.5 pb-2.5">
+          <div className="space-y-0 pb-2">
             <Button
               variant="ghost"
-              className="h-10 w-full justify-start gap-3 rounded-xl px-3 text-[15px] font-medium text-foreground"
+              className="h-9 w-full justify-start gap-3 rounded-lg px-3 text-[14px] font-medium text-foreground"
               onClick={handleNewChat}
             >
-              <NotebookPen size={17} />
+              <NotebookPen size={16} />
               <span>New chat</span>
             </Button>
             <button
               type="button"
-              className="flex h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-medium text-foreground transition-colors hover:bg-accent/20"
+              className="flex h-9 w-full items-center gap-3 rounded-lg px-3 text-left text-[14px] font-medium text-foreground transition-colors hover:bg-accent/20"
               onClick={() => setSearchOpen((current) => !current || !searchQuery)}
               aria-expanded={searchOpen || searchQuery.length > 0}
             >
-              <Search size={17} className="text-foreground" />
+              <Search size={16} className="text-foreground" />
               <span>Search</span>
             </button>
 
@@ -258,7 +258,7 @@ export function Sidebar({
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search sessions"
-                  className="h-10 w-full rounded-xl border border-input bg-background/70 px-3 text-sm text-foreground outline-none ring-ring/70 focus:ring-2"
+                  className="h-9 w-full rounded-lg border border-input bg-background/70 px-3 text-sm text-foreground outline-none ring-ring/70 focus:ring-2"
                   aria-label="Search sessions"
                 />
 
@@ -272,7 +272,7 @@ export function Sidebar({
                         <button
                           key={`${result.projectId}-${result.sessionFile}`}
                           type="button"
-                          className="w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/20"
+                          className="w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent/20"
                           onClick={() => {
                             onOpenThread(result.projectId, result.sessionFile);
                             setCollapsedProjectIds((current) => ({
@@ -282,7 +282,7 @@ export function Sidebar({
                           }}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-sm font-medium text-foreground">{result.threadTitle}</span>
+                            <span className="truncate text-[13px] font-medium text-foreground">{result.threadTitle}</span>
                             <span className="shrink-0 text-xs text-muted-foreground">{result.ageLabel}</span>
                           </div>
                           <div className="mt-1 truncate text-xs text-muted-foreground">{result.projectName}</div>
@@ -300,21 +300,21 @@ export function Sidebar({
           </div>
 
           {pinnedThreads.length > 0 ? (
-            <div className="pb-2.5">
-              <div className="px-2 pb-1 text-[13px] font-medium text-muted-foreground">Pinned</div>
+            <div className="pb-2">
+              <div className="px-2 pb-1 text-[12px] font-medium text-muted-foreground">Pinned</div>
               <div className="space-y-0.5">
                 {pinnedThreads.map(({ project, thread }) => (
                   <button
                     key={`${project.id}-${thread.id}`}
                     type="button"
-                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-3 py-1.5 text-left transition-colors hover:bg-accent/20"
+                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-accent/20"
                     aria-label={`Pinned thread ${thread.title} in ${project.name}`}
                     onClick={() => {
                       setSettingsMenuOpen(false);
                       onOpenThread(project.id, thread.sessionFile);
                     }}
                   >
-                    <span className="truncate text-[15px] text-foreground">{thread.title}</span>
+                    <span className="truncate text-[14px] text-foreground">{thread.title}</span>
                     <span className="text-[13px] text-muted-foreground">{thread.ageLabel}</span>
                   </button>
                 ))}
@@ -322,9 +322,9 @@ export function Sidebar({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
             <div className="flex items-center justify-between px-2 pb-0.5">
-              <span className="text-[13px] font-medium text-muted-foreground">Projects</span>
+              <span className="text-[12px] font-medium text-muted-foreground">Projects</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -345,20 +345,20 @@ export function Sidebar({
               return (
                 <div
                   key={project.id}
-                  className="space-y-0.5"
+                  className="space-y-0"
                   draggable
                   onDragStart={() => setDraggingProjectId(project.id)}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => reorder(project.id)}
                   onDragEnd={() => setDraggingProjectId(null)}
                 >
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-0">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-0.5">
                     <div className="flex min-w-0 items-center gap-2">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 shrink-0 text-muted-foreground"
+                        className="h-5 w-5 shrink-0 text-muted-foreground"
                         onClick={() => {
                           setCollapsedProjectIds((current) => ({
                             ...current,
@@ -371,7 +371,7 @@ export function Sidebar({
                       >
                         {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                       </Button>
-                      <FolderOpen size={16} className={cn("shrink-0 text-muted-foreground", isActiveProject && "text-foreground")} />
+                      <FolderOpen size={15} className={cn("shrink-0 text-muted-foreground", isActiveProject && "text-foreground")} />
 
                       {editingProjectId === project.id ? (
                         <input
@@ -405,7 +405,7 @@ export function Sidebar({
                         <button
                           type="button"
                           className={cn(
-                            "min-w-0 truncate rounded-md py-0.5 text-left text-[15px] leading-5 transition-colors",
+                            "min-w-0 truncate rounded-md py-0.5 text-left text-[14px] leading-5 transition-colors",
                             isActiveProject ? "font-medium text-foreground" : "text-foreground/92",
                           )}
                           aria-current={isActiveProject ? "page" : undefined}
@@ -427,7 +427,7 @@ export function Sidebar({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-muted-foreground"
+                        className="h-5 w-5 text-muted-foreground"
                         onPointerDown={(event) => {
                           event.stopPropagation();
                         }}
@@ -443,7 +443,7 @@ export function Sidebar({
                   </div>
 
                   {!isCollapsed ? (
-                    <div id={`sidebar-project-threads-${project.id}`} className="space-y-0 pl-10" aria-label={`Threads in ${project.name}`}>
+                    <div id={`sidebar-project-threads-${project.id}`} className="space-y-0 pl-8" aria-label={`Threads in ${project.name}`}>
                       {threads.map((thread) => {
                         const isActiveThread = project.id === activeProjectId && thread.sessionFile === activeSessionFile;
 
@@ -452,7 +452,7 @@ export function Sidebar({
                             <button
                               type="button"
                               className={cn(
-                                "min-w-0 truncate rounded-xl px-3 py-1 text-left text-[15px] leading-5 transition-colors",
+                                "min-w-0 truncate rounded-lg px-3 py-1 text-left text-[14px] leading-5 transition-colors",
                                 isActiveThread
                                   ? "bg-white/8 text-foreground"
                                   : "text-foreground/90 hover:bg-accent/20",

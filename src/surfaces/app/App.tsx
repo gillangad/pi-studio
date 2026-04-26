@@ -382,19 +382,19 @@ export function App() {
                 />
               ) : null}
 
-              <header className="flex items-center justify-between gap-3 px-7 py-3">
+              <header className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="truncate text-base font-semibold text-foreground">
+                    <h2 className="truncate text-[15px] font-semibold text-foreground">
                       {selectedGuiState?.sessionTitle ?? "No thread selected"}
                     </h2>
                     {activeProject ? (
-                      <span className="truncate text-sm text-muted-foreground">{activeProject.name}</span>
+                      <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
                     ) : null}
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="truncate">{selectedGuiState?.cwd ?? activeProject?.path ?? "No project"}</span>
-                    {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5">{utilityPanelLabel}</span> : null}
+                    {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">{utilityPanelLabel}</span> : null}
                     {showingCachedThread ? <span>Loading thread…</span> : null}
                   </div>
                 </div>

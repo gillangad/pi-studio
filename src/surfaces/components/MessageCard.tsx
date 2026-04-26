@@ -21,7 +21,7 @@ function renderMarkdown(content: string[], className: string) {
 export function MessageCard({ message }: MessageCardProps) {
   if (message.role === "user") {
     return (
-      <article className="ml-auto w-full max-w-2xl rounded-[22px] bg-muted/70 px-4 py-3">
+      <article className="ml-auto w-full max-w-[680px] rounded-[18px] bg-muted/72 px-4 py-3">
         {renderMarkdown(message.content, "text-foreground")}
       </article>
     );
@@ -36,11 +36,11 @@ export function MessageCard({ message }: MessageCardProps) {
     }, [message.thinkingContent]);
 
     return (
-      <article className="w-full max-w-3xl space-y-2 px-1 py-0.5">
+      <article className="w-full max-w-[760px] space-y-2 px-0.5 py-0.5">
         {message.thinkingContent?.length ? (
           <button
             type="button"
-            className="block space-y-1.5 px-0.5 py-1 text-left"
+            className="block space-y-1 px-0.5 py-0.5 text-left"
             onClick={() => setThinkingExpanded((current) => !current)}
             aria-expanded={thinkingExpanded}
             aria-label={thinkingExpanded ? "Collapse thinking" : "Expand thinking"}
@@ -48,7 +48,7 @@ export function MessageCard({ message }: MessageCardProps) {
             {thinkingExpanded ? (
               renderMarkdown(message.thinkingContent, "italic text-muted-foreground")
             ) : (
-              <p className="text-sm italic leading-relaxed text-muted-foreground">{thinkingPreview}</p>
+              <p className="text-[14px] italic leading-relaxed text-muted-foreground">{thinkingPreview}</p>
             )}
           </button>
         ) : null}
@@ -62,7 +62,7 @@ export function MessageCard({ message }: MessageCardProps) {
     return (
       <article
         className={cn(
-          "w-full max-w-3xl rounded-xl border px-4 py-3",
+          "w-full max-w-[760px] rounded-lg border px-4 py-3",
           message.isError
             ? "border-destructive/30 bg-destructive/10"
             : "border-border/70 bg-card",
@@ -78,7 +78,7 @@ export function MessageCard({ message }: MessageCardProps) {
 
   if (message.role === "bashExecution") {
     return (
-      <article className="w-full max-w-3xl rounded-xl border border-border/70 bg-background/90 px-4 py-3 font-mono text-xs text-muted-foreground">
+      <article className="w-full max-w-[760px] rounded-lg border border-border/70 bg-background/90 px-4 py-3 font-mono text-xs text-muted-foreground">
         <div className="mb-1 text-foreground">$ {message.command}</div>
         <div className="space-y-0.5">
           {(message.output ?? []).length > 0 ? (
@@ -97,7 +97,7 @@ export function MessageCard({ message }: MessageCardProps) {
   }
 
   return (
-    <article className="w-full max-w-3xl rounded-xl border border-border/70 bg-card px-4 py-3">
+    <article className="w-full max-w-[760px] rounded-lg border border-border/70 bg-card px-4 py-3">
       <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         {message.customType ?? message.role}
       </div>

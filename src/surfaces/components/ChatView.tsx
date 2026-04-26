@@ -174,10 +174,10 @@ export function ChatView({
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="chat-scroll-region min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
-        <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-3 px-4 py-4 sm:px-5">
+        <div className="mx-auto flex w-full max-w-[840px] min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5">
           {timelineItems.length > 0 ? (
             timelineItems.map((item) => (
-              <div key={item.id} className="mx-auto flex w-full min-w-0 max-w-3xl">
+              <div key={item.id} className="mx-auto flex w-full min-w-0">
                 {item.kind === "message" ? <MessageCard message={item.message} /> : null}
                 {item.kind === "tool-group" ? <ToolCallsCard messages={item.messages} /> : null}
                 {item.kind === "work-trace" ? <WorkTraceCard messages={item.messages} endTimestamp={item.endTimestamp} /> : null}
@@ -203,7 +203,7 @@ export function ChatView({
         </div>
       ) : null}
 
-      <div className={cn("border-t border-border/55 bg-background px-4 py-3 sm:px-5", gui.isStreaming && "shadow-inner")}>
+      <div className={cn("border-t border-border/50 bg-background px-4 py-3 sm:px-5", gui.isStreaming && "shadow-inner")}>
         <Composer
           busy={gui.isStreaming}
           value={composerValue}

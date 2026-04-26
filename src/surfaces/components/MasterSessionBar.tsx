@@ -35,8 +35,8 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
   };
 
   return (
-    <section className="border-b border-border/60 bg-background/90 px-4 py-3 backdrop-blur sm:px-5">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-2">
+    <section className="border-b border-border/50 bg-background/90 px-4 py-3 backdrop-blur sm:px-5">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-2">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -44,7 +44,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
             onClick={() => setExpanded((current) => !current)}
           >
             {expanded ? <ChevronDown size={16} className="text-muted-foreground" /> : <ChevronRight size={16} className="text-muted-foreground" />}
-            <span className="text-sm font-semibold">Master</span>
+            <span className="text-[15px] font-semibold">Master</span>
             <span className="truncate text-xs text-muted-foreground">
               {master.summary.totalTargets} sessions • {master.summary.activeTargets} active
             </span>
@@ -56,7 +56,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
           </div>
         </div>
 
-        <div className="flex items-end gap-3 rounded-[22px] border border-border/65 bg-card/90 px-3 py-2.5">
+        <div className="flex items-end gap-3 rounded-[20px] border border-border/65 bg-card/92 px-3 py-2.5">
           <Button
             type="button"
             variant="ghost"
@@ -72,7 +72,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
             <Textarea
               value={value}
               rows={1}
-              className="min-h-[44px] resize-none border-transparent bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0"
+              className="min-h-[42px] resize-none border-transparent bg-transparent px-0 py-1.5 text-[15px] shadow-none focus-visible:ring-0"
               placeholder="Ask Master Pi to steer the workspace"
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={(event) => {
@@ -122,7 +122,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
         ) : null}
 
         {latestAssistantText ? (
-          <div className="pl-11 text-sm text-muted-foreground">
+          <div className="pl-11 text-[14px] text-muted-foreground">
             <span className="line-clamp-2">{latestAssistantText}</span>
           </div>
         ) : null}
@@ -133,7 +133,7 @@ export function MasterSessionBar({ master, onSendPrompt, onAbort, onPickAttachme
               <button
                 key={target.targetId}
                 type="button"
-                className="rounded-2xl border border-border/60 bg-background/70 px-3 py-2.5 text-left transition-colors hover:bg-accent/10"
+                className="rounded-xl border border-border/60 bg-background/70 px-3 py-2.5 text-left transition-colors hover:bg-accent/10"
                 onClick={() => {
                   if (target.projectId) {
                     onOpenTarget(target.projectId, target.sessionPath);

@@ -91,7 +91,7 @@ export function Composer({
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2">
       {attachments.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {attachments.map((attachment) => (
@@ -109,10 +109,10 @@ export function Composer({
         </div>
       ) : null}
 
-      <div className="workspace-panel relative rounded-[28px] border border-border/70 bg-card/95 shadow-sm">
+      <div className="workspace-panel relative rounded-[24px] border border-border/70 bg-card/95 shadow-sm">
         <Textarea
           value={value}
-          className="min-h-[110px] resize-y rounded-[28px] border-transparent bg-transparent pb-16 pr-24 pt-4 shadow-none focus-visible:ring-0"
+          className="min-h-[104px] resize-y rounded-[24px] border-transparent bg-transparent pb-16 pr-24 pt-3.5 text-[15px] shadow-none focus-visible:ring-0"
           placeholder="Ask for follow-up changes"
           rows={3}
           onChange={(event) => onValueChange(event.target.value)}
@@ -156,7 +156,7 @@ export function Composer({
 
         {slashSuggestions.length > 0 ? (
           <div
-            className="absolute left-4 right-4 top-[calc(100%-3.75rem)] z-20 overflow-hidden rounded-2xl border border-border/70 bg-popover/98 shadow-glass"
+            className="absolute left-4 right-4 top-[calc(100%-3.55rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-popover/98 shadow-glass"
             role="listbox"
             aria-label="Slash commands"
           >
@@ -169,7 +169,7 @@ export function Composer({
                   role="option"
                   aria-selected={active}
                   className={[
-                    "flex w-full items-center justify-between gap-4 px-4 py-3 text-left",
+                    "flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left",
                     active ? "bg-accent/20 text-foreground" : "text-muted-foreground hover:bg-accent/10 hover:text-foreground",
                   ].join(" ")}
                   onMouseDown={(event) => {
@@ -201,7 +201,7 @@ export function Composer({
             <div className="relative">
               <button
                 type="button"
-                className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-sm text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground"
+                className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-[14px] text-muted-foreground transition-colors hover:bg-accent/20 hover:text-foreground"
                 onClick={() => setAgentMenuOpen((current) => !current)}
                 aria-expanded={agentMenuOpen}
                 aria-haspopup="menu"
@@ -213,7 +213,7 @@ export function Composer({
 
               {agentMenuOpen ? (
                 <div
-                  className="absolute bottom-[calc(100%+8px)] left-0 z-20 grid min-w-[320px] gap-2 rounded-lg border border-border/70 bg-popover p-3 shadow-glass"
+                  className="absolute bottom-[calc(100%+8px)] left-0 z-20 grid min-w-[320px] gap-2 rounded-xl border border-border/70 bg-popover p-3 shadow-glass"
                   role="menu"
                   aria-label="Agent settings"
                 >

@@ -280,11 +280,11 @@ export function ToolCallsCard({
   const showItems = showGroupLabel ? expanded : true;
 
   return (
-    <article className="w-full max-w-3xl">
+    <article className="w-full max-w-[760px]">
       {showGroupLabel ? (
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 py-1 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => setExpanded((current) => !current)}
           aria-expanded={expanded}
         >
@@ -309,7 +309,7 @@ export function ToolCallsCard({
                 <button
                   type="button"
                   className={cn(
-                    "flex w-full items-start gap-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground",
+                    "flex w-full items-start gap-2 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground",
                     !itemHasDetail && "cursor-default",
                     failed && "text-destructive",
                   )}

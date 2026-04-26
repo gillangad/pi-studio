@@ -14,7 +14,7 @@ function renderMarkdown(content: string[]) {
   if (content.length === 0) return null;
 
   return (
-    <div className="markdown-content text-sm leading-relaxed text-muted-foreground">
+    <div className="markdown-content text-[14px] leading-relaxed text-muted-foreground">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content.join("\n\n")}</ReactMarkdown>
     </div>
   );
@@ -102,10 +102,10 @@ export function WorkTraceCard({ messages, endTimestamp }: WorkTraceCardProps) {
   }, [messages]);
 
   return (
-    <article className="w-full max-w-3xl">
+    <article className="w-full max-w-[760px]">
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 py-1 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+        className="inline-flex items-center gap-1.5 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground"
         onClick={() => setExpanded((current) => !current)}
         aria-expanded={expanded}
       >
