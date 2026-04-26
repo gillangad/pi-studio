@@ -135,6 +135,7 @@ export function App() {
     snapshot?.activeMode === "extensions" || snapshot?.activeMode === "skills"
       ? "gui"
       : (snapshot?.activeMode ?? "gui");
+  const isWorkspaceMode = activeMode === "gui" || activeMode === "cockpit";
 
   const activeGuiThreadKey = useMemo(() => {
     if (!snapshot?.gui.projectId || !snapshot.gui.sessionFile) return null;
@@ -364,17 +365,22 @@ export function App() {
 
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1">
-          {activeMode === "gui" ? (
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="GUI workspace">
-              <MasterSessionBar
-                master={snapshot.master}
-                onSendPrompt={actions.sendPrompt}
-                onAbort={actions.abortPrompt}
-                onPickAttachments={actions.pickAttachments}
-                onOpenTarget={(projectId, sessionPath) => {
-                  openGuiThread(projectId, sessionPath);
-                }}
-              />
+          {isWorkspaceMode ? (
+            <section
+              className="flex min-h-0 min-w-0 flex-1 flex-col pt-2"
+              aria-label={activeMode === "cockpit" ? "Cockpit workspace" : "GUI workspace"}
+            >
+              {activeMode === "cockpit" ? (
+                <MasterSessionBar
+                  master={snapshot.master}
+                  onSendPrompt={actions.sendPrompt}
+                  onAbort={actions.abortPrompt}
+                  onPickAttachments={actions.pickAttachments}
+                  onOpenTarget={(projectId, sessionPath) => {
+                    openGuiThread(projectId, sessionPath);
+                  }}
+                />
+              ) : null}
 
               <header className="flex items-center justify-between gap-3 px-7 py-3">
                 <div className="min-w-0">

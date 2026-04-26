@@ -295,10 +295,11 @@ describe("App", () => {
       expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
-      expect(screen.getByText("Master")).toBeInTheDocument();
-      expect(screen.getByText("I can steer the other sessions from here.")).toBeInTheDocument();
+      expect(screen.queryByText("Master")).not.toBeInTheDocument();
+      expect(screen.queryByText("I can steer the other sessions from here.")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Cockpit" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
@@ -306,6 +307,30 @@ describe("App", () => {
       expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
+    });
+  });
+
+  it("shows the master bar only in cockpit mode", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
+      ...snapshot,
+      activeMode: "cockpit",
+      settings: {
+        ...snapshot.settings,
+        currentMode: "cockpit",
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Master")).toBeInTheDocument();
+      expect(screen.getByText("I can steer the other sessions from here.")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Cockpit" })).toHaveAttribute("aria-selected", "true");
     });
   });
 

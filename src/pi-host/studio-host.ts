@@ -155,6 +155,10 @@ const CONTROL_STATE_POLL_INTERVAL_MS = 2_000;
 
 type ResourceLoaderProfile = "default" | "studioBuiltins";
 
+function isPrimaryWorkspaceMode(mode: StudioMode) {
+  return mode === "gui" || mode === "cockpit";
+}
+
 export class StudioHost {
   private readonly store: WorkspaceStore;
   private readonly authStorage = AuthStorage.create();
@@ -717,7 +721,7 @@ export class StudioHost {
         changed = true;
       }
 
-      if (this.workspaceState.activeMode !== "gui") {
+      if (!isPrimaryWorkspaceMode(this.workspaceState.activeMode)) {
         this.workspaceState.activeMode = "gui";
         changed = true;
       }
@@ -746,7 +750,7 @@ export class StudioHost {
         changed = true;
       }
 
-      if (this.workspaceState.activeMode !== "gui") {
+      if (!isPrimaryWorkspaceMode(this.workspaceState.activeMode)) {
         this.workspaceState.activeMode = "gui";
         changed = true;
       }
@@ -1650,14 +1654,14 @@ export class StudioHost {
         this.emitSnapshot();
       },
       onCreateSession: async () => {
-        if (this.workspaceState.activeMode !== "gui") return;
+        if (!isPrimaryWorkspaceMode(this.workspaceState.activeMode)) return;
 
         const project = this.workspaceState.projects.find((entry) => entry.id === this.guiSessions[sessionId]?.projectId);
         if (!project) return;
         await this.openSessionForProject(project, { kind: "new" }, sessionId);
       },
       onSwitchSession: async (sessionPath: string) => {
-        if (this.workspaceState.activeMode !== "gui") {
+        if (!isPrimaryWorkspaceMode(this.workspaceState.activeMode)) {
           return false;
         }
 

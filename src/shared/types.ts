@@ -1,4 +1,4 @@
-export type StudioMode = "gui" | "tui" | "git" | "extensions" | "skills" | "settings";
+export type StudioMode = "gui" | "cockpit" | "tui" | "git" | "extensions" | "skills" | "settings";
 
 export type UiMessageRole =
   | "user"

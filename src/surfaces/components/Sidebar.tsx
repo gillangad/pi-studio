@@ -145,7 +145,7 @@ export function Sidebar({
     setDraggingProjectId(null);
   };
 
-  const modeSelection = activeMode === "tui" ? "tui" : "gui";
+  const modeSelection = activeMode === "tui" ? "tui" : activeMode === "cockpit" ? "cockpit" : "gui";
   const pinnedThreads = useMemo(
     () =>
       projects.flatMap((project) =>
@@ -486,7 +486,7 @@ export function Sidebar({
       <Separator className="bg-border/50" />
 
       <div className="relative space-y-2 p-3">
-        <div className="grid grid-cols-2 gap-1 rounded-[16px] border border-border/60 bg-background/50 p-1" role="tablist" aria-label="Session mode">
+        <div className="grid grid-cols-3 gap-1 rounded-[16px] border border-border/60 bg-background/50 p-1" role="tablist" aria-label="Session mode">
           <button
             type="button"
             role="tab"
@@ -499,6 +499,19 @@ export function Sidebar({
             title="GUI mode"
           >
             GUI
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={modeSelection === "cockpit"}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              modeSelection === "cockpit" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => onSetMode("cockpit")}
+            title="Cockpit mode"
+          >
+            Cockpit
           </button>
           <button
             type="button"
