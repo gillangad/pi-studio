@@ -245,7 +245,7 @@ export function Sidebar({
         </section>
       ) : (
         <section className="flex min-h-0 flex-1 flex-col px-3 pb-3">
-          <div className="space-y-1 pb-3">
+          <div className="space-y-0.5 pb-2.5">
             <Button
               variant="ghost"
               className="h-10 w-full justify-start gap-3 rounded-xl px-3 text-[15px] font-medium text-foreground"
@@ -313,14 +313,14 @@ export function Sidebar({
           </div>
 
           {pinnedThreads.length > 0 ? (
-            <div className="pb-3">
-              <div className="px-2 pb-1.5 text-[13px] font-medium text-muted-foreground">Pinned</div>
+            <div className="pb-2.5">
+              <div className="px-2 pb-1 text-[13px] font-medium text-muted-foreground">Pinned</div>
               <div className="space-y-0.5">
                 {pinnedThreads.map(({ project, thread }) => (
                   <button
                     key={`${project.id}-${thread.id}`}
                     type="button"
-                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-accent/20"
+                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-3 py-1.5 text-left transition-colors hover:bg-accent/20"
                     aria-label={`Pinned thread ${thread.title} in ${project.name}`}
                     onClick={() => {
                       setSettingsMenuOpen(false);
@@ -335,8 +335,8 @@ export function Sidebar({
             </div>
           ) : null}
 
-          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-            <div className="flex items-center justify-between px-2 pb-1">
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+            <div className="flex items-center justify-between px-2 pb-0.5">
               <span className="text-[13px] font-medium text-muted-foreground">Projects</span>
               <Button
                 type="button"
@@ -365,7 +365,7 @@ export function Sidebar({
                   onDrop={() => reorder(project.id)}
                   onDragEnd={() => setDraggingProjectId(null)}
                 >
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-0.5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-0">
                     <div className="flex min-w-0 items-center gap-2">
                       <Button
                         type="button"
@@ -418,7 +418,7 @@ export function Sidebar({
                         <button
                           type="button"
                           className={cn(
-                            "min-w-0 truncate rounded-md py-1 text-left text-[15px] leading-5 transition-colors",
+                            "min-w-0 truncate rounded-md py-0.5 text-left text-[15px] leading-5 transition-colors",
                             isActiveProject ? "font-medium text-foreground" : "text-foreground/92",
                           )}
                           aria-current={isActiveProject ? "page" : undefined}
@@ -450,7 +450,7 @@ export function Sidebar({
                   </div>
 
                   {!isCollapsed ? (
-                    <div id={`sidebar-project-threads-${project.id}`} className="space-y-0.5 pl-10" aria-label={`Threads in ${project.name}`}>
+                    <div id={`sidebar-project-threads-${project.id}`} className="space-y-0 pl-10" aria-label={`Threads in ${project.name}`}>
                       {threads.map((thread) => {
                         const isActiveThread = project.id === activeProjectId && thread.sessionFile === activeSessionFile;
 
@@ -459,7 +459,7 @@ export function Sidebar({
                             <button
                               type="button"
                               className={cn(
-                                "min-w-0 truncate rounded-xl px-3 py-1.5 text-left text-[15px] leading-5 transition-colors",
+                                "min-w-0 truncate rounded-xl px-3 py-1 text-left text-[15px] leading-5 transition-colors",
                                 isActiveThread
                                   ? "bg-white/8 text-foreground"
                                   : "text-foreground/90 hover:bg-accent/20",
@@ -478,7 +478,7 @@ export function Sidebar({
                         );
                       })}
                       {threads.length === 0 ? (
-                        <div className="rounded-md px-3 py-1 text-xs text-muted-foreground">No saved threads yet.</div>
+                        <div className="rounded-md px-3 py-0.5 text-xs text-muted-foreground">No saved threads yet.</div>
                       ) : null}
                     </div>
                   ) : null}
