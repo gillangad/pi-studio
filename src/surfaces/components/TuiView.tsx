@@ -221,9 +221,9 @@ export function TuiView({
   const errorText = sessionState?.errorText ?? tui.errorText;
 
   return (
-    <section className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-sm" aria-label="Hosted terminal">
-      <div ref={viewportShellRef} className="relative min-h-0 flex-1 overflow-hidden p-2">
-        <div className="terminal-viewport h-full rounded-md border border-border/70 bg-background">
+    <section className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background" aria-label="Hosted terminal">
+      <div ref={viewportShellRef} className="relative min-h-0 flex-1 overflow-hidden">
+        <div className="terminal-viewport h-full bg-background">
           <div ref={containerRef} className="tui-terminal h-full w-full" />
         </div>
 
@@ -243,7 +243,7 @@ export function TuiView({
       </div>
 
       {errorText ? (
-        <div className="mx-2 mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className="mx-3 mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {errorText}
         </div>
       ) : null}

@@ -524,7 +524,7 @@ export function App() {
 
           {activeMode === "tui" ? (
             <section
-              className="relative flex min-h-0 min-w-0 flex-1 p-3"
+              className="relative flex min-h-0 min-w-0 flex-1"
               aria-label="TUI workspace"
             >
               <TuiView
