@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { UiMessage } from "../../shared/types";
@@ -29,11 +29,6 @@ export function MessageCard({ message }: MessageCardProps) {
 
   if (message.role === "assistant") {
     const [thinkingExpanded, setThinkingExpanded] = useState(false);
-    const thinkingPreview = useMemo(() => {
-      const joined = (message.thinkingContent ?? []).join(" ").replace(/\s+/g, " ").trim();
-      if (!joined) return "";
-      return joined.length > 140 ? `${joined.slice(0, 140).trimEnd()}...` : joined;
-    }, [message.thinkingContent]);
 
     return (
       <article className="w-full max-w-[760px] space-y-2 px-0.5 py-0.5">
@@ -48,7 +43,7 @@ export function MessageCard({ message }: MessageCardProps) {
             {thinkingExpanded ? (
               renderMarkdown(message.thinkingContent, "italic text-muted-foreground")
             ) : (
-              <p className="text-[14px] italic leading-relaxed text-muted-foreground">{thinkingPreview}</p>
+              <p className="text-[14px] italic leading-relaxed text-muted-foreground">Thinking</p>
             )}
           </button>
         ) : null}

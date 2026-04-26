@@ -37,7 +37,7 @@ describe("MessageCard", () => {
     expect(screen.getByText("const answer = 42;")).toBeInTheDocument();
   });
 
-  it("shows collapsed thinking preview and expands on click", () => {
+  it("shows a collapsed thinking label and reveals text on click", () => {
     render(
       <MessageCard
         message={{
@@ -51,7 +51,8 @@ describe("MessageCard", () => {
 
     expect(screen.getByText("Done")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Expand thinking" })).toBeInTheDocument();
-    expect(screen.getByText(/This is the full thinking text with more detail/i)).toBeInTheDocument();
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
+    expect(screen.queryByText(/This is the full thinking text with more detail/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Expand thinking" }));
 
