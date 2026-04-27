@@ -62,6 +62,7 @@ export function useStudioState() {
         toggleProjectFavorite: unavailable,
         createThread: unavailable,
         openThread: unavailable,
+        deleteThread: unavailable,
         toggleThreadPinned: unavailable,
         toggleThreadArchived: unavailable,
         sendPrompt: unavailable,
@@ -105,6 +106,8 @@ export function useStudioState() {
       createThread: (projectId: string, sessionId?: string) => bridge.createThread(projectId, sessionId),
       openThread: (projectId: string, sessionFile: string, sessionId?: string) =>
         bridge.openThread(projectId, sessionFile, sessionId),
+      deleteThread: (projectId: string, sessionFile: string) =>
+        bridge.deleteThread({ projectId, sessionFile }),
       toggleThreadPinned: (projectId: string, sessionFile: string) =>
         bridge.toggleThreadPinned({ projectId, sessionFile }),
       toggleThreadArchived: (projectId: string, sessionFile: string) =>

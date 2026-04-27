@@ -172,6 +172,11 @@ function registerIpcHandlers() {
       host?.openThread(payload.projectId, payload.sessionFile, payload.sessionId),
   );
   ipcMain.handle(
+    IPC_CHANNELS.invoke.deleteThread,
+    async (_event, payload: { projectId: string; sessionFile: string }) =>
+      host?.deleteThread(payload.projectId, payload.sessionFile),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.invoke.toggleThreadPinned,
     async (_event, payload: { projectId: string; sessionFile: string }) =>
       host?.toggleThreadPinned(payload.projectId, payload.sessionFile),

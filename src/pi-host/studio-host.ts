@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { mkdir } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { stat } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
@@ -336,6 +337,20 @@ export class StudioHost {
 
   private getGuiRuntime(sessionId = this.activeGuiSessionId) {
     return this.guiSessions[sessionId] ?? null;
+  }
+
+  private async disposeGuiRuntimesForThread(projectId: string, sessionFile: string) {
+    for (const [sessionId, runtime] of Object.entries(this.guiSessions)) {
+      if (runtime.projectId !== projectId || runtime.sessionFile !== sessionFile) continue;
+      runtime.unsubscribe?.();
+      runtime.unsubscribe = null;
+      runtime.session?.dispose?.();
+      delete this.guiSessions[sessionId];
+    }
+
+    if (!this.guiSessions[this.activeGuiSessionId]) {
+      this.activeGuiSessionId = "default";
+    }
   }
 
   private isThreadRunningInGui(projectId: string, sessionFile: string) {
@@ -808,6 +823,51 @@ export class StudioHost {
 
     await this.openSessionForProject(project, { kind: "open", sessionFile }, sessionId);
     await this.warmTuiForActiveWorkspace();
+    return this.getSnapshot();
+  }
+
+  async deleteThread(projectId: string, sessionFile: string) {
+    const project = this.workspaceState.projects.find((entry) => entry.id === projectId);
+    if (!project) return this.getSnapshot();
+
+    const deletingActiveThread =
+      this.activeGuiSessionId === "default" &&
+      this.guiSessions.default?.projectId === projectId &&
+      this.guiSessions.default?.sessionFile === sessionFile;
+
+    await this.disposeGuiRuntimesForThread(projectId, sessionFile);
+    this.stopTuiSessionsForThread(projectId, sessionFile);
+
+    try {
+      await rm(sessionFile, { force: true });
+    } catch (error) {
+      this.guiErrorText = error instanceof Error ? error.message : String(error);
+      this.emitSnapshot();
+      return this.getSnapshot();
+    }
+
+    const metadataBySessionFile = this.workspaceState.threadMetadataByProject[projectId];
+    if (metadataBySessionFile?.[sessionFile]) {
+      delete metadataBySessionFile[sessionFile];
+      if (Object.keys(metadataBySessionFile).length === 0) {
+        delete this.workspaceState.threadMetadataByProject[projectId];
+      }
+    }
+
+    await this.refreshProjectThreads(project);
+
+    if (deletingActiveThread) {
+      const nextThread = (this.threadCache[project.id] ?? [])[0] ?? null;
+      if (nextThread) {
+        await this.openSessionForProject(project, { kind: "open", sessionFile: nextThread.sessionFile }, "default");
+      } else {
+        await this.openSessionForProject(project, { kind: "new" }, "default");
+      }
+      await this.warmTuiForActiveWorkspace();
+    }
+
+    await this.persistWorkspace();
+    this.emitSnapshot();
     return this.getSnapshot();
   }
 
@@ -1326,6 +1386,17 @@ export class StudioHost {
     runtime.sessionFile = null;
     this.emitSnapshot();
     return this.getSnapshot();
+  }
+
+  private stopTuiSessionsForThread(projectId: string, sessionFile: string) {
+    for (const runtime of Object.values(this.tuiSessions)) {
+      if (runtime.projectId !== projectId || runtime.sessionFile !== sessionFile) continue;
+      runtime.terminal.stop();
+      runtime.status = "stopped";
+      runtime.projectId = null;
+      runtime.cwd = null;
+      runtime.sessionFile = null;
+    }
   }
 
   async startTerminal(sessionId = "default") {

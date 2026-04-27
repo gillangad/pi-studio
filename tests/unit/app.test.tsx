@@ -249,6 +249,7 @@ describe("App", () => {
       toggleProjectFavorite: vi.fn().mockResolvedValue(snapshot),
       createThread: vi.fn().mockResolvedValue(snapshot),
       openThread: vi.fn().mockResolvedValue(snapshot),
+      deleteThread: vi.fn().mockResolvedValue(snapshot),
       toggleThreadPinned: vi.fn().mockResolvedValue(snapshot),
       toggleThreadArchived: vi.fn().mockResolvedValue(snapshot),
       sendPrompt: vi.fn().mockResolvedValue(snapshot),
@@ -393,6 +394,26 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create thread in alpha" }));
 
     expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
+  });
+
+  it("deletes a thread from the sidebar hover action", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Delete thread Thread one in demo" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete thread Thread one in demo" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Delete "Thread one"? This removes the saved session.');
+    expect(bridge.deleteThread).toHaveBeenCalledWith({ projectId: "p1", sessionFile: "/tmp/demo/session.jsonl" });
   });
 
   it("opens the latest thread when clicking a project name", async () => {

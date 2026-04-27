@@ -9,6 +9,7 @@ import {
   Search,
   Settings,
   Sun,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProjectRecord, ProjectThreadsMap, SessionSearchResult, StudioMode } from "../../shared/types";
@@ -35,6 +36,7 @@ type SidebarProps = {
   onSearchSessions: (query: string) => Promise<SessionSearchResult[]> | SessionSearchResult[];
   onCreateThread: (projectId: string) => void;
   onOpenThread: (projectId: string, sessionFile: string) => void;
+  onDeleteThread: (projectId: string, sessionFile: string, threadTitle: string) => void;
   onToggleThreadPinned: (projectId: string, sessionFile: string) => void;
   onToggleThreadArchived: (projectId: string, sessionFile: string) => void;
 };
@@ -58,6 +60,7 @@ export function Sidebar({
   onSearchSessions,
   onCreateThread,
   onOpenThread,
+  onDeleteThread,
   onToggleThreadPinned,
   onToggleThreadArchived,
 }: SidebarProps) {
@@ -304,19 +307,37 @@ export function Sidebar({
               <div className="px-2 pb-1 text-[12px] font-medium text-muted-foreground">Pinned</div>
               <div className="space-y-0.5">
                 {pinnedThreads.map(({ project, thread }) => (
-                  <button
+                  <div
                     key={`${project.id}-${thread.id}`}
-                    type="button"
-                    className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-3 py-1.5 text-left transition-colors hover:bg-accent/20"
-                    aria-label={`Pinned thread ${thread.title} in ${project.name}`}
-                    onClick={() => {
-                      setSettingsMenuOpen(false);
-                      onOpenThread(project.id, thread.sessionFile);
-                    }}
+                    className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-lg px-1 py-0.5 hover:bg-accent/20"
                   >
-                    <span className="truncate text-[14px] text-foreground">{thread.title}</span>
+                    <button
+                      type="button"
+                      className="min-w-0 truncate rounded-lg px-2 py-1 text-left"
+                      aria-label={`Pinned thread ${thread.title} in ${project.name}`}
+                      onClick={() => {
+                        setSettingsMenuOpen(false);
+                        onOpenThread(project.id, thread.sessionFile);
+                      }}
+                    >
+                      <span className="truncate text-[14px] text-foreground">{thread.title}</span>
+                    </button>
                     <span className="text-[13px] text-muted-foreground">{thread.ageLabel}</span>
-                  </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDeleteThread(project.id, thread.sessionFile, thread.title);
+                      }}
+                      aria-label={`Delete thread ${thread.title} in ${project.name}`}
+                      title={`Delete ${thread.title}`}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -448,7 +469,7 @@ export function Sidebar({
                         const isActiveThread = project.id === activeProjectId && thread.sessionFile === activeSessionFile;
 
                         return (
-                          <div key={thread.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                          <div key={thread.id} className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1">
                             <button
                               type="button"
                               className={cn(
@@ -467,6 +488,20 @@ export function Sidebar({
                               {thread.title}
                             </button>
                             <span className="pr-1 text-[13px] leading-5 text-muted-foreground">{thread.ageLabel}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onDeleteThread(project.id, thread.sessionFile, thread.title);
+                              }}
+                              aria-label={`Delete thread ${thread.title} in ${project.name}`}
+                              title={`Delete ${thread.title}`}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
                           </div>
                         );
                       })}

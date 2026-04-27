@@ -25,6 +25,7 @@ export const IPC_CHANNELS = {
     toggleProjectFavorite: "pi-studio:toggle-project-favorite",
     createThread: "pi-studio:create-thread",
     openThread: "pi-studio:open-thread",
+    deleteThread: "pi-studio:delete-thread",
     toggleThreadPinned: "pi-studio:toggle-thread-pinned",
     toggleThreadArchived: "pi-studio:toggle-thread-archived",
     sendPrompt: "pi-studio:send-prompt",
@@ -146,6 +147,7 @@ export type DesktopBridge = {
   toggleProjectFavorite(projectId: string): Promise<StudioSnapshot>;
   createThread(projectId: string, sessionId?: string): Promise<StudioSnapshot>;
   openThread(projectId: string, sessionFile: string, sessionId?: string): Promise<StudioSnapshot>;
+  deleteThread(payload: ToggleThreadPayload): Promise<StudioSnapshot>;
   toggleThreadPinned(payload: ToggleThreadPayload): Promise<StudioSnapshot>;
   toggleThreadArchived(payload: ToggleThreadPayload): Promise<StudioSnapshot>;
   sendPrompt(payload: SendPromptPayload): Promise<StudioSnapshot>;

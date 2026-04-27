@@ -410,6 +410,13 @@ export function App() {
           onOpenThread={(projectId, sessionFile) => {
             openGuiThread(projectId, sessionFile);
           }}
+          onDeleteThread={(projectId, sessionFile, threadTitle) => {
+            const confirmed = window.confirm(`Delete "${threadTitle}"? This removes the saved session.`);
+            if (!confirmed) return;
+
+            setPendingGuiThreadKey(null);
+            void actions.deleteThread(projectId, sessionFile);
+          }}
           onToggleThreadPinned={(projectId, sessionFile) =>
             void actions.toggleThreadPinned(projectId, sessionFile)
           }

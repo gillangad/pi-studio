@@ -25,6 +25,7 @@ const bridge: DesktopBridge = {
       IPC_CHANNELS.invoke.openThread,
       sessionId ? { projectId, sessionFile, sessionId } : { projectId, sessionFile },
     ),
+  deleteThread: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.deleteThread, payload),
   toggleThreadPinned: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.toggleThreadPinned, payload),
   toggleThreadArchived: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.toggleThreadArchived, payload),
   sendPrompt: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.sendPrompt, payload),
