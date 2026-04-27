@@ -70,6 +70,20 @@ function cancelScheduledFrame(handle: number | null) {
   clearTimeout(handle);
 }
 
+function wheelDeltaInPixels(event: WheelEvent) {
+  const lineHeightPx = 16;
+  const pageHeightPx = window.innerHeight || 800;
+
+  switch (event.deltaMode) {
+    case WheelEvent.DOM_DELTA_LINE:
+      return event.deltaY * lineHeightPx;
+    case WheelEvent.DOM_DELTA_PAGE:
+      return event.deltaY * pageHeightPx;
+    default:
+      return event.deltaY;
+  }
+}
+
 export function TuiView({
   sessionId = "default",
   stopOnUnmount = true,
@@ -161,8 +175,28 @@ export function TuiView({
     const handleViewportScroll = () => {
       syncScrollButtonVisibility();
     };
+    const handleWheel = (event: WheelEvent) => {
+      if (!viewport || event.defaultPrevented || event.deltaY === 0) {
+        return;
+      }
+
+      const maxScrollTop = viewport.scrollHeight - viewport.clientHeight;
+      if (maxScrollTop <= 0) {
+        return;
+      }
+
+      const nextScrollTop = Math.min(maxScrollTop, Math.max(0, viewport.scrollTop + wheelDeltaInPixels(event)));
+      if (nextScrollTop === viewport.scrollTop) {
+        return;
+      }
+
+      viewport.scrollTop = nextScrollTop;
+      event.preventDefault();
+      syncScrollButtonVisibility();
+    };
 
     viewport?.addEventListener("scroll", handleViewportScroll);
+    viewportShell.addEventListener("wheel", handleWheel, { passive: false });
 
     const inputDisposable = terminal.onData((data) => onData(data, sessionId));
     const unsubscribe = subscribeToData((payload) => {
@@ -198,6 +232,7 @@ export function TuiView({
       themeObserver.disconnect();
       resizeObserver.disconnect();
       viewport?.removeEventListener("scroll", handleViewportScroll);
+      viewportShell.removeEventListener("wheel", handleWheel);
 
       cancelScheduledFrame(fitFrameRef.current);
       cancelScheduledFrame(scrollSyncFrameRef.current);
