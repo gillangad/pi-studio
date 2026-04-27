@@ -457,9 +457,29 @@ export function Sidebar({
                           onCreateThread(project.id);
                         }}
                         aria-label={`Create thread in ${project.name}`}
+                        title={`Create thread in ${project.name}`}
                       >
                         <NotebookPen size={14} />
                       </Button>
+                      {threads.length === 0 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-destructive"
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onRemoveProject(project.id);
+                          }}
+                          aria-label={`Remove empty project ${project.name}`}
+                          title={`Remove empty project ${project.name}`}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
 

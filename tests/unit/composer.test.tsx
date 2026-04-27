@@ -36,6 +36,35 @@ describe("Composer", () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
+  it("submits from the send button through the shared composer path", () => {
+    const onSubmit = vi.fn();
+
+    render(
+      <Composer
+        busy={false}
+        value="hello"
+        onValueChange={() => {}}
+        onSubmit={onSubmit}
+        onAbort={() => undefined}
+        models={[]}
+        currentModel={null}
+        thinkingLevel="medium"
+        availableThinkingLevels={["off", "medium", "high"]}
+        attachments={[]}
+        slashCommands={[]}
+        onSetModel={() => {}}
+        onSetThinkingLevel={() => {}}
+        onPickAttachments={() => {}}
+        onRemoveAttachment={() => {}}
+        onClearAttachments={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it("shows Send immediately after clicking Stop", () => {
     const onAbort = vi.fn();
 

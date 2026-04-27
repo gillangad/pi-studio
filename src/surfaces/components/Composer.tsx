@@ -87,6 +87,7 @@ export function Composer({
   const modelSummaryLabel = currentModel
     ? `${currentModel.provider} ${currentModel.name} ${selectedThinkingLevel}`
     : `No model ${selectedThinkingLevel}`;
+  const trimmedValue = value.trim();
   const slashQuery = value.trimStart();
   const slashToken = slashQuery.match(/^\/\S*/)?.[0].toLowerCase() ?? "";
   const slashSuggestions = useMemo(() => {
@@ -102,6 +103,11 @@ export function Composer({
   const applySlashSuggestion = (command: string) => {
     const trailing = slashQuery.slice(slashToken.length);
     onValueChange(`${command}${trailing}`);
+  };
+
+  const submitComposer = () => {
+    if (!trimmedValue) return;
+    onSubmit();
   };
 
   return (
@@ -123,7 +129,13 @@ export function Composer({
         </div>
       ) : null}
 
-      <div className="workspace-panel relative rounded-[24px] border border-border/70 bg-card/95 shadow-sm">
+      <form
+        className="workspace-panel relative rounded-[24px] border border-border/70 bg-card/95 shadow-sm"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submitComposer();
+        }}
+      >
         <Textarea
           value={value}
           className="min-h-[104px] resize-y rounded-[24px] border-transparent bg-transparent pb-16 pr-24 pt-3.5 text-[15px] shadow-none focus-visible:ring-0"
@@ -152,18 +164,15 @@ export function Composer({
                 applySlashSuggestion(selectedCommand);
                 return;
               }
-
             }
 
-            if (slashSuggestions.length > 0 && !event.shiftKey) {
-              event.preventDefault();
-              onSubmit();
+            if (event.nativeEvent.isComposing) {
               return;
             }
 
             if (event.metaKey || event.ctrlKey || !event.shiftKey) {
               event.preventDefault();
-              onSubmit();
+              submitComposer();
             }
           }}
         />
@@ -328,8 +337,8 @@ export function Composer({
                 type="button"
                 size="icon"
                 className="h-10 w-10 rounded-full bg-white text-black hover:bg-white/90"
-                disabled={!value.trim()}
-                onClick={onSubmit}
+                disabled={!trimmedValue}
+                onClick={submitComposer}
                 aria-label="Send"
               >
                 <Send size={15} />
@@ -337,8 +346,7 @@ export function Composer({
             )}
           </div>
         </div>
-
-      </div>
+      </form>
     </div>
   );
 }

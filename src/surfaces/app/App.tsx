@@ -401,7 +401,17 @@ export function App() {
           onSelectProject={(projectId) => void actions.selectProject(projectId)}
           onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
           onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
-          onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+          onRemoveProject={(projectId) => {
+            const project = snapshot.projects.find((entry) => entry.id === projectId);
+            const projectName = project?.name ?? "this project";
+            const confirmed = window.confirm(
+              `Remove "${projectName}" from Pi Studio? This only removes it from the sidebar.`,
+            );
+            if (!confirmed) return;
+
+            setPendingGuiThreadKey(null);
+            void actions.removeProject(projectId);
+          }}
           onSearchSessions={actions.searchSessions}
           onCreateThread={(projectId) => {
             setPendingGuiThreadKey(null);

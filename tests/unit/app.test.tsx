@@ -42,6 +42,7 @@ const snapshot: StudioSnapshot = {
   projects: [
     { id: "p1", name: "demo", path: "/tmp/demo", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
     { id: "p2", name: "alpha", path: "/tmp/alpha", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
+    { id: "p3", name: "empty", path: "/tmp/empty", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
   ],
   threadsByProject: {
     p1: [
@@ -87,6 +88,7 @@ const snapshot: StudioSnapshot = {
         running: false,
       },
     ],
+    p3: [],
   },
   activeProjectId: "p1",
   activeMode: "gui",
@@ -394,6 +396,26 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create thread in alpha" }));
 
     expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
+  });
+
+  it("removes an empty project from the sidebar actions", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Remove empty project empty" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove empty project empty" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Remove "empty" from Pi Studio? This only removes it from the sidebar.');
+    expect(bridge.removeProject).toHaveBeenCalledWith("p3");
   });
 
   it("deletes a thread from the sidebar hover action", async () => {
