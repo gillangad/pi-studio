@@ -49,7 +49,7 @@ import {
 } from "./message-mapper";
 import { resolveLaunchProjectPathCandidate } from "./launch-path";
 import { TuiTerminal } from "./tui-terminal";
-import { resolveTuiLaunchTarget } from "./tui-target";
+import { resolveSeamlessTuiLaunchTarget } from "./tui-target";
 import {
   ensureWorkspaceSelection,
   type ThreadMetadata,
@@ -1332,10 +1332,14 @@ export class StudioHost {
 
   async startTui(sessionId = "default") {
     const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
-    const launchTarget = resolveTuiLaunchTarget(activeRuntime, this.getActiveProject());
-    if (!launchTarget) return this.getSnapshot();
-
     const runtime = this.ensureTuiSession(sessionId);
+    const launchTarget = resolveSeamlessTuiLaunchTarget(activeRuntime, this.getActiveProject(), {
+      active: runtime.terminal.active,
+      projectId: runtime.projectId,
+      cwd: runtime.cwd,
+      sessionFile: runtime.sessionFile,
+    });
+    if (!launchTarget) return this.getSnapshot();
 
     if (
       runtime.terminal.active &&

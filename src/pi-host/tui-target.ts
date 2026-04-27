@@ -4,6 +4,13 @@ type TuiTargetSession = {
   sessionFile: string | null;
 };
 
+type RunningTuiSession = {
+  active: boolean;
+  projectId: string | null;
+  cwd: string | null;
+  sessionFile: string | null;
+};
+
 type TuiTargetProject = {
   id: string;
   path: string;
@@ -36,4 +43,20 @@ export function resolveTuiLaunchTarget(
   }
 
   return null;
+}
+
+export function resolveSeamlessTuiLaunchTarget(
+  activeSession: TuiTargetSession | null,
+  activeProject: TuiTargetProject | null,
+  runningSession: RunningTuiSession | null,
+): TuiLaunchTarget | null {
+  if (runningSession?.active && runningSession.projectId && runningSession.cwd) {
+    return {
+      projectId: runningSession.projectId,
+      cwd: runningSession.cwd,
+      sessionFile: runningSession.sessionFile ?? null,
+    };
+  }
+
+  return resolveTuiLaunchTarget(activeSession, activeProject);
 }
