@@ -19,14 +19,14 @@ function makeThread(sessionFile: string, updatedAtMs: number): ThreadSummary {
 }
 
 describe("shouldUsePiStudioBuiltins", () => {
-  it("keeps builtins off normal newly created project threads", () => {
+  it("enables builtins for newly created project threads", () => {
     const result = shouldUsePiStudioBuiltins({
       options: { kind: "new" },
       threadsForProject: [],
       metadataBySessionFile: {},
     });
 
-    expect(result).toBe(false);
+    expect(result).toBe(true);
   });
 
   it("enables builtins for opened sessions tagged by Pi Studio", () => {

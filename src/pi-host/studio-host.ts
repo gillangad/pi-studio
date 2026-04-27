@@ -87,6 +87,7 @@ type GuiSessionRuntime = {
   attachments: AttachmentSummary[];
   slashCommands: SlashCommandSummary[];
   resourceLoader: any;
+  usePiStudioBuiltins: boolean;
 };
 
 type SessionTreeEntryLike = {
@@ -1684,6 +1685,20 @@ export class StudioHost {
     this.workspaceState.threadMetadataByProject[projectId][sessionFile] = metadata;
   }
 
+  private async ensureBuiltinThreadMetadata(projectId: string, sessionFile: string | null, usePiStudioBuiltins: boolean) {
+    if (!usePiStudioBuiltins || !sessionFile) return;
+
+    const metadata = this.getThreadMetadata(projectId, sessionFile);
+    if (metadata.piStudioBuiltins) return;
+
+    this.setThreadMetadata(projectId, sessionFile, {
+      ...metadata,
+      piStudioBuiltins: true,
+    });
+
+    await this.persistWorkspace();
+  }
+
   private getResourceLoaderProfile(usePiStudioBuiltins: boolean): ResourceLoaderProfile {
     return usePiStudioBuiltins ? "studioBuiltins" : "default";
   }
@@ -1774,6 +1789,7 @@ export class StudioHost {
       attachments: [],
       slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
       resourceLoader,
+      usePiStudioBuiltins: true,
     };
 
     this.guiSessions[MASTER_SESSION_ID] = runtime;
@@ -1892,9 +1908,12 @@ export class StudioHost {
       attachments: [],
       slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
       resourceLoader,
+      usePiStudioBuiltins,
     };
 
     this.guiSessions[sessionId] = runtime;
+
+    await this.ensureBuiltinThreadMetadata(project.id, runtime.sessionFile, usePiStudioBuiltins);
 
     if (sessionId === "default") {
       this.activeGuiSessionId = "default";
@@ -1976,6 +1995,12 @@ export class StudioHost {
     runtime.sessionTitle = normalizeThreadTitle(
       runtime.session.sessionName ?? (runtime.projectId ? this.threadCache[runtime.projectId]?.[0]?.title : runtime.sessionTitle),
     );
+
+    if (runtime.usePiStudioBuiltins && runtime.sessionFile) {
+      void this.ensureBuiltinThreadMetadata(runtime.projectId, runtime.sessionFile, true).catch(() => {
+        // Metadata persistence should not block session updates.
+      });
+    }
 
     if (runtime.session.model) {
       runtime.model = this.modelToSummary(runtime.session.model);
