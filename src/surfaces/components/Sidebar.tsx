@@ -26,8 +26,6 @@ type SidebarProps = {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onToggleTheme: () => void;
-  masterSessionVisible: boolean;
-  onToggleMasterSession: () => void;
   onSetMode: (mode: StudioMode) => void;
   onAddProject: () => void;
   onSelectProject: (projectId: string) => void;
@@ -51,8 +49,6 @@ export function Sidebar({
   collapsed,
   onToggleCollapsed,
   onToggleTheme,
-  masterSessionVisible,
-  onToggleMasterSession,
   onSetMode,
   onAddProject,
   onSelectProject,
@@ -548,19 +544,6 @@ export function Sidebar({
             >
               <span>{theme === "dark" ? "Light mode" : "Dark mode"}</span>
               {theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
-            </button>
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={masterSessionVisible}
-              className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/20"
-              onClick={() => {
-                onToggleMasterSession();
-                setSettingsMenuOpen(false);
-              }}
-            >
-              <span>Master session bar</span>
-              <span className="text-xs text-muted-foreground">{masterSessionVisible ? "On" : "Off"}</span>
             </button>
           </div>
         ) : null}

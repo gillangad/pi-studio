@@ -1,4 +1,4 @@
-import { FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { Bot, FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
@@ -65,7 +65,7 @@ function readInitialSidebarWidth() {
 }
 
 function readInitialMasterSessionVisible() {
-  return window.localStorage.getItem("pi-studio-master-session-visible") === "true";
+  return window.localStorage.getItem("pi-studio-master-session-open") === "true";
 }
 
 function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
@@ -121,7 +121,7 @@ export function App() {
   }, [sidebarWidth]);
 
   useEffect(() => {
-    window.localStorage.setItem("pi-studio-master-session-visible", String(masterSessionVisible));
+    window.localStorage.setItem("pi-studio-master-session-open", String(masterSessionVisible));
   }, [masterSessionVisible]);
 
   useEffect(() => {
@@ -325,8 +325,6 @@ export function App() {
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
           onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-          masterSessionVisible={masterSessionVisible}
-          onToggleMasterSession={() => setMasterSessionVisible((current) => !current)}
           onSetMode={(mode) => void actions.setMode(mode)}
           onAddProject={() => void actions.addProject()}
           onSelectProject={(projectId) => void actions.selectProject(projectId)}
@@ -381,18 +379,6 @@ export function App() {
               className="flex min-h-0 min-w-0 flex-1 flex-col pt-2"
               aria-label="GUI workspace"
             >
-              {masterSessionVisible ? (
-                <MasterSessionBar
-                  master={snapshot.master}
-                  onSendPrompt={actions.sendPrompt}
-                  onAbort={actions.abortPrompt}
-                  onPickAttachments={actions.pickAttachments}
-                  onOpenTarget={(projectId, sessionPath) => {
-                    openGuiThread(projectId, sessionPath);
-                  }}
-                />
-              ) : null}
-
               <header className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -411,6 +397,16 @@ export function App() {
                 </div>
 
                 <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={masterSessionVisible ? "secondary" : "ghost"}
+                    onClick={() => setMasterSessionVisible((current) => !current)}
+                    aria-label="Toggle master session"
+                    title="Master session"
+                  >
+                    <Bot size={16} />
+                  </Button>
                   <Button
                     type="button"
                     size="icon"
@@ -447,16 +443,30 @@ export function App() {
                 </div>
               </header>
 
-              <div
-                className={cn(
-                  "grid min-h-0 flex-1 px-3 pb-3",
-                  selectedUtilityPanel === "terminal"
-                    ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
-                    : selectedUtilityPanel
-                      ? "grid-cols-[minmax(0,1fr)_420px]"
-                      : "grid-cols-1",
-                )}
-              >
+              <div className="relative min-h-0 flex-1">
+                {masterSessionVisible ? (
+                  <MasterSessionBar
+                    master={snapshot.master}
+                    onClose={() => setMasterSessionVisible(false)}
+                    onSendPrompt={actions.sendPrompt}
+                    onAbort={actions.abortPrompt}
+                    onPickAttachments={actions.pickAttachments}
+                    onOpenTarget={(projectId, sessionPath) => {
+                      openGuiThread(projectId, sessionPath);
+                    }}
+                  />
+                ) : null}
+
+                <div
+                  className={cn(
+                    "grid h-full min-h-0 px-3 pb-3",
+                    selectedUtilityPanel === "terminal"
+                      ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
+                      : selectedUtilityPanel
+                        ? "grid-cols-[minmax(0,1fr)_420px]"
+                        : "grid-cols-1",
+                  )}
+                >
                 <div className="min-h-0 min-w-0">
                   {selectedGuiState ? (
                     <ChatView
@@ -530,6 +540,7 @@ export function App() {
                     onRemoveComment={actions.removeGitComment}
                   />
                 ) : null}
+                </div>
               </div>
             </section>
           ) : null}

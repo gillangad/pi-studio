@@ -51,6 +51,7 @@ describe("MasterSessionBar", () => {
     render(
       <MasterSessionBar
         master={masterState}
+        onClose={vi.fn()}
         onSendPrompt={vi.fn()}
         onAbort={vi.fn()}
         onPickAttachments={vi.fn()}
@@ -58,7 +59,7 @@ describe("MasterSessionBar", () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText("Ask Master Pi to steer the workspace");
+    const input = screen.getByPlaceholderText("Ask Master Pi");
     fireEvent.change(input, { target: { value: "/" } });
 
     expect(screen.getByRole("listbox", { name: "Master slash commands" })).toBeInTheDocument();

@@ -308,6 +308,7 @@ describe("App", () => {
       expect(screen.queryByText("Master")).not.toBeInTheDocument();
       expect(screen.queryByText("I can steer the other sessions from here.")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle master session" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
@@ -320,19 +321,13 @@ describe("App", () => {
   });
 
   it("shows the master bar only when the settings toggle is enabled", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
     render(<App />);
 
     await waitFor(() => {
       expect(screen.queryByText("Master")).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
-    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Master session bar/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle master session" }));
 
     await waitFor(() => {
       expect(screen.getByText("Master")).toBeInTheDocument();
@@ -484,7 +479,6 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
 
     expect(screen.getByRole("menuitem", { name: /dark mode|light mode/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitemcheckbox", { name: /Master session bar/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Extensions/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Skills/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /App settings/i })).not.toBeInTheDocument();
