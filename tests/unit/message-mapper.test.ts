@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapAgentMessages } from "../../src/pi-host/message-mapper";
+import { mapAgentMessages, mapResourceSummary } from "../../src/pi-host/message-mapper";
 
 describe("mapAgentMessages", () => {
   it("maps assistant messages with thinking blocks", () => {
@@ -60,5 +60,43 @@ describe("mapAgentMessages", () => {
       toolName: "read",
       content: ["done"],
     });
+  });
+
+  it("classifies bundled and user-installed resources for settings", () => {
+    const summary = mapResourceSummary({
+      extensions: [
+        { name: "pi-control-session", path: "/home/test/.pi-studio/builtins/extensions/pi-control-session" },
+        { name: "user-helper", path: "/home/test/.pi/agent/extensions/user-helper" },
+      ],
+      skills: [
+        { name: "pi-control-session-master", path: "/home/test/.pi-studio/builtins/skills/pi-control-session-master/SKILL.md" },
+        { name: "custom-writer", path: "/home/test/.pi/agent/skills/custom-writer/SKILL.md" },
+      ],
+    });
+
+    expect(summary.extensionEntries).toEqual([
+      {
+        name: "pi-control-session",
+        path: "/home/test/.pi-studio/builtins/extensions/pi-control-session",
+        origin: "bundled",
+      },
+      {
+        name: "user-helper",
+        path: "/home/test/.pi/agent/extensions/user-helper",
+        origin: "userInstalled",
+      },
+    ]);
+    expect(summary.skillEntries).toEqual([
+      {
+        name: "pi-control-session-master",
+        path: "/home/test/.pi-studio/builtins/skills/pi-control-session-master/SKILL.md",
+        origin: "bundled",
+      },
+      {
+        name: "custom-writer",
+        path: "/home/test/.pi/agent/skills/custom-writer/SKILL.md",
+        origin: "userInstalled",
+      },
+    ]);
   });
 });

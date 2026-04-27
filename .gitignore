@@ -26,3 +26,4 @@ docs/
 # Ignore markdown files except the repo README
 *.md
 !README.md
+!src/builtins/skills/**/*.md
