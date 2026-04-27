@@ -104,7 +104,9 @@ const snapshot: StudioSnapshot = {
       prompts: 0,
       themes: 0,
       agentsFiles: 0,
+      extensionEntries: [],
       extensionNames: [],
+      skillEntries: [],
       skillNames: [],
       promptNames: [],
       themeNames: [],
@@ -139,12 +141,14 @@ const snapshot: StudioSnapshot = {
     ],
     resources: {
       extensions: 1,
-      skills: 0,
+      skills: 1,
       prompts: 0,
       themes: 0,
       agentsFiles: 0,
+      extensionEntries: [{ name: "pi-control-session", path: null, origin: "bundled" }],
       extensionNames: ["pi-control-session"],
-      skillNames: [],
+      skillEntries: [{ name: "pi-control-session-master", path: null, origin: "bundled" }],
+      skillNames: ["pi-control-session-master"],
       promptNames: [],
       themeNames: [],
       agentsFilePaths: [],
@@ -314,6 +318,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
@@ -445,6 +450,59 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByLabelText("Agent browser surface")).toBeInTheDocument();
+    });
+  });
+
+  it("opens the artifacts side panel and shows the latest artifact revision", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
+      ...snapshot,
+      gui: {
+        ...snapshot.gui,
+        messages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: [
+              [
+                "Built a report.",
+                "",
+                "```pi-artifact",
+                JSON.stringify(
+                  {
+                    id: "report",
+                    title: "Quarterly Report",
+                    summary: "Latest revision",
+                    kind: "react-tsx",
+                    tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
+                  },
+                  null,
+                  2,
+                ),
+                "```",
+              ].join("\n"),
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open artifact Quarterly Report" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open artifact Quarterly Report" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
+      expect(screen.getAllByText("Latest revision").length).toBeGreaterThan(0);
     });
   });
 

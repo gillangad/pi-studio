@@ -1,11 +1,15 @@
+import { Boxes, Code2 } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { UiMessage } from "../../shared/types";
+import type { SessionArtifact } from "../lib/artifacts";
 import { cn } from "../lib/utils";
 
 type MessageCardProps = {
   message: UiMessage;
+  artifactById?: Record<string, SessionArtifact>;
+  onOpenArtifact?: (artifactId: string) => void;
 };
 
 function renderMarkdown(content: string[], className: string) {
@@ -18,7 +22,61 @@ function renderMarkdown(content: string[], className: string) {
   );
 }
 
-export function MessageCard({ message }: MessageCardProps) {
+function ArtifactInlineCards({
+  message,
+  artifactById,
+  onOpenArtifact,
+}: Pick<MessageCardProps, "message" | "artifactById" | "onOpenArtifact">) {
+  if (!message.artifactRefs?.length || !artifactById || !onOpenArtifact) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      {message.artifactRefs.map((reference) => {
+        const artifact = artifactById[reference.artifactId];
+        if (!artifact) {
+          return null;
+        }
+
+        const updatedLater = artifact.updatedInMessageId !== message.id;
+
+        return (
+          <button
+            key={`${message.id}-${reference.artifactId}`}
+            type="button"
+            className="w-full rounded-2xl border border-border/70 bg-card/70 px-4 py-3 text-left transition-colors hover:bg-accent/20"
+            onClick={() => onOpenArtifact(reference.artifactId)}
+            aria-label={`Open artifact ${artifact.title}`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Boxes size={15} className="text-foreground" />
+                  <span className="truncate text-sm font-semibold text-foreground">{artifact.title}</span>
+                </div>
+                {artifact.summary ? (
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{artifact.summary}</p>
+                ) : null}
+              </div>
+              <div className="shrink-0 text-[11px] text-muted-foreground">v{artifact.revisionCount}</div>
+            </div>
+
+            <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <Code2 size={12} />
+                {artifact.kind === "react-tsx" ? "React + TSX" : "HTML"}
+              </span>
+              <span>{updatedLater ? "Opens latest update" : "Latest"}</span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCardProps) {
   if (message.role === "user") {
     return (
       <article className="ml-auto w-fit max-w-[680px] rounded-[18px] bg-muted/72 px-4 py-3">
@@ -49,6 +107,7 @@ export function MessageCard({ message }: MessageCardProps) {
         ) : null}
 
         {renderMarkdown(message.content, "text-foreground")}
+        <ArtifactInlineCards message={message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
       </article>
     );
   }
@@ -97,6 +156,9 @@ export function MessageCard({ message }: MessageCardProps) {
         {message.customType ?? message.role}
       </div>
       {renderMarkdown(message.content, "text-foreground")}
+      <div className="mt-3">
+        <ArtifactInlineCards message={message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
+      </div>
     </article>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RunSlashCommandResult } from "../../shared/ipc";
 import type { GuiState, SessionTreeSnapshot, UiMessage } from "../../shared/types";
+import type { SessionArtifact } from "../lib/artifacts";
 import { cn } from "../lib/utils";
 import { Composer } from "./Composer";
 import { MessageCard } from "./MessageCard";
@@ -25,6 +26,8 @@ type ChatViewProps = {
     sessionId?: string,
   ) => Promise<{ cancelled: boolean; aborted?: boolean; editorText?: string }>;
   onRunSlashCommand: (text: string, sessionId?: string) => Promise<RunSlashCommandResult>;
+  artifactById?: Record<string, SessionArtifact>;
+  onOpenArtifact?: (artifactId: string) => void;
 };
 
 export function ChatView({
@@ -40,6 +43,8 @@ export function ChatView({
   onGetSessionTree,
   onNavigateTree,
   onRunSlashCommand,
+  artifactById,
+  onOpenArtifact,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [composerValue, setComposerValue] = useState("");
@@ -196,7 +201,9 @@ export function ChatView({
           {timelineItems.length > 0 ? (
             timelineItems.map((item) => (
               <div key={item.id} className="mx-auto flex w-full min-w-0">
-                {item.kind === "message" ? <MessageCard message={item.message} /> : null}
+                {item.kind === "message" ? (
+                  <MessageCard message={item.message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
+                ) : null}
                 {item.kind === "tool-group" ? <ToolCallsCard messages={item.messages} /> : null}
                 {item.kind === "work-trace" ? <WorkTraceCard messages={item.messages} endTimestamp={item.endTimestamp} /> : null}
               </div>

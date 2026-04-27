@@ -10,6 +10,13 @@ export type UiMessageRole =
   | "compactionSummary"
   | "system";
 
+export type UiArtifactReference = {
+  artifactId: string;
+  title: string;
+  summary?: string;
+  kind?: string;
+};
+
 export type UiMessage = {
   id: string;
   role: UiMessageRole;
@@ -26,6 +33,7 @@ export type UiMessage = {
   thinkingContent?: string[];
   thinkingHeaders?: string[];
   thinkingRedacted?: boolean;
+  artifactRefs?: UiArtifactReference[];
 };
 
 export type ProjectRecord = {
@@ -140,11 +148,21 @@ export type ResourceSummary = {
   prompts: number;
   themes: number;
   agentsFiles: number;
+  extensionEntries: ResourceEntrySummary[];
   extensionNames: string[];
+  skillEntries: ResourceEntrySummary[];
   skillNames: string[];
   promptNames: string[];
   themeNames: string[];
   agentsFilePaths: string[];
+};
+
+export type ResourceOrigin = "bundled" | "userInstalled";
+
+export type ResourceEntrySummary = {
+  name: string;
+  path: string | null;
+  origin: ResourceOrigin;
 };
 
 export type GuiSessionState = {

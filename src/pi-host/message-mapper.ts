@@ -1,4 +1,4 @@
-import type { ResourceSummary, UiMessage } from "../shared/types";
+import type { ResourceEntrySummary, ResourceOrigin, ResourceSummary, UiMessage } from "../shared/types";
 
 type RuntimeMessage = {
   role?: string;
@@ -206,6 +206,40 @@ function listNames(values: unknown[], fallbackPrefix: string) {
     .filter((value): value is string => Boolean(value));
 }
 
+function resourcePath(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+
+  const candidate = (value as { path?: unknown; filePath?: unknown; resolvedPath?: unknown }).path
+    ?? (value as { filePath?: unknown; resolvedPath?: unknown }).filePath
+    ?? (value as { resolvedPath?: unknown }).resolvedPath;
+
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim() : null;
+}
+
+function resourceOrigin(value: unknown): ResourceOrigin {
+  const candidatePath = resourcePath(value);
+  if (!candidatePath) return "userInstalled";
+
+  const normalized = candidatePath.replace(/\\/g, "/").toLowerCase();
+  if (
+    normalized.includes("/src/builtins/")
+    || normalized.includes("/.pi-studio/builtins/")
+    || normalized.includes("/out/main/builtins/")
+  ) {
+    return "bundled";
+  }
+
+  return "userInstalled";
+}
+
+function resourceEntries(values: unknown[], fallbackPrefix: string): ResourceEntrySummary[] {
+  return listNames(values, fallbackPrefix).map((name, index) => ({
+    name,
+    path: resourcePath(values[index]) ?? null,
+    origin: resourceOrigin(values[index]),
+  }));
+}
+
 export function emptyResourceSummary(): ResourceSummary {
   return {
     extensions: 0,
@@ -213,7 +247,9 @@ export function emptyResourceSummary(): ResourceSummary {
     prompts: 0,
     themes: 0,
     agentsFiles: 0,
+    extensionEntries: [],
     extensionNames: [],
+    skillEntries: [],
     skillNames: [],
     promptNames: [],
     themeNames: [],
@@ -234,7 +270,9 @@ export function mapResourceSummary(resources: any): ResourceSummary {
     prompts: prompts.length,
     themes: themes.length,
     agentsFiles: agentsFiles.length,
+    extensionEntries: resourceEntries(extensions, "extension"),
     extensionNames: listNames(extensions, "extension"),
+    skillEntries: resourceEntries(skills, "skill"),
     skillNames: listNames(skills, "skill"),
     promptNames: listNames(prompts, "prompt"),
     themeNames: listNames(themes, "theme"),
