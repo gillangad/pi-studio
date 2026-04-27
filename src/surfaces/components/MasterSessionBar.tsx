@@ -59,6 +59,17 @@ export function MasterSessionBar({
     setValue("");
   };
 
+  const latestTargetsSummary = useMemo(() => {
+    const visible = master.targets.slice(0, 4);
+    if (visible.length === 0) {
+      return "No linked sessions yet.";
+    }
+
+    return visible
+      .map((target) => `${target.name} (${target.status})`)
+      .join(" • ");
+  }, [master.targets]);
+
   return (
     <section className="workspace-panel absolute right-3 top-0 z-30 flex w-[min(420px,calc(100vw-7rem))] flex-col gap-3 rounded-2xl border border-border/70 bg-card/96 p-3 shadow-glass backdrop-blur">
       <div className="flex items-center justify-between gap-3">
@@ -92,49 +103,23 @@ export function MasterSessionBar({
         </div>
       </div>
 
-      <div className="flex max-h-52 flex-col gap-2 overflow-y-auto">
-        {master.targets.slice(0, 5).map((target) => (
-          <button
-            key={target.targetId}
-            type="button"
-            className="rounded-xl border border-border/55 bg-background/50 px-3 py-2 text-left transition-colors hover:bg-accent/10"
-            onClick={() => {
-              if (target.projectId) {
-                onOpenTarget(target.projectId, target.sessionPath);
-              }
-            }}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium text-foreground">{target.name}</span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-2 py-0.5 text-[11px]",
-                  target.status === "running"
-                    ? "bg-emerald-500/12 text-emerald-500"
-                    : target.status === "error" || target.status === "timeout"
-                      ? "bg-destructive/12 text-destructive"
-                      : "bg-muted text-muted-foreground",
-                )}
-              >
-                {target.status}
-              </span>
-            </div>
-            <div className="mt-1 truncate text-[12px] text-muted-foreground">
-              {target.projectName} • {target.lastActivityLabel}
-            </div>
-            {target.latestResponse || target.latestPrompt ? (
-              <p className="mt-1 line-clamp-2 text-[12px] text-muted-foreground">
-                {target.latestResponse ?? target.latestPrompt}
-              </p>
-            ) : null}
-          </button>
-        ))}
+      <div className="text-[12px] text-muted-foreground">
+        <span className="line-clamp-2">{latestTargetsSummary}</span>
       </div>
 
       {latestAssistantText ? (
-        <div className="rounded-xl border border-border/50 bg-background/45 px-3 py-2 text-[13px] text-muted-foreground">
+        <button
+          type="button"
+          className="rounded-xl px-1 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:bg-accent/10"
+          onClick={() => {
+            const target = master.targets[0];
+            if (target?.projectId) {
+              onOpenTarget(target.projectId, target.sessionPath);
+            }
+          }}
+        >
           <span className="line-clamp-3">{latestAssistantText}</span>
-        </div>
+        </button>
       ) : null}
 
       {master.attachments.length > 0 ? (
