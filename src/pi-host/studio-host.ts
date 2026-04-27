@@ -633,8 +633,12 @@ export class StudioHost {
     await this.persistWorkspace();
     await this.refreshProjectThreads(project);
     await this.openSessionForProject(project, { kind: "continue" });
-    await this.refreshGitState();
-    await this.warmTuiForActiveWorkspace();
+    void this.refreshGitState().catch(() => {
+      // Keep project add responsive even if git probing fails.
+    });
+    void this.warmTuiForActiveWorkspace().catch(() => {
+      // Keep project add responsive even if the hosted TUI warmup fails.
+    });
     return this.getSnapshot();
   }
 
@@ -646,8 +650,12 @@ export class StudioHost {
     await this.persistWorkspace();
     await this.refreshProjectThreads(project);
     await this.openSessionForProject(project, { kind: "continue" });
-    await this.refreshGitState();
-    await this.warmTuiForActiveWorkspace();
+    void this.refreshGitState().catch(() => {
+      // Keep project switching responsive even if git probing fails.
+    });
+    void this.warmTuiForActiveWorkspace().catch(() => {
+      // Keep project switching responsive even if the hosted TUI warmup fails.
+    });
 
     if (this.workspaceState.activeMode === "tui") {
       const runningSessionIds = Object.entries(this.tuiSessions)
@@ -655,10 +663,10 @@ export class StudioHost {
         .map(([sessionId]) => sessionId);
 
       if (runningSessionIds.length === 0) {
-        await this.startTui("default");
+        void this.startTui("default");
       } else {
         for (const sessionId of runningSessionIds) {
-          await this.startTui(sessionId);
+          void this.startTui(sessionId);
         }
       }
     }
@@ -792,7 +800,9 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "new" }, sessionId);
-    await this.warmTuiForActiveWorkspace();
+    void this.warmTuiForActiveWorkspace().catch(() => {
+      // Keep thread creation responsive even if the hosted TUI warmup fails.
+    });
     return this.getSnapshot();
   }
 
@@ -822,7 +832,9 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "open", sessionFile }, sessionId);
-    await this.warmTuiForActiveWorkspace();
+    void this.warmTuiForActiveWorkspace().catch(() => {
+      // Keep thread switching responsive even if the hosted TUI warmup fails.
+    });
     return this.getSnapshot();
   }
 

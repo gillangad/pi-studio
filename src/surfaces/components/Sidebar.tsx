@@ -309,11 +309,11 @@ export function Sidebar({
                 {pinnedThreads.map(({ project, thread }) => (
                   <div
                     key={`${project.id}-${thread.id}`}
-                    className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-lg px-1 py-0.5 hover:bg-accent/20"
+                    className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-lg px-1 py-0.5 transition-colors hover:bg-white/8"
                   >
                     <button
                       type="button"
-                      className="min-w-0 truncate rounded-lg px-2 py-1 text-left"
+                      className="min-w-0 truncate rounded-lg px-2 py-1 text-left transition-colors group-hover:text-foreground"
                       aria-label={`Pinned thread ${thread.title} in ${project.name}`}
                       onClick={() => {
                         setSettingsMenuOpen(false);
@@ -373,13 +373,18 @@ export function Sidebar({
                   onDrop={() => reorder(project.id)}
                   onDragEnd={() => setDraggingProjectId(null)}
                 >
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-0.5">
+                  <div
+                    className={cn(
+                      "group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-1 transition-colors",
+                      isActiveProject ? "bg-white/10" : "hover:bg-white/7",
+                    )}
+                  >
                     <div className="flex min-w-0 items-center gap-2">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5 shrink-0 text-muted-foreground"
+                        className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
                         onClick={() => {
                           setCollapsedProjectIds((current) => ({
                             ...current,
@@ -392,7 +397,13 @@ export function Sidebar({
                       >
                         {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                       </Button>
-                      <FolderOpen size={15} className={cn("shrink-0 text-muted-foreground", isActiveProject && "text-foreground")} />
+                      <FolderOpen
+                        size={15}
+                        className={cn(
+                          "shrink-0 text-muted-foreground transition-colors group-hover:text-foreground",
+                          isActiveProject && "text-foreground",
+                        )}
+                      />
 
                       {editingProjectId === project.id ? (
                         <input
@@ -427,7 +438,7 @@ export function Sidebar({
                           type="button"
                           className={cn(
                             "min-w-0 truncate rounded-md py-0.5 text-left text-[14px] leading-5 transition-colors",
-                            isActiveProject ? "font-medium text-foreground" : "text-foreground/92",
+                            isActiveProject ? "font-medium text-foreground" : "text-foreground/88 group-hover:text-foreground",
                           )}
                           aria-current={isActiveProject ? "page" : undefined}
                           onClick={() => {
@@ -448,7 +459,7 @@ export function Sidebar({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5 text-muted-foreground"
+                        className="h-5 w-5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
                         onPointerDown={(event) => {
                           event.stopPropagation();
                         }}
@@ -466,7 +477,7 @@ export function Sidebar({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-5 w-5 text-destructive"
+                          className="h-5 w-5 text-destructive transition-colors hover:bg-destructive/10"
                           onPointerDown={(event) => {
                             event.stopPropagation();
                           }}
@@ -489,14 +500,20 @@ export function Sidebar({
                         const isActiveThread = project.id === activeProjectId && thread.sessionFile === activeSessionFile;
 
                         return (
-                          <div key={thread.id} className="group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1">
+                          <div
+                            key={thread.id}
+                            className={cn(
+                              "group grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-lg transition-colors",
+                              isActiveThread ? "bg-white/9" : "hover:bg-white/7",
+                            )}
+                          >
                             <button
                               type="button"
                               className={cn(
                                 "min-w-0 truncate rounded-lg px-3 py-1 text-left text-[14px] leading-5 transition-colors",
                                 isActiveThread
-                                  ? "bg-white/8 text-foreground"
-                                  : "text-foreground/90 hover:bg-accent/20",
+                                  ? "text-foreground"
+                                  : "text-foreground/78 group-hover:text-foreground",
                               )}
                               aria-label={`Thread ${thread.title} in ${project.name}`}
                               aria-current={isActiveThread ? "page" : undefined}
@@ -507,12 +524,19 @@ export function Sidebar({
                             >
                               {thread.title}
                             </button>
-                            <span className="pr-1 text-[13px] leading-5 text-muted-foreground">{thread.ageLabel}</span>
+                            <span
+                              className={cn(
+                                "pr-1 text-[13px] leading-5 transition-colors",
+                                isActiveThread ? "text-foreground/72" : "text-muted-foreground group-hover:text-foreground/72",
+                              )}
+                            >
+                              {thread.ageLabel}
+                            </span>
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-destructive opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                              className="h-7 w-7 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100 focus-visible:opacity-100"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 onDeleteThread(project.id, thread.sessionFile, thread.title);

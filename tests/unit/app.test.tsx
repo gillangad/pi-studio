@@ -455,6 +455,18 @@ describe("App", () => {
     expect(bridge.openThread).toHaveBeenCalledWith("p2", "/tmp/alpha/session.jsonl", undefined);
   });
 
+  it("uses brighter hover treatments for project and thread rows in the sidebar", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "alpha" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Thread Thread two in demo" })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: "alpha" }).className).toContain("group-hover:text-foreground");
+    expect(screen.getByRole("button", { name: "Thread Thread two in demo" }).className).toContain("group-hover:text-foreground");
+  });
+
   it("searches session content and opens a matching result", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
     if (!bridge) {
