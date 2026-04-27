@@ -170,7 +170,7 @@ export function Composer({
 
         {slashSuggestions.length > 0 ? (
           <div
-            className="absolute left-4 right-4 top-[calc(100%-3.55rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-popover/98 shadow-glass"
+            className="absolute inset-x-4 bottom-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-lg"
             role="listbox"
             aria-label="Slash commands"
           >

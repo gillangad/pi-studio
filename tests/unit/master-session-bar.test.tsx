@@ -67,6 +67,8 @@ describe("MasterSessionBar", () => {
     expect(screen.getByRole("listbox", { name: "Master slash commands" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /\/tree/i })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /\/model/i })).toBeInTheDocument();
+    expect(screen.getByRole("listbox", { name: "Master slash commands" }).className).toContain("bottom-[calc(100%+0.5rem)]");
+    expect(screen.getByRole("listbox", { name: "Master slash commands" }).className).toContain("bg-popover");
 
     fireEvent.keyDown(input, { key: "Enter" });
 

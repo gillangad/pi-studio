@@ -193,6 +193,8 @@ describe("Composer", () => {
     expect(screen.getByRole("listbox", { name: "Slash commands" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /\/tree/i })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /\/model/i })).toBeInTheDocument();
+    expect(screen.getByRole("listbox", { name: "Slash commands" }).className).toContain("bottom-[calc(100%+0.5rem)]");
+    expect(screen.getByRole("listbox", { name: "Slash commands" }).className).toContain("bg-popover");
 
     fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
 
