@@ -1,7 +1,10 @@
 import { LoaderCircle, Plus, Send, Square, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { MasterState } from "../../shared/types";
+import type { MasterState, UiMessage } from "../../shared/types";
 import { cn } from "../lib/utils";
+import { MessageCard } from "./MessageCard";
+import { ToolCallsCard } from "./ToolCallsCard";
+import { WorkTraceCard } from "./WorkTraceCard";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 
@@ -59,16 +62,94 @@ export function MasterSessionBar({
     setValue("");
   };
 
-  const latestTargetsSummary = useMemo(() => {
-    const visible = master.targets.slice(0, 4);
-    if (visible.length === 0) {
-      return "No linked sessions yet.";
+  const timelineItems = useMemo(() => {
+    type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
+
+    const items: Array<
+      | { id: string; kind: "message"; message: UiMessage }
+      | { id: string; kind: "tool-group"; messages: ToolCallMessage[] }
+      | { id: string; kind: "work-trace"; messages: UiMessage[]; endTimestamp?: string | number }
+    > = [];
+
+    const pushRawSegment = (segment: UiMessage[]) => {
+      let toolBuffer: ToolCallMessage[] = [];
+
+      const flushToolBuffer = () => {
+        if (toolBuffer.length === 0) return;
+        items.push({
+          id: `tool-group-${toolBuffer[0]?.id ?? Math.random().toString(36).slice(2)}`,
+          kind: "tool-group",
+          messages: toolBuffer,
+        });
+        toolBuffer = [];
+      };
+
+      for (const message of segment) {
+        if (message.role === "toolResult" || message.role === "bashExecution") {
+          toolBuffer.push(message as ToolCallMessage);
+          continue;
+        }
+
+        flushToolBuffer();
+        items.push({ id: message.id, kind: "message", message });
+      }
+
+      flushToolBuffer();
+    };
+
+    let index = 0;
+    while (index < master.messages.length) {
+      const message = master.messages[index];
+      if (!message) break;
+
+      if (message.role === "user") {
+        items.push({ id: message.id, kind: "message", message });
+        index += 1;
+        continue;
+      }
+
+      const segmentStart = index;
+      while (index < master.messages.length && master.messages[index]?.role !== "user") {
+        index += 1;
+      }
+
+      const segment = master.messages.slice(segmentStart, index);
+      const isOpenStreamingSegment = master.isStreaming && index === master.messages.length;
+
+      if (isOpenStreamingSegment) {
+        pushRawSegment(segment);
+        continue;
+      }
+
+      const assistantIndexes = segment
+        .map((entry, entryIndex) => (entry.role === "assistant" ? entryIndex : -1))
+        .filter((entryIndex) => entryIndex >= 0);
+      const finalAssistantIndex = assistantIndexes.at(-1) ?? -1;
+
+      if (finalAssistantIndex > 0) {
+        const traceMessages = segment.slice(0, finalAssistantIndex);
+        const finalAssistant = segment[finalAssistantIndex];
+        const trailingMessages = segment.slice(finalAssistantIndex + 1);
+
+        if (traceMessages.length > 0) {
+          items.push({
+            id: `work-trace-${traceMessages[0]?.id ?? finalAssistant.id}`,
+            kind: "work-trace",
+            messages: traceMessages,
+            endTimestamp: finalAssistant.timestamp,
+          });
+        }
+
+        items.push({ id: finalAssistant.id, kind: "message", message: finalAssistant });
+        pushRawSegment(trailingMessages);
+        continue;
+      }
+
+      pushRawSegment(segment);
     }
 
-    return visible
-      .map((target) => `${target.name} (${target.status})`)
-      .join(" • ");
-  }, [master.targets]);
+    return items;
+  }, [master.isStreaming, master.messages]);
 
   return (
     <section className="workspace-panel absolute right-3 top-0 z-30 flex w-[min(420px,calc(100vw-7rem))] flex-col gap-3 rounded-2xl border border-border/70 bg-card/96 p-3 shadow-glass backdrop-blur">
@@ -77,7 +158,7 @@ export function MasterSessionBar({
           <div className="flex items-center gap-2">
             <h3 className="truncate text-[14px] font-semibold text-foreground">Master</h3>
             <span className="truncate text-[12px] text-muted-foreground">
-              {master.summary.totalTargets} sessions
+              {master.summary.totalTargets} linked
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -103,24 +184,40 @@ export function MasterSessionBar({
         </div>
       </div>
 
-      <div className="text-[12px] text-muted-foreground">
-        <span className="line-clamp-2">{latestTargetsSummary}</span>
-      </div>
-
-      {latestAssistantText ? (
-        <button
-          type="button"
-          className="rounded-xl px-1 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:bg-accent/10"
-          onClick={() => {
-            const target = master.targets[0];
-            if (target?.projectId) {
-              onOpenTarget(target.projectId, target.sessionPath);
-            }
-          }}
-        >
-          <span className="line-clamp-3">{latestAssistantText}</span>
-        </button>
+      {master.targets.length > 0 ? (
+        <div className="text-[12px] text-muted-foreground">
+          <span className="line-clamp-2">
+            {master.targets
+              .slice(0, 4)
+              .map((target) => `${target.name} (${target.status})`)
+              .join(" • ")}
+          </span>
+        </div>
       ) : null}
+
+      <div className="max-h-72 min-h-0 overflow-y-auto">
+        <div className="flex flex-col gap-2 pr-1">
+          {timelineItems.length > 0 ? (
+            timelineItems.map((item) => (
+              <div key={item.id} className="flex w-full min-w-0">
+                {item.kind === "message" ? <MessageCard message={item.message} /> : null}
+                {item.kind === "tool-group" ? (
+                  <ToolCallsCard messages={item.messages} initialExpanded={false} />
+                ) : null}
+                {item.kind === "work-trace" ? (
+                  <WorkTraceCard messages={item.messages} endTimestamp={item.endTimestamp} />
+                ) : null}
+              </div>
+            ))
+          ) : latestAssistantText ? (
+            <article className="w-full max-w-[760px] space-y-2 px-0.5 py-0.5 text-[14px] text-muted-foreground">
+              <span className="line-clamp-4">{latestAssistantText}</span>
+            </article>
+          ) : (
+            <div className="px-1 py-2 text-[13px] text-muted-foreground">No master messages yet.</div>
+          )}
+        </div>
+      </div>
 
       {master.attachments.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
