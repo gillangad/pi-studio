@@ -166,14 +166,6 @@
     pointer-events: none;
   }
 
-  .window-drag-region {
-    -webkit-app-region: drag;
-  }
-
-  .window-no-drag {
-    -webkit-app-region: no-drag;
-  }
-
   .chat-scroll-region {
     scrollbar-gutter: stable;
   }

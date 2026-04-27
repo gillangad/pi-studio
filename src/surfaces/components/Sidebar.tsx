@@ -196,8 +196,23 @@ export function Sidebar({
       )}
       aria-label="Workspace sidebar"
     >
+      <header className="flex items-center px-3 py-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={() => {
+            setSettingsMenuOpen(false);
+            onToggleCollapsed();
+          }}
+          className="h-7 w-7 text-muted-foreground"
+        >
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </Button>
+      </header>
+
       {collapsed ? (
-        <section className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-2 py-2">
+        <section className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-2 pb-2">
           <div className="grid w-full gap-2" aria-label="Projects">
             {projects.map((project) => {
               const isActive = project.id === activeProjectId;
@@ -220,7 +235,7 @@ export function Sidebar({
           </div>
         </section>
       ) : (
-        <section className="flex min-h-0 flex-1 flex-col px-3 py-2">
+        <section className="flex min-h-0 flex-1 flex-col px-3 pb-3">
           <div className="space-y-0 pb-2">
             <Button
               variant="ghost"
