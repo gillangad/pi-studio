@@ -29,6 +29,7 @@ describe("pi-artifacts extension", () => {
     expect(result.systemPrompt).toContain("Base prompt.");
     expect(result.systemPrompt).toContain("fenced code block");
     expect(result.systemPrompt).toContain("`pi-artifact`");
+    expect(result.systemPrompt).toContain("Do not satisfy an artifact request by only writing a standalone HTML");
     expect(result.systemPrompt).toContain("react-tsx");
     expect(result.systemPrompt).toContain("same id");
     expect(result.systemPrompt).toContain(PI_ARTIFACTS_PROMPT);

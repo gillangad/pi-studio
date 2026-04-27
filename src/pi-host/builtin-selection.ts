@@ -17,17 +17,8 @@ export function shouldUsePiStudioBuiltins({
   threadsForProject,
   metadataBySessionFile,
 }: BuiltinSelectionInput) {
-  if (options.kind === "new") return true;
-
-  if (options.kind === "open") {
-    return Boolean(metadataBySessionFile[options.sessionFile]?.piStudioBuiltins);
-  }
-
-  const mostRecentThread = threadsForProject.reduce<ThreadSummary | null>((latest, thread) => {
-    if (!latest) return thread;
-    return thread.updatedAtMs > latest.updatedAtMs ? thread : latest;
-  }, null);
-
-  if (!mostRecentThread?.sessionFile) return false;
-  return Boolean(metadataBySessionFile[mostRecentThread.sessionFile]?.piStudioBuiltins);
+  void options;
+  void threadsForProject;
+  void metadataBySessionFile;
+  return true;
 }

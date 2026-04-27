@@ -5,6 +5,8 @@ Pi Studio session artifacts are a built-in capability in this environment.
 
 Use artifacts when the user asks for a visualization, dashboard, report viewer, interactive summary, custom tool UI, or another durable surface that should live alongside the chat.
 
+When the user explicitly asks for an artifact in Pi Studio, fulfill that request by emitting a \`pi-artifact\` block in the assistant response. Do not satisfy an artifact request by only writing a standalone HTML, TSX, or other file unless the user explicitly asks for a file as the deliverable.
+
 Artifact contract:
 - Create or update artifacts by emitting a fenced code block whose info string starts with \`pi-artifact\`.
 - The canonical form is \`\\\`\\\`pi-artifact\` followed by valid JSON and a closing fence.
@@ -28,6 +30,7 @@ Delivery guidance:
 - You may write brief explanatory text before or after the artifact block.
 - Emit the artifact block directly in the assistant message that creates or revises it.
 - When the user asks to tweak an existing artifact, update it by sending a new \`pi-artifact\` block with the same \`id\`.
+- If you also create supporting files, the artifact block is still the primary deliverable for artifact requests in Pi Studio.
 `.trim();
 
 export function appendArtifactInstructions(systemPrompt: string) {
