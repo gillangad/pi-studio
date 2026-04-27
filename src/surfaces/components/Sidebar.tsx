@@ -538,6 +538,18 @@ export function Sidebar({
               role="menuitem"
               className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/20"
               onClick={() => {
+                onSetMode("settings");
+                setSettingsMenuOpen(false);
+              }}
+            >
+              <span>Open settings</span>
+              <Settings size={13} />
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/20"
+              onClick={() => {
                 onToggleTheme();
                 setSettingsMenuOpen(false);
               }}

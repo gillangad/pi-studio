@@ -536,10 +536,29 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
 
+    expect(screen.getByRole("menuitem", { name: /Open settings/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /dark mode|light mode/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Extensions/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /Skills/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /App settings/i })).not.toBeInTheDocument();
+  });
+
+  it("opens the full settings surface from the sidebar settings menu", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Open settings/i }));
+
+    expect(bridge.setMode).toHaveBeenCalledWith("settings");
   });
 
   it("opens gui thread when clicking from settings surface", async () => {
