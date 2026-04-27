@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import sessionArtifactsExtension, {
-  PI_SESSION_ARTIFACTS_PROMPT,
-} from "../../src/builtins/extensions/pi-session-artifacts/index";
+import artifactsExtension, {
+  PI_ARTIFACTS_PROMPT,
+} from "../../src/builtins/extensions/pi-artifacts/index";
 
 type BeforeAgentStartHandler = (
   event: { systemPrompt: string },
 ) => Promise<{ systemPrompt: string }> | { systemPrompt: string };
 
-describe("pi-session-artifacts extension", () => {
+describe("pi-artifacts extension", () => {
   it("appends artifact instructions to the agent system prompt", async () => {
     let beforeAgentStartHandler: BeforeAgentStartHandler | undefined;
 
-    sessionArtifactsExtension({
+    artifactsExtension({
       on(event: string, handler: BeforeAgentStartHandler) {
         if (event === "before_agent_start") {
           beforeAgentStartHandler = handler;
@@ -31,6 +31,6 @@ describe("pi-session-artifacts extension", () => {
     expect(result.systemPrompt).toContain("`pi-artifact`");
     expect(result.systemPrompt).toContain("react-tsx");
     expect(result.systemPrompt).toContain("same id");
-    expect(result.systemPrompt).toContain(PI_SESSION_ARTIFACTS_PROMPT);
+    expect(result.systemPrompt).toContain(PI_ARTIFACTS_PROMPT);
   });
 });

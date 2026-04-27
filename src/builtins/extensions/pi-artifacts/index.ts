@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-export const PI_SESSION_ARTIFACTS_PROMPT = `
+export const PI_ARTIFACTS_PROMPT = `
 Pi Studio session artifacts are a built-in capability in this environment.
 
 Use artifacts when the user asks for a visualization, dashboard, report viewer, interactive summary, custom tool UI, or another durable surface that should live alongside the chat.
@@ -31,10 +31,10 @@ Delivery guidance:
 `.trim();
 
 export function appendArtifactInstructions(systemPrompt: string) {
-  return [systemPrompt, "", PI_SESSION_ARTIFACTS_PROMPT].join("\n");
+  return [systemPrompt, "", PI_ARTIFACTS_PROMPT].join("\n");
 }
 
-export default function sessionArtifactsExtension(pi: ExtensionAPI) {
+export default function artifactsExtension(pi: ExtensionAPI) {
   pi.on("before_agent_start", async (event) => ({
     systemPrompt: appendArtifactInstructions(event.systemPrompt),
   }));

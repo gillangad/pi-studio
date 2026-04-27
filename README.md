@@ -20,4 +20,4 @@ Pi Studio can surface session artifacts directly inside the chat timeline.
 - Clicking an inline artifact card opens the latest revision in the right sidebar.
 - The workspace header includes an `Artifacts` button for browsing every artifact created in the current session.
 
-Pi Studio ships a built-in `pi-session-artifacts` extension and skill that teach Pi how to emit fenced `pi-artifact` blocks in assistant markdown. The inline card always resolves to the latest artifact revision with the same artifact id.
+Pi Studio ships a built-in `pi-artifacts` extension and skill that teach Pi how to emit fenced `pi-artifact` blocks in assistant markdown. The inline card always resolves to the latest artifact revision with the same artifact id.

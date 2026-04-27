@@ -1,5 +1,5 @@
 ---
-name: pi-control-session-master
+name: pi-control-session
 description: Operating guidance for the master session that steers other Pi Studio sessions with the control-session tools.
 ---
 

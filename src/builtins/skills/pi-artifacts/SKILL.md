@@ -1,5 +1,5 @@
 ---
-name: pi-session-artifacts
+name: pi-artifacts
 description: Guidance for creating and revising Pi Studio session artifacts that appear inline in chat and open in the session artifact sidebar.
 ---
 

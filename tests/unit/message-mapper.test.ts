@@ -69,7 +69,7 @@ describe("mapAgentMessages", () => {
         { name: "user-helper", path: "/home/test/.pi/agent/extensions/user-helper" },
       ],
       skills: [
-        { name: "pi-control-session-master", path: "/home/test/.pi-studio/builtins/skills/pi-control-session-master/SKILL.md" },
+        { name: "pi-control-session", path: "/home/test/.pi-studio/builtins/skills/pi-control-session/SKILL.md" },
         { name: "custom-writer", path: "/home/test/.pi/agent/skills/custom-writer/SKILL.md" },
       ],
     });
@@ -88,8 +88,8 @@ describe("mapAgentMessages", () => {
     ]);
     expect(summary.skillEntries).toEqual([
       {
-        name: "pi-control-session-master",
-        path: "/home/test/.pi-studio/builtins/skills/pi-control-session-master/SKILL.md",
+        name: "pi-control-session",
+        path: "/home/test/.pi-studio/builtins/skills/pi-control-session/SKILL.md",
         origin: "bundled",
       },
       {
