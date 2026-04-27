@@ -105,6 +105,16 @@ async function createMainWindow() {
     maximizable: true,
     backgroundColor: "#0c0c0e",
     autoHideMenuBar: true,
+    titleBarStyle: "hidden",
+    ...(process.platform === "win32"
+      ? {
+          titleBarOverlay: {
+            color: "#1f232f",
+            symbolColor: "#f2f2f2",
+            height: 40,
+          },
+        }
+      : {}),
     webPreferences: {
       preload: resolvePreloadScriptPath(currentDirPath),
       contextIsolation: true,

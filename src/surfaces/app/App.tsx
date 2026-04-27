@@ -1,4 +1,4 @@
-import { FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight, FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
@@ -29,6 +29,7 @@ type FileTreeState = {
 const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
 const SIDEBAR_EXPANDED_MAX_WIDTH = 420;
 const SIDEBAR_COLLAPSED_WIDTH = 74;
+const TITLEBAR_HEIGHT = 40;
 
 function threadKey(projectId: string, sessionFile: string) {
   return `${projectId}::${sessionFile}`;
@@ -262,15 +263,6 @@ export function App() {
     }
   };
 
-  const utilityPanelLabel = selectedUtilityPanel
-    ? {
-        browser: "Browser",
-        terminal: "Terminal",
-        files: "Files",
-        diff: "Diff",
-      }[selectedUtilityPanel]
-    : null;
-
   const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
 
   const startSidebarResize = useCallback(
@@ -314,71 +306,143 @@ export function App() {
 
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <div className="relative shrink-0" style={{ width: `${sidebarRenderedWidth}px` }}>
-        <Sidebar
-          projects={snapshot.projects}
-          activeProjectId={snapshot.activeProjectId}
-          threadsByProject={snapshot.threadsByProject}
-          activeSessionFile={snapshot.gui.sessionFile}
-          activeMode={activeMode}
-          theme={theme}
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-          masterSessionVisible={masterSessionVisible}
-          onToggleMasterSession={() => setMasterSessionVisible((current) => !current)}
-          onSetMode={(mode) => void actions.setMode(mode)}
-          onAddProject={() => void actions.addProject()}
-          onSelectProject={(projectId) => void actions.selectProject(projectId)}
-          onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
-          onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
-          onRemoveProject={(projectId) => void actions.removeProject(projectId)}
-          onSearchSessions={actions.searchSessions}
-          onCreateThread={(projectId) => {
-            setPendingGuiThreadKey(null);
-            void actions.createThread(projectId);
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div
+          className="grid shrink-0"
+          style={{
+            gridTemplateColumns: `${sidebarRenderedWidth}px minmax(0,1fr)`,
+            height: `${TITLEBAR_HEIGHT}px`,
           }}
-          onOpenThread={(projectId, sessionFile) => {
-            openGuiThread(projectId, sessionFile);
-          }}
-          onToggleThreadPinned={(projectId, sessionFile) =>
-            void actions.toggleThreadPinned(projectId, sessionFile)
-          }
-          onToggleThreadArchived={(projectId, sessionFile) =>
-            void actions.toggleThreadArchived(projectId, sessionFile)
-          }
-        />
+        >
+          <div className="shell-sidebar-dark flex items-center border-b border-border/70 px-3 window-drag-region">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => {
+                setSidebarCollapsed((current) => !current);
+              }}
+              className="window-no-drag h-7 w-7 text-muted-foreground"
+            >
+              {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </Button>
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border/70 px-5 window-drag-region">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="truncate text-[15px] font-semibold text-foreground">
+                  {selectedGuiState?.sessionTitle ?? "No thread selected"}
+                </h2>
+                {activeProject ? (
+                  <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
+                ) : null}
+              </div>
+            </div>
 
-        {!sidebarCollapsed ? (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            tabIndex={0}
-            className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              startSidebarResize(event.clientX);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                setSidebarWidth((current) => clampSidebarWidth(current - 16));
-              }
-              if (event.key === "ArrowRight") {
-                event.preventDefault();
-                setSidebarWidth((current) => clampSidebarWidth(current + 16));
-              }
-            }}
-          />
-        ) : null}
-      </div>
+            <div className="window-no-drag flex items-center gap-1">
+              <Button
+                type="button"
+                size="icon"
+                variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
+                onClick={() => toggleUtilityPanel("terminal")}
+                disabled={!selectedThreadKey}
+                aria-label="Toggle terminal panel"
+                title="Terminal"
+              >
+                <TerminalSquare size={16} />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
+                onClick={() => toggleUtilityPanel("files")}
+                disabled={!selectedThreadKey}
+                aria-label="Toggle file tree panel"
+                title="Files"
+              >
+                <FolderTree size={16} />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
+                onClick={() => toggleUtilityPanel("browser")}
+                disabled={!selectedThreadKey}
+                aria-label="Toggle browser panel"
+                title="Browser"
+              >
+                <Globe size={16} />
+              </Button>
+            </div>
+          </div>
+        </div>
 
-      <section className="relative flex min-w-0 flex-1">
-        <div className="relative flex min-h-0 min-w-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">
+          <div className="relative shrink-0" style={{ width: `${sidebarRenderedWidth}px` }}>
+            <Sidebar
+              projects={snapshot.projects}
+              activeProjectId={snapshot.activeProjectId}
+              threadsByProject={snapshot.threadsByProject}
+              activeSessionFile={snapshot.gui.sessionFile}
+              activeMode={activeMode}
+              theme={theme}
+              collapsed={sidebarCollapsed}
+              onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+              onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+              masterSessionVisible={masterSessionVisible}
+              onToggleMasterSession={() => setMasterSessionVisible((current) => !current)}
+              onSetMode={(mode) => void actions.setMode(mode)}
+              onAddProject={() => void actions.addProject()}
+              onSelectProject={(projectId) => void actions.selectProject(projectId)}
+              onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
+              onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
+              onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+              onSearchSessions={actions.searchSessions}
+              onCreateThread={(projectId) => {
+                setPendingGuiThreadKey(null);
+                void actions.createThread(projectId);
+              }}
+              onOpenThread={(projectId, sessionFile) => {
+                openGuiThread(projectId, sessionFile);
+              }}
+              onToggleThreadPinned={(projectId, sessionFile) =>
+                void actions.toggleThreadPinned(projectId, sessionFile)
+              }
+              onToggleThreadArchived={(projectId, sessionFile) =>
+                void actions.toggleThreadArchived(projectId, sessionFile)
+              }
+            />
+
+            {!sidebarCollapsed ? (
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize sidebar"
+                tabIndex={0}
+                className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none"
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  startSidebarResize(event.clientX);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    setSidebarWidth((current) => clampSidebarWidth(current - 16));
+                  }
+                  if (event.key === "ArrowRight") {
+                    event.preventDefault();
+                    setSidebarWidth((current) => clampSidebarWidth(current + 16));
+                  }
+                }}
+              />
+            ) : null}
+          </div>
+
+          <section className="relative flex min-w-0 flex-1">
+            <div className="relative flex min-h-0 min-w-0 flex-1">
           {isWorkspaceMode ? (
             <section
-              className="flex min-h-0 min-w-0 flex-1 flex-col pt-2"
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
               aria-label="GUI workspace"
             >
               {masterSessionVisible ? (
@@ -393,63 +457,9 @@ export function App() {
                 />
               ) : null}
 
-              <header className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate text-[15px] font-semibold text-foreground">
-                      {selectedGuiState?.sessionTitle ?? "No thread selected"}
-                    </h2>
-                    {activeProject ? (
-                      <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="truncate">{selectedGuiState?.cwd ?? activeProject?.path ?? "No project"}</span>
-                    {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">{utilityPanelLabel}</span> : null}
-                    {showingCachedThread ? <span>Loading thread…</span> : null}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("terminal")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle terminal panel"
-                    title="Terminal"
-                  >
-                    <TerminalSquare size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("files")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle file tree panel"
-                    title="Files"
-                  >
-                    <FolderTree size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("browser")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle browser panel"
-                    title="Browser"
-                  >
-                    <Globe size={16} />
-                  </Button>
-                </div>
-              </header>
-
               <div
                 className={cn(
-                  "grid min-h-0 flex-1 px-3 pb-3",
+                  "grid min-h-0 flex-1 px-3 pb-3 pt-2",
                   selectedUtilityPanel === "terminal"
                     ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
                     : selectedUtilityPanel
@@ -476,7 +486,9 @@ export function App() {
                     <div className="flex h-full min-h-0 items-center justify-center text-center">
                       <div className="px-6 py-10">
                         <h3 className="text-base font-semibold">No thread selected</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">Select or create a thread.</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {showingCachedThread ? "Loading thread…" : "Select or create a thread."}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -573,8 +585,10 @@ export function App() {
               />
             </section>
           ) : null}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </main>
   );
 }
