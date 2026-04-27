@@ -2,6 +2,15 @@
 
 Desktop Pi client with a chat-first GUI, hosted TUI, Pi-native built-ins, and session-scoped artifacts.
 
+## Built-in Pi Resources
+
+Pi Studio ships first-party Pi-native built-ins through a simple directory convention:
+
+- extensions live in `src/builtins/extensions/<name>/index.ts`
+- skills live in `src/builtins/skills/<name>/SKILL.md`
+
+Those resources are loaded for Pi Studio builtin-enabled sessions through the host resource loader, so built-in capabilities should be packaged as normal Pi extensions and skills rather than ad hoc desktop-only behavior.
+
 ## Experimental Artifacts
 
 Pi Studio can surface session artifacts directly inside the chat timeline.
