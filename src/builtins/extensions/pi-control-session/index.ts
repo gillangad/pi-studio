@@ -78,8 +78,8 @@ export default function controlSessionExtension(pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "control",
-    label: "Control",
-    description: "Steer and inspect Pi Studio control-session targets.",
+    label: "Session Control",
+    description: "Control and inspect other Pi Studio sessions.",
     parameters: ControlParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       if (params.action === "new") {

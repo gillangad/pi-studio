@@ -49,7 +49,6 @@ import {
 } from "./message-mapper";
 import { resolveLaunchProjectPathCandidate } from "./launch-path";
 import { TuiTerminal } from "./tui-terminal";
-import { resolveSeamlessTuiLaunchTarget } from "./tui-target";
 import {
   ensureWorkspaceSelection,
   type ThreadMetadata,
@@ -330,9 +329,8 @@ export class StudioHost {
   }
 
   private isProjectRunningInTui(projectId: string) {
-    return Object.values(this.tuiSessions).some(
-      (runtime) => runtime.terminal.active && runtime.projectId === projectId,
-    );
+    void projectId;
+    return false;
   }
 
   private getGuiRuntime(sessionId = this.activeGuiSessionId) {
@@ -546,30 +544,29 @@ export class StudioHost {
         } satisfies MasterState;
       })(),
       tui: (() => {
-        const sessionEntries = Object.entries(this.tuiSessions);
-        const defaultRuntime = this.tuiSessions.default ?? sessionEntries[0]?.[1] ?? null;
-        const active = sessionEntries.some(([, runtime]) => runtime.terminal.active);
+        const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
+        const projectId = activeRuntime?.projectId ?? this.workspaceState.activeProjectId;
+        const cwd = activeRuntime?.projectPath ?? this.currentProjectPath;
+        const errorText = activeRuntime?.errorText ?? this.guiErrorText;
+        const status = activeRuntime?.isStreaming ? "running" : projectId ? "idle" : "stopped";
 
         return {
-          active,
-          projectId: defaultRuntime?.projectId ?? this.workspaceState.activeProjectId,
-          cwd: defaultRuntime?.cwd ?? this.currentProjectPath,
-          status: defaultRuntime?.status ?? "idle",
-          errorText: defaultRuntime?.errorText ?? null,
-          runningInBackground: active && this.workspaceState.activeMode !== "tui",
-          sessions: Object.fromEntries(
-            sessionEntries.map(([sessionId, runtime]) => [
-              sessionId,
-              {
-                sessionId,
-                active: runtime.terminal.active,
-                projectId: runtime.projectId,
-                cwd: runtime.cwd,
-                status: runtime.status,
-                errorText: runtime.errorText,
-              },
-            ]),
-          ),
+          active: Boolean(projectId),
+          projectId,
+          cwd,
+          status,
+          errorText,
+          runningInBackground: Boolean(projectId) && this.workspaceState.activeMode !== "tui",
+          sessions: {
+            default: {
+              sessionId: "default",
+              active: Boolean(projectId),
+              projectId,
+              cwd,
+              status,
+              errorText,
+            },
+          },
         };
       })(),
       terminal: (() => {
@@ -1337,68 +1334,18 @@ export class StudioHost {
   }
 
   private async warmTuiForActiveWorkspace() {
-    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
-    if (!activeRuntime?.projectId && !this.getActiveProject()) return;
-    await this.startTui("default");
+    return this.startTui("default");
   }
 
   async startTui(sessionId = "default") {
-    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
     const runtime = this.ensureTuiSession(sessionId);
-    const launchTarget = resolveSeamlessTuiLaunchTarget(activeRuntime, this.getActiveProject(), {
-      active: runtime.terminal.active,
-      projectId: runtime.projectId,
-      cwd: runtime.cwd,
-      sessionFile: runtime.sessionFile,
-    });
-    if (!launchTarget) return this.getSnapshot();
-
-    if (
-      runtime.terminal.active &&
-      runtime.projectId === launchTarget.projectId &&
-      runtime.sessionFile === launchTarget.sessionFile
-    ) {
-      runtime.status = "running";
-      runtime.errorText = null;
-      runtime.cwd = launchTarget.cwd;
-      this.emitSnapshot();
-      return this.getSnapshot();
-    }
-
+    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
+    const activeProject = this.getActiveProject();
     runtime.errorText = null;
-    runtime.status = "starting";
-    this.emitSnapshot();
-
-    try {
-      if (
-        runtime.terminal.active &&
-        (runtime.projectId !== launchTarget.projectId || runtime.sessionFile !== launchTarget.sessionFile)
-      ) {
-        runtime.terminal.stop();
-      }
-
-      let extensionPaths: string[] | undefined;
-      let skillPaths: string[] | undefined;
-
-      if (activeRuntime?.usePiStudioBuiltins) {
-        const builtins = await getPiStudioBuiltinResources();
-        extensionPaths = builtins.additionalExtensionPaths;
-        skillPaths = builtins.additionalSkillPaths;
-      }
-
-      runtime.terminal.startPiSession(launchTarget.cwd, 120, 32, {
-        sessionFile: launchTarget.sessionFile,
-        extensionPaths,
-        skillPaths,
-      });
-      runtime.projectId = launchTarget.projectId;
-      runtime.cwd = launchTarget.cwd;
-      runtime.sessionFile = launchTarget.sessionFile;
-      runtime.status = "running";
-    } catch (error) {
-      runtime.status = "error";
-      runtime.errorText = error instanceof Error ? error.message : String(error);
-    }
+    runtime.projectId = activeRuntime?.projectId ?? activeProject?.id ?? null;
+    runtime.cwd = activeRuntime?.projectPath ?? activeProject?.path ?? null;
+    runtime.sessionFile = activeRuntime?.sessionFile ?? null;
+    runtime.status = runtime.projectId ? "running" : "idle";
 
     this.emitSnapshot();
     return this.getSnapshot();
@@ -1408,11 +1355,8 @@ export class StudioHost {
     const runtime = this.tuiSessions[sessionId];
     if (!runtime) return this.getSnapshot();
 
-    runtime.terminal.stop();
-    runtime.status = "stopped";
-    runtime.projectId = null;
-    runtime.cwd = null;
-    runtime.sessionFile = null;
+    runtime.errorText = null;
+    runtime.status = "idle";
     this.emitSnapshot();
     return this.getSnapshot();
   }

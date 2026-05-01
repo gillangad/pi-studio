@@ -1,6 +1,6 @@
 # pi-studio
 
-Desktop Pi client with a chat-first GUI, hosted TUI, Pi-native built-ins, and session-scoped artifacts.
+Desktop Pi client with a chat-first GUI, a shared-runtime TUI, Pi-native built-ins, and session-scoped artifacts.
 
 ## Built-in Pi Resources
 
@@ -16,6 +16,14 @@ Pi Studio now also ships a built-in `pi-browser` package:
 - the `pi-browser` extension exposes a single `browser` tool to Pi
 - the `pi-browser` skill teaches the agent how to use that tool
 - the visible browser panel binds to the current thread so Pi acts on the same live surface the user sees
+
+## Modes
+
+Pi Studio's main GUI and TUI now render the same underlying Pi session state for the active thread.
+
+- switching between GUI and TUI does not create a second Pi session
+- both views stay mounted so mode switches are immediate
+- the project terminal utility remains a separate raw shell surface for terminal work
 
 ## Experimental Artifacts
 

@@ -1,117 +1,165 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@xterm/xterm", () => ({
-  Terminal: class {
-    cols = 120;
-    rows = 32;
-    options: { theme?: unknown } = {};
-    loadAddon() {}
-    open(element: HTMLElement) {
-      const viewport = document.createElement("div");
-      viewport.className = "xterm-viewport";
-      Object.defineProperty(viewport, "clientHeight", {
-        configurable: true,
-        value: 100,
-      });
-      Object.defineProperty(viewport, "scrollHeight", {
-        configurable: true,
-        value: 400,
-      });
-      Object.defineProperty(viewport, "scrollTop", {
-        configurable: true,
-        writable: true,
-        value: 0,
-      });
+const writeMock = vi.fn();
+const focusMock = vi.fn();
+let terminalOnData: ((data: string) => void) | null = null;
 
-      const screen = document.createElement("div");
-      screen.className = "xterm-screen";
-      element.appendChild(viewport);
-      element.appendChild(screen);
-    }
-    onData() {
-      return { dispose() {} };
-    }
-    write() {}
-    dispose() {}
-    scrollToBottom() {}
-    focus() {}
+vi.mock("@wterm/react", () => ({
+  Terminal: ({ onReady, onData, autoResize, cursorBlink, theme, ...props }: Record<string, unknown>) => {
+    void autoResize;
+    void cursorBlink;
+    void theme;
+    terminalOnData = typeof onData === "function" ? (onData as (data: string) => void) : null;
+    setTimeout(() => {
+      if (typeof onReady === "function") {
+        onReady({});
+      }
+    }, 0);
+    return <div data-testid="wterm-terminal" {...props} />;
   },
+  useTerminal: () => ({
+    ref: { current: null },
+    write: writeMock,
+    focus: focusMock,
+  }),
 }));
-
-vi.mock("@xterm/addon-fit", () => ({
-  FitAddon: class {
-    fit() {}
-  },
-}));
-
-if (!("ResizeObserver" in globalThis)) {
-  Object.assign(globalThis, {
-    ResizeObserver: class {
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    },
-  });
-}
 
 import { TuiView } from "../../src/surfaces/components/TuiView";
 
 describe("TuiView", () => {
-  it("renders as a flat workspace surface", () => {
+  it("renders the shared-runtime tui shell and writes a transcript", async () => {
     render(
       <TuiView
+        active
+        gui={{
+          sessionId: "default",
+          projectId: "p1",
+          sessionFile: "/tmp/demo/session.jsonl",
+          sessionTitle: "Thread one",
+          cwd: "/tmp/demo",
+          isStreaming: false,
+          messages: [{ id: "user-1", role: "user", content: ["hello there"] }],
+          resources: {
+            extensions: 0,
+            skills: 0,
+            prompts: 0,
+            themes: 0,
+            agentsFiles: 0,
+            extensionEntries: [],
+            extensionNames: [],
+            skillEntries: [],
+            skillNames: [],
+            promptNames: [],
+            themeNames: [],
+            agentsFilePaths: [],
+          },
+          statusText: null,
+          errorText: null,
+          model: null,
+          availableModels: [],
+          thinkingLevel: "medium",
+          availableThinkingLevels: ["off", "medium", "high"],
+          streamingBehaviorPreference: "followUp",
+          attachments: [],
+          slashCommands: [],
+        }}
         tui={{
           active: true,
           projectId: "p1",
           cwd: "/tmp/demo",
-          status: "running",
+          status: "idle",
           errorText: null,
           runningInBackground: false,
         }}
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-        onResize={vi.fn()}
-        onData={vi.fn()}
-        subscribeToData={() => () => {}}
+        draft="draft"
+        onDraftChange={vi.fn()}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
       />,
     );
 
-    const shell = screen.getByLabelText("Hosted terminal");
-    expect(shell.className).not.toContain("rounded-xl");
-    expect(shell.className).not.toContain("border");
-    expect(shell.className).toContain("bg-background");
+    expect(screen.getByLabelText("Hosted terminal")).toBeInTheDocument();
+    expect(screen.getByText("Studio TUI")).toBeInTheDocument();
+    expect(screen.getByText("Thread one")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(writeMock).toHaveBeenCalled();
+      expect(String(writeMock.mock.calls.at(-1)?.[0] ?? "")).toContain("Pi Studio TUI");
+      expect(String(writeMock.mock.calls.at(-1)?.[0] ?? "")).toContain("user> hello there");
+      expect(String(writeMock.mock.calls.at(-1)?.[0] ?? "")).toContain("> draft");
+    });
   });
 
-  it("forwards wheel scrolling into the xterm viewport", () => {
+  it("turns terminal input into draft changes and submissions", async () => {
+    const onDraftChange = vi.fn();
+    const onSendPrompt = vi.fn();
+    const onAbort = vi.fn();
+
     render(
       <TuiView
+        active
+        gui={{
+          sessionId: "default",
+          projectId: "p1",
+          sessionFile: "/tmp/demo/session.jsonl",
+          sessionTitle: "Thread one",
+          cwd: "/tmp/demo",
+          isStreaming: false,
+          messages: [],
+          resources: {
+            extensions: 0,
+            skills: 0,
+            prompts: 0,
+            themes: 0,
+            agentsFiles: 0,
+            extensionEntries: [],
+            extensionNames: [],
+            skillEntries: [],
+            skillNames: [],
+            promptNames: [],
+            themeNames: [],
+            agentsFilePaths: [],
+          },
+          statusText: null,
+          errorText: null,
+          model: null,
+          availableModels: [],
+          thinkingLevel: "medium",
+          availableThinkingLevels: ["off", "medium", "high"],
+          streamingBehaviorPreference: "followUp",
+          attachments: [],
+          slashCommands: [],
+        }}
         tui={{
           active: true,
           projectId: "p1",
           cwd: "/tmp/demo",
-          status: "running",
+          status: "idle",
           errorText: null,
           runningInBackground: false,
         }}
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-        onResize={vi.fn()}
-        onData={vi.fn()}
-        subscribeToData={() => () => {}}
+        draft="hi"
+        onDraftChange={onDraftChange}
+        onSendPrompt={onSendPrompt}
+        onAbort={onAbort}
       />,
     );
 
-    const hostedTerminal = screen.getByLabelText("Hosted terminal");
-    const viewport = hostedTerminal.querySelector(".xterm-viewport") as HTMLDivElement | null;
-    const screenSurface = hostedTerminal.querySelector(".xterm-screen") as HTMLDivElement | null;
+    await waitFor(() => expect(terminalOnData).not.toBeNull());
 
-    expect(viewport).not.toBeNull();
-    expect(screenSurface).not.toBeNull();
+    terminalOnData?.("!");
+    terminalOnData?.("\u007f");
+    terminalOnData?.("\r");
+    terminalOnData?.("\u0003");
 
-    fireEvent.wheel(screenSurface!, { deltaY: 120 });
+    expect(onDraftChange).toHaveBeenCalledWith("hi!");
+    expect(onDraftChange).toHaveBeenCalledWith("h");
+    expect(onDraftChange).toHaveBeenCalledWith("");
+    expect(onSendPrompt).toHaveBeenCalledWith("hi", undefined);
+    expect(onAbort).not.toHaveBeenCalled();
 
-    expect(viewport!.scrollTop).toBe(120);
+    fireEvent.click(screen.getByTestId("wterm-terminal"));
   });
 });

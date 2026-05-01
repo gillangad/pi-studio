@@ -17,7 +17,7 @@ describe("pi-control-session extension", () => {
 
     expect(tools).toHaveLength(1);
     expect(tools[0].name).toBe("control");
-    expect(tools[0].description).toBe("Steer and inspect Pi Studio control-session targets.");
+    expect(tools[0].description).toBe("Control and inspect other Pi Studio sessions.");
     expect(events).toEqual(["session_start"]);
   });
 });

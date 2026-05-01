@@ -1,287 +1,127 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
-import type { ITheme } from "@xterm/xterm";
-import type { TuiState } from "../../shared/types";
-import { Button } from "./ui/button";
+import "@wterm/react/css";
+
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { Terminal, useTerminal } from "@wterm/react";
+import type { GuiState, TuiState } from "../../shared/types";
+import { buildTuiTranscript } from "../lib/tui-transcript";
 
 type TuiViewProps = {
-  sessionId?: string;
-  stopOnUnmount?: boolean;
+  gui: GuiState;
   tui: TuiState;
-  onStart: (sessionId?: string) => Promise<unknown> | unknown;
-  onStop: (sessionId?: string) => Promise<unknown> | unknown;
-  onResize: (cols: number, rows: number, sessionId?: string) => void;
-  onData: (data: string, sessionId?: string) => void;
-  subscribeToData: (callback: (payload: { data: string; sessionId?: string }) => void) => () => void;
+  draft: string;
+  onDraftChange: (value: string) => void;
+  onSendPrompt: (text: string, sessionId?: string) => Promise<unknown> | unknown;
+  onAbort: (sessionId?: string) => Promise<unknown> | unknown;
+  sessionId?: string;
+  active?: boolean;
 };
 
-function terminalThemeFromCss(): ITheme {
-  const styles = getComputedStyle(document.documentElement);
-  const readToken = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+const CLEAR_SCREEN = "\u001b[2J\u001b[3J\u001b[H";
 
-  const background = readToken("--terminal-bg", "#11141e");
-  const foreground = readToken("--terminal-fg", "#d5daed");
-  const accent = readToken("--terminal-accent", "#8ea2ff");
-  const muted = readToken("--terminal-muted", "#99a1c2");
-
-  return {
-    background,
-    foreground,
-    cursor: accent,
-    cursorAccent: background,
-    selectionBackground: "rgba(142, 162, 255, 0.22)",
-    selectionInactiveBackground: "rgba(142, 162, 255, 0.12)",
-    black: background,
-    red: "#f18f9a",
-    green: "#83deaa",
-    yellow: "#f4d38c",
-    blue: accent,
-    magenta: "#c8a2ff",
-    cyan: muted,
-    white: foreground,
-    brightBlack: "#7c83a3",
-    brightRed: "#ffadb5",
-    brightGreen: "#9ff1bf",
-    brightYellow: "#ffe2a4",
-    brightBlue: "#b8c4ff",
-    brightMagenta: "#dac1ff",
-    brightCyan: "#b6bfdc",
-    brightWhite: "#f7f9ff",
-  };
+function isControlSequence(data: string) {
+  return data.startsWith("\u001b");
 }
 
-function scheduleFrame(callback: () => void) {
-  if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-    return window.requestAnimationFrame(callback);
-  }
-
-  return window.setTimeout(callback, 16);
-}
-
-function cancelScheduledFrame(handle: number | null) {
-  if (handle === null) return;
-
-  if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
-    window.cancelAnimationFrame(handle);
-    return;
-  }
-
-  clearTimeout(handle);
-}
-
-function wheelDeltaInPixels(event: WheelEvent) {
-  const lineHeightPx = 16;
-  const pageHeightPx = window.innerHeight || 800;
-
-  switch (event.deltaMode) {
-    case WheelEvent.DOM_DELTA_LINE:
-      return event.deltaY * lineHeightPx;
-    case WheelEvent.DOM_DELTA_PAGE:
-      return event.deltaY * pageHeightPx;
-    default:
-      return event.deltaY;
-  }
+function normalizeInput(data: string) {
+  return data.replace(/\r/g, "").replace(/\n/g, " ");
 }
 
 export function TuiView({
-  sessionId = "default",
-  stopOnUnmount = true,
+  gui,
   tui,
-  onStart,
-  onStop,
-  onResize,
-  onData,
-  subscribeToData,
+  draft,
+  onDraftChange,
+  onSendPrompt,
+  onAbort,
+  sessionId,
+  active = false,
 }: TuiViewProps) {
-  const viewportShellRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const terminalRef = useRef<Terminal | null>(null);
-  const fitFrameRef = useRef<number | null>(null);
-  const scrollSyncFrameRef = useRef<number | null>(null);
-  const startupTimerRef = useRef<number | null>(null);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const { ref, write, focus } = useTerminal();
+  const readyRef = useRef(false);
+  const transcriptRef = useRef("");
 
-  const scrollToBottom = useCallback(() => {
-    const terminal = terminalRef.current;
-    if (!terminal) return;
-
-    terminal.scrollToBottom();
-    terminal.focus();
-    setShowScrollToBottom(false);
-  }, []);
+  const transcript = useMemo(() => buildTuiTranscript(gui, draft), [draft, gui]);
 
   useEffect(() => {
-    const mount = containerRef.current;
-    const viewportShell = viewportShellRef.current;
-    if (!mount || !viewportShell) return;
+    transcriptRef.current = transcript;
+    if (!readyRef.current) return;
+    write(`${CLEAR_SCREEN}${transcript}`);
+  }, [transcript, write]);
 
-    const terminal = new Terminal({
-      cursorBlink: true,
-      lineHeight: 1.2,
-      fontSize: 12,
-      scrollback: 5_000,
-      fontFamily: '"JetBrains Mono", "SFMono-Regular", Consolas, monospace',
-      fontWeight: "400",
-      fontWeightBold: "600",
-      letterSpacing: 0,
-      theme: terminalThemeFromCss(),
-    });
+  useEffect(() => {
+    if (active && readyRef.current) {
+      focus();
+    }
+  }, [active, focus]);
 
-    const fitAddon = new FitAddon();
-    terminal.loadAddon(fitAddon);
-    terminal.open(mount);
-    terminalRef.current = terminal;
+  const handleReady = useCallback(() => {
+    readyRef.current = true;
+    write(`${CLEAR_SCREEN}${transcriptRef.current}`);
+    if (active) {
+      focus();
+    }
+  }, [active, focus, write]);
 
-    const syncScrollButtonVisibility = () => {
-      const viewport = mount.querySelector(".xterm-viewport") as HTMLElement | null;
-      if (!viewport) {
-        setShowScrollToBottom(false);
+  const handleData = useCallback(
+    (data: string) => {
+      if (data === "\u0003") {
+        if (gui.isStreaming) {
+          void onAbort(sessionId);
+          return;
+        }
+
+        onDraftChange("");
         return;
       }
 
-      const distanceFromBottom = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop;
-      setShowScrollToBottom(distanceFromBottom > 12);
-    };
-
-    const scheduleScrollSync = () => {
-      cancelScheduledFrame(scrollSyncFrameRef.current);
-
-      scrollSyncFrameRef.current = scheduleFrame(() => {
-        scrollSyncFrameRef.current = null;
-        syncScrollButtonVisibility();
-      });
-    };
-
-    const fitAndResize = () => {
-      fitAddon.fit();
-      onResize(terminal.cols, terminal.rows, sessionId);
-      scheduleScrollSync();
-    };
-
-    const scheduleFit = () => {
-      cancelScheduledFrame(fitFrameRef.current);
-
-      fitFrameRef.current = scheduleFrame(() => {
-        fitFrameRef.current = null;
-        fitAndResize();
-      });
-    };
-
-    terminal.focus();
-    scheduleFit();
-
-    const viewport = mount.querySelector(".xterm-viewport") as HTMLElement | null;
-    const handleViewportScroll = () => {
-      syncScrollButtonVisibility();
-    };
-    const handleWheel = (event: WheelEvent) => {
-      if (!viewport || event.defaultPrevented || event.deltaY === 0) {
+      if (data === "\r" || data === "\n") {
+        const trimmed = draft.trim();
+        if (!trimmed || gui.isStreaming) return;
+        onDraftChange("");
+        void onSendPrompt(trimmed, sessionId);
         return;
       }
 
-      const maxScrollTop = viewport.scrollHeight - viewport.clientHeight;
-      if (maxScrollTop <= 0) {
+      if (data === "\u007f" || data === "\b") {
+        onDraftChange(draft.slice(0, -1));
         return;
       }
 
-      const nextScrollTop = Math.min(maxScrollTop, Math.max(0, viewport.scrollTop + wheelDeltaInPixels(event)));
-      if (nextScrollTop === viewport.scrollTop) {
+      if (isControlSequence(data)) {
         return;
       }
 
-      viewport.scrollTop = nextScrollTop;
-      event.preventDefault();
-      syncScrollButtonVisibility();
-    };
-
-    viewport?.addEventListener("scroll", handleViewportScroll);
-    viewportShell.addEventListener("wheel", handleWheel, { passive: false });
-
-    const inputDisposable = terminal.onData((data) => onData(data, sessionId));
-    const unsubscribe = subscribeToData((payload) => {
-      const targetSessionId = payload.sessionId ?? "default";
-      if (targetSessionId !== sessionId) return;
-      terminal.write(payload.data);
-      scheduleScrollSync();
-    });
-    const safeUnsubscribe = typeof unsubscribe === "function" ? unsubscribe : () => {};
-
-    const resizeObserver = new ResizeObserver(() => {
-      scheduleFit();
-    });
-    resizeObserver.observe(viewportShell);
-
-    const themeObserver = new MutationObserver(() => {
-      terminal.options.theme = terminalThemeFromCss();
-    });
-    themeObserver.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style", "data-theme"],
-    });
-
-    void Promise.resolve(onStart(sessionId)).then(() => {
-      scheduleFit();
-      startupTimerRef.current = window.setTimeout(() => {
-        startupTimerRef.current = null;
-        scheduleFit();
-      }, 24);
-    });
-
-    return () => {
-      themeObserver.disconnect();
-      resizeObserver.disconnect();
-      viewport?.removeEventListener("scroll", handleViewportScroll);
-      viewportShell.removeEventListener("wheel", handleWheel);
-
-      cancelScheduledFrame(fitFrameRef.current);
-      cancelScheduledFrame(scrollSyncFrameRef.current);
-
-      if (startupTimerRef.current !== null) {
-        clearTimeout(startupTimerRef.current);
-      }
-
-      safeUnsubscribe();
-      inputDisposable.dispose();
-      terminal.dispose();
-      terminalRef.current = null;
-      setShowScrollToBottom(false);
-      if (stopOnUnmount) {
-        void Promise.resolve(onStop(sessionId));
-      }
-    };
-  }, [onData, onResize, onStart, onStop, sessionId, stopOnUnmount, subscribeToData]);
-
-  const sessionState = tui.sessions?.[sessionId] ?? null;
-  const errorText = sessionState?.errorText ?? tui.errorText;
+      const normalized = normalizeInput(data);
+      if (!normalized) return;
+      onDraftChange(draft + normalized);
+    },
+    [draft, gui.isStreaming, onAbort, onDraftChange, onSendPrompt, sessionId],
+  );
 
   return (
-    <section className="relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background" aria-label="Hosted terminal">
-      <div ref={viewportShellRef} className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="terminal-viewport h-full bg-background">
-          <div ref={containerRef} className="tui-terminal h-full w-full" />
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background" aria-label="Hosted terminal">
+      <div className="flex items-center justify-between border-b border-border/55 px-4 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Studio TUI</p>
+          <p className="truncate text-sm text-foreground">{gui.sessionTitle || "No thread selected"}</p>
         </div>
-
-        {showScrollToBottom ? (
-          <Button
-            type="button"
-            size="icon"
-            variant="secondary"
-            className="absolute bottom-5 right-5 h-8 w-8 rounded-full shadow-glass"
-            aria-label="Scroll to bottom"
-            title="Scroll to bottom"
-            onClick={scrollToBottom}
-          >
-            ↓
-          </Button>
-        ) : null}
+        <div className="text-right text-xs text-muted-foreground">
+          <p>{gui.cwd ?? tui.cwd ?? "No cwd"}</p>
+          <p>{gui.isStreaming ? "Generating" : tui.runningInBackground ? "Hot in background" : "Ready"}</p>
+        </div>
       </div>
 
-      {errorText ? (
-        <div className="mx-3 mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {errorText}
-        </div>
-      ) : null}
+      <div className="min-h-0 flex-1 overflow-hidden bg-[var(--terminal-bg)]">
+        <Terminal
+          ref={ref}
+          autoResize
+          cursorBlink
+          theme={document.documentElement.getAttribute("data-theme") === "light" ? "light" : "monokai"}
+          onReady={handleReady}
+          onData={handleData}
+          className="h-full w-full"
+        />
+      </div>
     </section>
   );
 }

@@ -20,6 +20,7 @@ type StudioTheme = "dark" | "light";
 
 type BrowserUrlByThread = Record<string, string>;
 type ArtifactSelectionByThread = Record<string, string | null>;
+type DraftByThread = Record<string, string>;
 type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff" | "artifacts";
 type UtilityPanelByThread = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
@@ -103,6 +104,9 @@ export function App() {
   const [browserUrlByThread, setBrowserUrlByThread] = useState<BrowserUrlByThread>(() =>
     readJsonRecord<BrowserUrlByThread>("pi-studio-browser-url-by-thread"),
   );
+  const [draftByThread, setDraftByThread] = useState<DraftByThread>(() =>
+    readJsonRecord<DraftByThread>("pi-studio-draft-by-thread"),
+  );
   const [artifactSelectionByThread, setArtifactSelectionByThread] = useState<ArtifactSelectionByThread>(() =>
     readJsonRecord<ArtifactSelectionByThread>("pi-studio-artifact-selection-by-thread"),
   );
@@ -137,6 +141,10 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-browser-url-by-thread", JSON.stringify(browserUrlByThread));
   }, [browserUrlByThread]);
+
+  useEffect(() => {
+    window.localStorage.setItem("pi-studio-draft-by-thread", JSON.stringify(draftByThread));
+  }, [draftByThread]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -194,6 +202,7 @@ export function App() {
   const selectedThreadKey = activeGuiThreadKey ?? pendingGuiThreadKey;
   const selectedUtilityPanel = selectedThreadKey ? utilityPanelByThread[selectedThreadKey] ?? null : null;
   const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
+  const sharedDraft = selectedThreadKey ? draftByThread[selectedThreadKey] ?? "" : "";
   const selectedArtifactId = selectedThreadKey ? artifactSelectionByThread[selectedThreadKey] ?? null : null;
   const showingCachedThread = Boolean(pendingGuiThreadKey && pendingGuiThreadKey !== activeGuiThreadKey);
   const activeProjectId = selectedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
@@ -218,6 +227,17 @@ export function App() {
           }
         : null,
     [derivedArtifacts.messages, selectedGuiState],
+  );
+
+  const setSharedDraft = useCallback(
+    (value: string) => {
+      if (!selectedThreadKey) return;
+      setDraftByThread((current) => ({
+        ...current,
+        [selectedThreadKey]: value,
+      }));
+    },
+    [selectedThreadKey],
   );
 
   useEffect(() => {
@@ -462,245 +482,250 @@ export function App() {
 
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1">
-          {isWorkspaceMode ? (
-            <section
-              className="flex min-h-0 min-w-0 flex-1 flex-col pt-2"
-              aria-label="GUI workspace"
-            >
-              <header className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate text-[15px] font-semibold text-foreground">
-                      {selectedGuiState?.sessionTitle ?? "No thread selected"}
-                    </h2>
-                    {activeProject ? (
-                      <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="truncate">{selectedGuiState?.cwd ?? activeProject?.path ?? "No project"}</span>
-                    {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">{utilityPanelLabel}</span> : null}
-                    {showingCachedThread ? <span>Loading thread…</span> : null}
-                  </div>
+          <section
+            hidden={!isWorkspaceMode}
+            className={cn(
+              "flex min-h-0 min-w-0 flex-1 flex-col pt-2",
+              !isWorkspaceMode && "workspace-surface-hidden",
+            )}
+            aria-label="GUI workspace"
+          >
+            <header className="flex items-center justify-between gap-3 px-5 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-[15px] font-semibold text-foreground">
+                    {selectedGuiState?.sessionTitle ?? "No thread selected"}
+                  </h2>
+                  {activeProject ? (
+                    <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
+                  ) : null}
                 </div>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "artifacts" ? "secondary" : "ghost"}
-                    onClick={() => {
-                      if (!selectedThreadKey) return;
-                      if (selectedUtilityPanel === "artifacts") {
-                        setUtilityPanelByThread((current) => ({
-                          ...current,
-                          [selectedThreadKey]: null,
-                        }));
-                        return;
-                      }
-
-                      openArtifactPanel(selectedArtifact?.artifactId ?? null);
-                    }}
-                    disabled={!selectedThreadKey || derivedArtifacts.artifacts.length === 0}
-                    aria-label="Toggle artifacts panel"
-                    title={
-                      derivedArtifacts.artifacts.length > 0
-                        ? `Artifacts (${derivedArtifacts.artifacts.length})`
-                        : "Artifacts"
-                    }
-                    className="relative"
-                  >
-                    <Boxes size={16} />
-                    {derivedArtifacts.artifacts.length > 0 ? (
-                      <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                        {derivedArtifacts.artifacts.length}
-                      </span>
-                    ) : null}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={masterSessionVisible ? "secondary" : "ghost"}
-                    onClick={() => setMasterSessionVisible((current) => !current)}
-                    aria-label="Toggle master session"
-                    title="Master session"
-                  >
-                    <Bot size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("terminal")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle terminal panel"
-                    title="Terminal"
-                  >
-                    <TerminalSquare size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("files")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle file tree panel"
-                    title="Files"
-                  >
-                    <FolderTree size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("browser")}
-                    disabled={!selectedThreadKey}
-                    aria-label="Toggle browser panel"
-                    title="Browser"
-                  >
-                    <Globe size={16} />
-                  </Button>
-                </div>
-              </header>
-
-              <div className="relative min-h-0 flex-1">
-                {masterSessionVisible ? (
-                  <MasterSessionBar
-                    master={snapshot.master}
-                    onClose={() => setMasterSessionVisible(false)}
-                    onSendPrompt={actions.sendPrompt}
-                    onAbort={actions.abortPrompt}
-                    onPickAttachments={actions.pickAttachments}
-                    onOpenTarget={(projectId, sessionPath) => {
-                      openGuiThread(projectId, sessionPath);
-                    }}
-                  />
-                ) : null}
-
-                <div
-                  className={cn(
-                    "grid h-full min-h-0 px-3 pb-3",
-                    selectedUtilityPanel === "terminal"
-                      ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
-                      : selectedUtilityPanel === "artifacts"
-                        ? "grid-cols-[minmax(0,1fr)_minmax(380px,520px)]"
-                      : selectedUtilityPanel
-                        ? "grid-cols-[minmax(0,1fr)_420px]"
-                        : "grid-cols-1",
-                  )}
-                >
-                <div className="min-h-0 min-w-0">
-                  {renderedGuiState ? (
-                    <ChatView
-                      gui={renderedGuiState}
-                      onSendPrompt={actions.sendPrompt}
-                      onAbort={actions.abortPrompt}
-                      onSetModel={actions.setModel}
-                      onSetThinkingLevel={actions.setThinkingLevel}
-                      onPickAttachments={actions.pickAttachments}
-                      onRemoveAttachment={actions.removeAttachment}
-                      onClearAttachments={actions.clearAttachments}
-                      onGetSessionTree={actions.getSessionTree}
-                      onNavigateTree={actions.navigateTree}
-                      onRunSlashCommand={actions.runSlashCommand}
-                      artifactById={derivedArtifacts.artifactById}
-                      onOpenArtifact={(artifactId) => openArtifactPanel(artifactId)}
-                    />
-                  ) : (
-                    <div className="flex h-full min-h-0 items-center justify-center text-center">
-                      <div className="px-6 py-10">
-                        <h3 className="text-base font-semibold">No thread selected</h3>
-                        <p className="mt-1 text-sm text-muted-foreground">Select or create a thread.</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {selectedUtilityPanel === "browser" && selectedThreadKey ? (
-                  <BrowserPanel
-                    threadKey={selectedThreadKey}
-                    sessionFile={selectedGuiState?.sessionFile ?? null}
-                    initialUrl={browserUrl}
-                    onUrlChange={(url) => {
-                      setBrowserUrlByThread((current) => ({
-                        ...current,
-                        [selectedThreadKey]: url,
-                      }));
-                    }}
-                  />
-                ) : null}
-
-                {selectedUtilityPanel === "artifacts" ? (
-                  <ArtifactPanel
-                    artifacts={derivedArtifacts.artifacts}
-                    selectedArtifactId={selectedArtifact?.artifactId ?? null}
-                    onSelectArtifact={(artifactId) => {
-                      if (!selectedThreadKey) return;
-                      setArtifactSelectionByThread((current) => ({
-                        ...current,
-                        [selectedThreadKey]: artifactId,
-                      }));
-                    }}
-                  />
-                ) : null}
-
-                {selectedUtilityPanel === "terminal" ? (
-                  <TerminalPanel
-                    sessionId="utility"
-                    terminal={snapshot.terminal}
-                    onStart={actions.startTerminal}
-                    onStop={actions.stopTerminal}
-                    onResize={actions.resizeTerminal}
-                    onData={actions.writeToTerminal}
-                    subscribeToData={actions.onTerminalData}
-                  />
-                ) : null}
-
-                {selectedUtilityPanel === "files" ? (
-                  <FileTreePanel
-                    projectName={activeProject?.name ?? "Project files"}
-                    projectPath={activeProject?.path ?? selectedGuiState?.cwd ?? null}
-                    nodes={fileTree.projectId === activeProject?.id ? fileTree.nodes : []}
-                    loading={fileTree.loading && fileTree.projectId === activeProject?.id}
-                    errorText={fileTree.projectId === activeProject?.id ? fileTree.errorText : null}
-                    onRefresh={() => {
-                      void loadProjectFileTree(activeProject?.id ?? null);
-                    }}
-                  />
-                ) : null}
-
-                {selectedUtilityPanel === "diff" ? (
-                  <GitView
-                    compact
-                    git={snapshot.git}
-                    onRefresh={actions.refreshGitState}
-                    onSetBaseline={actions.setGitBaseline}
-                    onAddComment={actions.addGitComment}
-                    onRemoveComment={actions.removeGitComment}
-                  />
-                ) : null}
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="truncate">{selectedGuiState?.cwd ?? activeProject?.path ?? "No project"}</span>
+                  {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">{utilityPanelLabel}</span> : null}
+                  {showingCachedThread ? <span>Loading thread…</span> : null}
                 </div>
               </div>
-            </section>
-          ) : null}
 
-          {activeMode === "tui" ? (
-            <section
-              className="relative flex min-h-0 min-w-0 flex-1"
-              aria-label="TUI workspace"
-            >
-              <TuiView
-                sessionId="default"
-                stopOnUnmount={false}
-                tui={snapshot.tui}
-                onStart={actions.startTui}
-                onStop={actions.stopTui}
-                onResize={actions.resizeTui}
-                onData={actions.writeToTui}
-                subscribeToData={actions.onTuiData}
-              />
-            </section>
-          ) : null}
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={selectedUtilityPanel === "artifacts" ? "secondary" : "ghost"}
+                  onClick={() => {
+                    if (!selectedThreadKey) return;
+                    if (selectedUtilityPanel === "artifacts") {
+                      setUtilityPanelByThread((current) => ({
+                        ...current,
+                        [selectedThreadKey]: null,
+                      }));
+                      return;
+                    }
+
+                    openArtifactPanel(selectedArtifact?.artifactId ?? null);
+                  }}
+                  disabled={!selectedThreadKey || derivedArtifacts.artifacts.length === 0}
+                  aria-label="Toggle artifacts panel"
+                  title={
+                    derivedArtifacts.artifacts.length > 0
+                      ? `Artifacts (${derivedArtifacts.artifacts.length})`
+                      : "Artifacts"
+                  }
+                  className="relative"
+                >
+                  <Boxes size={16} />
+                  {derivedArtifacts.artifacts.length > 0 ? (
+                    <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                      {derivedArtifacts.artifacts.length}
+                    </span>
+                  ) : null}
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={masterSessionVisible ? "secondary" : "ghost"}
+                  onClick={() => setMasterSessionVisible((current) => !current)}
+                  aria-label="Toggle master session"
+                  title="Master session"
+                >
+                  <Bot size={16} />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
+                  onClick={() => toggleUtilityPanel("terminal")}
+                  disabled={!selectedThreadKey}
+                  aria-label="Toggle terminal panel"
+                  title="Terminal"
+                >
+                  <TerminalSquare size={16} />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
+                  onClick={() => toggleUtilityPanel("files")}
+                  disabled={!selectedThreadKey}
+                  aria-label="Toggle file tree panel"
+                  title="Files"
+                >
+                  <FolderTree size={16} />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
+                  onClick={() => toggleUtilityPanel("browser")}
+                  disabled={!selectedThreadKey}
+                  aria-label="Toggle browser panel"
+                  title="Browser"
+                >
+                  <Globe size={16} />
+                </Button>
+              </div>
+            </header>
+
+            <div className="relative min-h-0 flex-1">
+              {masterSessionVisible ? (
+                <MasterSessionBar
+                  master={snapshot.master}
+                  onClose={() => setMasterSessionVisible(false)}
+                  onSendPrompt={actions.sendPrompt}
+                  onAbort={actions.abortPrompt}
+                  onPickAttachments={actions.pickAttachments}
+                  onOpenTarget={(projectId, sessionPath) => {
+                    openGuiThread(projectId, sessionPath);
+                  }}
+                />
+              ) : null}
+
+              <div
+                className={cn(
+                  "grid h-full min-h-0 px-3 pb-3",
+                  selectedUtilityPanel === "terminal"
+                    ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
+                    : selectedUtilityPanel === "artifacts"
+                      ? "grid-cols-[minmax(0,1fr)_minmax(380px,520px)]"
+                    : selectedUtilityPanel
+                      ? "grid-cols-[minmax(0,1fr)_420px]"
+                      : "grid-cols-1",
+                )}
+              >
+              <div className="min-h-0 min-w-0">
+                {renderedGuiState ? (
+                  <ChatView
+                    gui={renderedGuiState}
+                    composerValue={sharedDraft}
+                    onComposerValueChange={setSharedDraft}
+                    onSendPrompt={actions.sendPrompt}
+                    onAbort={actions.abortPrompt}
+                    onSetModel={actions.setModel}
+                    onSetThinkingLevel={actions.setThinkingLevel}
+                    onPickAttachments={actions.pickAttachments}
+                    onRemoveAttachment={actions.removeAttachment}
+                    onClearAttachments={actions.clearAttachments}
+                    onGetSessionTree={actions.getSessionTree}
+                    onNavigateTree={actions.navigateTree}
+                    onRunSlashCommand={actions.runSlashCommand}
+                    artifactById={derivedArtifacts.artifactById}
+                    onOpenArtifact={(artifactId) => openArtifactPanel(artifactId)}
+                  />
+                ) : (
+                  <div className="flex h-full min-h-0 items-center justify-center text-center">
+                    <div className="px-6 py-10">
+                      <h3 className="text-base font-semibold">No thread selected</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">Select or create a thread.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {selectedUtilityPanel === "browser" && selectedThreadKey ? (
+                <BrowserPanel
+                  threadKey={selectedThreadKey}
+                  sessionFile={selectedGuiState?.sessionFile ?? null}
+                  initialUrl={browserUrl}
+                  onUrlChange={(url) => {
+                    setBrowserUrlByThread((current) => ({
+                      ...current,
+                      [selectedThreadKey]: url,
+                    }));
+                  }}
+                />
+              ) : null}
+
+              {selectedUtilityPanel === "artifacts" ? (
+                <ArtifactPanel
+                  artifacts={derivedArtifacts.artifacts}
+                  selectedArtifactId={selectedArtifact?.artifactId ?? null}
+                  onSelectArtifact={(artifactId) => {
+                    if (!selectedThreadKey) return;
+                    setArtifactSelectionByThread((current) => ({
+                      ...current,
+                      [selectedThreadKey]: artifactId,
+                    }));
+                  }}
+                />
+              ) : null}
+
+              {selectedUtilityPanel === "terminal" ? (
+                <TerminalPanel
+                  sessionId="utility"
+                  terminal={snapshot.terminal}
+                  onStart={actions.startTerminal}
+                  onStop={actions.stopTerminal}
+                  onResize={actions.resizeTerminal}
+                  onData={actions.writeToTerminal}
+                  subscribeToData={actions.onTerminalData}
+                />
+              ) : null}
+
+              {selectedUtilityPanel === "files" ? (
+                <FileTreePanel
+                  projectName={activeProject?.name ?? "Project files"}
+                  projectPath={activeProject?.path ?? selectedGuiState?.cwd ?? null}
+                  nodes={fileTree.projectId === activeProject?.id ? fileTree.nodes : []}
+                  loading={fileTree.loading && fileTree.projectId === activeProject?.id}
+                  errorText={fileTree.projectId === activeProject?.id ? fileTree.errorText : null}
+                  onRefresh={() => {
+                    void loadProjectFileTree(activeProject?.id ?? null);
+                  }}
+                />
+              ) : null}
+
+              {selectedUtilityPanel === "diff" ? (
+                <GitView
+                  compact
+                  git={snapshot.git}
+                  onRefresh={actions.refreshGitState}
+                  onSetBaseline={actions.setGitBaseline}
+                  onAddComment={actions.addGitComment}
+                  onRemoveComment={actions.removeGitComment}
+                />
+              ) : null}
+              </div>
+            </div>
+          </section>
+          <section
+            hidden={activeMode !== "tui"}
+            className={cn(
+              "relative flex min-h-0 min-w-0 flex-1",
+              activeMode !== "tui" && "workspace-surface-hidden",
+            )}
+            aria-label="TUI workspace"
+          >
+            <TuiView
+              active={activeMode === "tui"}
+              sessionId={selectedGuiState?.sessionId}
+              gui={renderedGuiState ?? snapshot.gui}
+              tui={snapshot.tui}
+              draft={sharedDraft}
+              onDraftChange={setSharedDraft}
+              onSendPrompt={actions.sendPrompt}
+              onAbort={actions.abortPrompt}
+            />
+          </section>
 
           {activeMode === "git" ? (
             <section className="flex min-h-0 min-w-0 flex-1 p-3">

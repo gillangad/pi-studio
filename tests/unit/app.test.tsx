@@ -24,6 +24,26 @@ vi.mock("@xterm/addon-fit", () => ({
   },
 }));
 
+vi.mock("@wterm/react", () => ({
+  Terminal: ({ onReady, onData, autoResize, cursorBlink, theme, ...props }: Record<string, unknown>) => {
+    void autoResize;
+    void cursorBlink;
+    void theme;
+    void onData;
+    setTimeout(() => {
+      if (typeof onReady === "function") {
+        onReady({});
+      }
+    }, 0);
+    return <div data-testid="wterm-terminal" {...props} />;
+  },
+  useTerminal: () => ({
+    ref: { current: null },
+    write: vi.fn(),
+    focus: vi.fn(),
+  }),
+}));
+
 if (!("ResizeObserver" in globalThis)) {
   Object.assign(globalThis, {
     ResizeObserver: class {

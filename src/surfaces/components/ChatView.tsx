@@ -12,6 +12,8 @@ import { WorkTraceCard } from "./WorkTraceCard";
 type ChatViewProps = {
   gui: GuiState;
   sessionId?: string;
+  composerValue?: string;
+  onComposerValueChange?: (value: string) => void;
   onSendPrompt: (text: string, sessionId?: string) => Promise<unknown> | unknown;
   onAbort: (sessionId?: string) => Promise<unknown> | unknown;
   onSetModel: (provider: string, modelId: string, sessionId?: string) => Promise<unknown> | unknown;
@@ -33,6 +35,8 @@ type ChatViewProps = {
 export function ChatView({
   gui,
   sessionId,
+  composerValue,
+  onComposerValueChange,
   onSendPrompt,
   onAbort,
   onSetModel,
@@ -47,12 +51,14 @@ export function ChatView({
   onOpenArtifact,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [composerValue, setComposerValue] = useState("");
+  const [internalComposerValue, setInternalComposerValue] = useState("");
   const [treeDialogOpen, setTreeDialogOpen] = useState(false);
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeErrorText, setTreeErrorText] = useState<string | null>(null);
   const [treeSnapshot, setTreeSnapshot] = useState<SessionTreeSnapshot>({ leafId: null, nodes: [] });
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
+  const resolvedComposerValue = composerValue ?? internalComposerValue;
+  const setComposerValue = onComposerValueChange ?? setInternalComposerValue;
 
   const timelineItems = useMemo(() => {
     type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
@@ -167,7 +173,7 @@ export function ChatView({
   };
 
   const send = () => {
-    const trimmed = composerValue.trim();
+    const trimmed = resolvedComposerValue.trim();
     if (!trimmed || gui.isStreaming) return;
 
     if (/^\//.test(trimmed)) {
@@ -231,7 +237,7 @@ export function ChatView({
       <div className={cn("border-t border-border/50 bg-background px-4 py-3 sm:px-5", gui.isStreaming && "shadow-inner")}>
         <Composer
           busy={gui.isStreaming}
-          value={composerValue}
+          value={resolvedComposerValue}
           onValueChange={setComposerValue}
           onSubmit={send}
           onAbort={() => onAbort(sessionId)}
@@ -263,7 +269,7 @@ export function ChatView({
           setTreeErrorText(null);
         }}
         onApplyEditorText={(text) => {
-          if (!composerValue.trim()) {
+          if (!resolvedComposerValue.trim()) {
             setComposerValue(text);
           }
         }}

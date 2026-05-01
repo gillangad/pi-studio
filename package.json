@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "^0.67.6",
+    "@wterm/dom": "^0.2.1",
+    "@wterm/react": "^0.2.1",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
     "class-variance-authority": "^0.7.1",
