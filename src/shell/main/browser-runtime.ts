@@ -1,6 +1,11 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { randomUUID } from "node:crypto";
+import type { AddressInfo } from "node:net";
 import { clipboard, webContents } from "electron";
 
 export const PI_STUDIO_BROWSER_RUNTIME_KEY = "__PI_STUDIO_BROWSER_RUNTIME__";
+export const PI_STUDIO_BROWSER_BRIDGE_URL_ENV = "PI_STUDIO_BROWSER_BRIDGE_URL";
+export const PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV = "PI_STUDIO_BROWSER_BRIDGE_TOKEN";
 
 export type BrowserToolAction =
   | "navigate"
@@ -321,10 +326,36 @@ export class BrowserRuntime {
   private readonly bindings = new Map<string, BrowserBinding>();
   private readonly sessionsByWebContentsId = new Map<number, Set<string>>();
   private readonly listenersByWebContentsId = new Map<number, (...args: any[]) => void>();
+  private readonly bridgeToken = randomUUID();
+  private readonly bridgeServer: Server;
+  private readonly bridgeReady: Promise<void>;
   private sessionName = "browser";
 
   constructor() {
+    this.bridgeServer = createServer((request, response) => {
+      void this.handleBridgeRequest(request, response);
+    });
+    this.bridgeReady = new Promise((resolve, reject) => {
+      this.bridgeServer.once("error", reject);
+      this.bridgeServer.listen(0, "127.0.0.1", () => {
+        this.bridgeServer.off("error", reject);
+        const address = this.bridgeServer.address();
+        if (!address || typeof address === "string") {
+          reject(new Error("Pi Studio browser bridge failed to bind."));
+          return;
+        }
+
+        process.env[PI_STUDIO_BROWSER_BRIDGE_URL_ENV] = `http://127.0.0.1:${(address as AddressInfo).port}`;
+        process.env[PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV] = this.bridgeToken;
+        resolve();
+      });
+    });
+
     (globalThis as Record<string, unknown>)[PI_STUDIO_BROWSER_RUNTIME_KEY] = this;
+  }
+
+  async whenReady() {
+    await this.bridgeReady;
   }
 
   dispose() {
@@ -336,6 +367,9 @@ export class BrowserRuntime {
     this.listenersByWebContentsId.clear();
     this.sessionsByWebContentsId.clear();
     this.bindings.clear();
+    this.bridgeServer.close();
+    delete process.env[PI_STUDIO_BROWSER_BRIDGE_URL_ENV];
+    delete process.env[PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV];
     delete (globalThis as Record<string, unknown>)[PI_STUDIO_BROWSER_RUNTIME_KEY];
   }
 
@@ -720,5 +754,68 @@ export class BrowserRuntime {
     }
 
     return response?.result?.value as T;
+  }
+
+  private async handleBridgeRequest(request: IncomingMessage, response: ServerResponse) {
+    try {
+      if (request.method !== "POST") {
+        this.writeBridgeJson(response, 405, { ok: false, error: "Method not allowed." });
+        return;
+      }
+
+      if (request.headers["x-pi-studio-browser-token"] !== this.bridgeToken) {
+        this.writeBridgeJson(response, 403, { ok: false, error: "Forbidden." });
+        return;
+      }
+
+      const body = await this.readRequestBody(request);
+      const payload = JSON.parse(body || "{}") as {
+        method?: string;
+        args?: unknown[];
+      };
+
+      const args = Array.isArray(payload.args) ? payload.args : [];
+      switch (payload.method) {
+        case "setSessionName":
+          this.setSessionName(String(args[0] ?? ""));
+          this.writeBridgeJson(response, 200, { ok: true, result: null });
+          return;
+        case "getLatestBoundSessionFile":
+          this.writeBridgeJson(response, 200, { ok: true, result: this.getLatestBoundSessionFile() });
+          return;
+        case "listBindings":
+          this.writeBridgeJson(response, 200, { ok: true, result: this.listBindings() });
+          return;
+        case "performAction":
+          this.writeBridgeJson(response, 200, { ok: true, result: await this.performAction(args[0] as BrowserToolRequest) });
+          return;
+        default:
+          this.writeBridgeJson(response, 400, { ok: false, error: `Unknown browser bridge method: ${String(payload.method ?? "")}` });
+      }
+    } catch (error) {
+      this.writeBridgeJson(response, 500, {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private readRequestBody(request: IncomingMessage) {
+    return new Promise<string>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      });
+      request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+      request.on("error", reject);
+    });
+  }
+
+  private writeBridgeJson(response: ServerResponse, statusCode: number, payload: unknown) {
+    const body = JSON.stringify(payload);
+    response.statusCode = statusCode;
+    response.setHeader("content-type", "application/json; charset=utf-8");
+    response.setHeader("content-length", Buffer.byteLength(body));
+    response.end(body);
   }
 }

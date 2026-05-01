@@ -326,6 +326,7 @@ app
     }
 
     browserRuntime = new BrowserRuntime();
+    await browserRuntime.whenReady();
     registerIpcHandlers();
     await initializeHost();
     await createMainWindow();

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV, PI_STUDIO_BROWSER_BRIDGE_URL_ENV } from "../../src/shell/main/browser-runtime";
 
 type ConsoleListener = (_event: unknown, level: number, message: string, line: number, sourceId: string) => void;
 
@@ -133,6 +134,8 @@ describe("BrowserRuntime", () => {
   beforeEach(() => {
     webContentsById.clear();
     clipboardState.text = "";
+    delete process.env[PI_STUDIO_BROWSER_BRIDGE_URL_ENV];
+    delete process.env[PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV];
   });
 
   it("binds the live browser surface and reports current state", async () => {
@@ -194,6 +197,35 @@ describe("BrowserRuntime", () => {
 
     const clipboardResult = result as { text: string };
     expect(clipboardResult.text).toBe("hello");
+
+    runtime.dispose();
+  });
+
+  it("serves browser actions through the bridge for out-of-process sessions", async () => {
+    const runtime = new BrowserRuntime();
+    await runtime.whenReady();
+
+    const contents = new FakeWebContents(13, "https://example.com", "Example");
+    webContentsById.set(13, contents);
+    runtime.bindSurface("/tmp/thread.jsonl", 13);
+
+    const response = await fetch(String(process.env[PI_STUDIO_BROWSER_BRIDGE_URL_ENV]), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-pi-studio-browser-token": String(process.env[PI_STUDIO_BROWSER_BRIDGE_TOKEN_ENV]),
+      },
+      body: JSON.stringify({
+        method: "performAction",
+        args: [{ action: "state", sessionFile: "/tmp/thread.jsonl" }],
+      }),
+    });
+
+    const payload = (await response.json()) as { ok: boolean; result: { url: string; title: string } };
+    expect(response.ok).toBe(true);
+    expect(payload.ok).toBe(true);
+    expect(payload.result.url).toBe("https://example.com");
+    expect(payload.result.title).toBe("Example");
 
     runtime.dispose();
   });

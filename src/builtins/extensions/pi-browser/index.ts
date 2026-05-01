@@ -2,6 +2,8 @@ import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 const BROWSER_RUNTIME_KEY = "__PI_STUDIO_BROWSER_RUNTIME__";
+const BROWSER_BRIDGE_URL_ENV = "PI_STUDIO_BROWSER_BRIDGE_URL";
+const BROWSER_BRIDGE_TOKEN_ENV = "PI_STUDIO_BROWSER_BRIDGE_TOKEN";
 
 const BrowserParams = Type.Object({
   action: Type.Union([
@@ -62,11 +64,42 @@ type BrowserRuntime = {
 
 function getBrowserRuntime() {
   const runtime = (globalThis as Record<string, unknown>)[BROWSER_RUNTIME_KEY];
-  if (!runtime || typeof runtime !== "object") {
+  if (runtime && typeof runtime === "object") {
+    return runtime as BrowserRuntime;
+  }
+
+  const bridgeUrl = process.env[BROWSER_BRIDGE_URL_ENV];
+  const bridgeToken = process.env[BROWSER_BRIDGE_TOKEN_ENV];
+  if (!bridgeUrl || !bridgeToken) {
     throw new Error("Pi Studio browser runtime is unavailable.");
   }
 
-  return runtime as BrowserRuntime;
+  const bridgeCall = async (method: string, args: unknown[]) => {
+    const response = await fetch(bridgeUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-pi-studio-browser-token": bridgeToken,
+      },
+      body: JSON.stringify({ method, args }),
+    });
+
+    const payload = (await response.json()) as { ok?: boolean; result?: unknown; error?: string };
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.error || "Pi Studio browser bridge request failed.");
+    }
+
+    return payload.result;
+  };
+
+  return {
+    setSessionName(name: string) {
+      return bridgeCall("setSessionName", [name]) as Promise<void>;
+    },
+    performAction(request) {
+      return bridgeCall("performAction", [request]);
+    },
+  } as BrowserRuntime;
 }
 
 function sessionFileFromContext(ctx: ExtensionContext) {
@@ -178,7 +211,7 @@ export default function browserExtension(pi: ExtensionAPI) {
     parameters: BrowserParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const runtime = getBrowserRuntime();
-      runtime.setSessionName("pi-browser");
+      await runtime.setSessionName("pi-browser");
 
       const result = await runtime.performAction({
         action: params.action,

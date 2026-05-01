@@ -1,12 +1,49 @@
 const BROWSER_RUNTIME_KEY = "__PI_STUDIO_BROWSER_RUNTIME__";
+const BROWSER_BRIDGE_URL_ENV = "PI_STUDIO_BROWSER_BRIDGE_URL";
+const BROWSER_BRIDGE_TOKEN_ENV = "PI_STUDIO_BROWSER_BRIDGE_TOKEN";
 
 function getBrowserRuntime() {
   const runtime = globalThis[BROWSER_RUNTIME_KEY];
-  if (!runtime || typeof runtime !== "object") {
+  if (runtime && typeof runtime === "object") {
+    return runtime;
+  }
+
+  const bridgeUrl = process.env[BROWSER_BRIDGE_URL_ENV];
+  const bridgeToken = process.env[BROWSER_BRIDGE_TOKEN_ENV];
+  if (!bridgeUrl || !bridgeToken) {
     throw new Error("Pi Studio browser runtime is unavailable.");
   }
 
-  return runtime;
+  const bridgeCall = async (method, args = []) => {
+    const response = await fetch(bridgeUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-pi-studio-browser-token": bridgeToken,
+      },
+      body: JSON.stringify({ method, args }),
+    });
+    const payload = await response.json();
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.error || "Pi Studio browser bridge request failed.");
+    }
+    return payload?.result;
+  };
+
+  return {
+    setSessionName(name) {
+      return bridgeCall("setSessionName", [name]);
+    },
+    getLatestBoundSessionFile() {
+      return bridgeCall("getLatestBoundSessionFile");
+    },
+    listBindings() {
+      return bridgeCall("listBindings");
+    },
+    performAction(request) {
+      return bridgeCall("performAction", [request]);
+    },
+  };
 }
 
 function wrapTab(sessionFile) {
