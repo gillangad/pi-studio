@@ -11,8 +11,24 @@ type ResolveTuiLaunchCommandOptions = {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
   sessionFile?: string | null;
+  extensionPaths?: string[];
+  skillPaths?: string[];
   findExecutable?: (candidateNames: string[], pathValue: string) => string | null;
 };
+
+function appendResourceFlags(args: string[], options: ResolveTuiLaunchCommandOptions) {
+  for (const extensionPath of options.extensionPaths ?? []) {
+    if (extensionPath.trim()) {
+      args.push("-e", extensionPath);
+    }
+  }
+
+  for (const skillPath of options.skillPaths ?? []) {
+    if (skillPath.trim()) {
+      args.push("--skill", skillPath);
+    }
+  }
+}
 
 export function findExecutable(candidateNames: string[], pathValue = process.env.PATH ?? "") {
   if (!pathValue.trim()) return null;
@@ -49,9 +65,11 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
     const piCommand = lookup(["pi.cmd", "pi.exe", "pi.bat"], pathValue);
 
     if (piCommand) {
+      const args = sessionFile ? ["--session", sessionFile] : ["-c"];
+      appendResourceFlags(args, options);
       return {
         file: piCommand,
-        args: sessionFile ? ["--session", sessionFile] : ["-c"],
+        args,
         source: "pi",
       };
     }
@@ -66,9 +84,11 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
   const piCommand = lookup(["pi"], pathValue);
 
   if (piCommand) {
+    const args = sessionFile ? ["--session", sessionFile] : ["-c"];
+    appendResourceFlags(args, options);
     return {
       file: piCommand,
-      args: sessionFile ? ["--session", sessionFile] : ["-c"],
+      args,
       source: "pi",
     };
   }

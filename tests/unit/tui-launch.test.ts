@@ -31,6 +31,32 @@ describe("resolveTuiLaunchCommand", () => {
     });
   });
 
+  it("passes builtin extension and skill paths to pi", () => {
+    const command = resolveTuiLaunchCommand({
+      platform: "linux",
+      env: { PATH: "/usr/bin" },
+      extensionPaths: ["/tmp/ext/browser.ts", "/tmp/ext/control.ts"],
+      skillPaths: ["/tmp/skills", "/tmp/inline-skills"],
+      findExecutable: (candidates) => (candidates.includes("pi") ? "/usr/bin/pi" : null),
+    });
+
+    expect(command).toEqual({
+      file: "/usr/bin/pi",
+      args: [
+        "-c",
+        "-e",
+        "/tmp/ext/browser.ts",
+        "-e",
+        "/tmp/ext/control.ts",
+        "--skill",
+        "/tmp/skills",
+        "--skill",
+        "/tmp/inline-skills",
+      ],
+      source: "pi",
+    });
+  });
+
   it("falls back to login shell on unix when pi is unavailable", () => {
     const command = resolveTuiLaunchCommand({
       platform: "linux",

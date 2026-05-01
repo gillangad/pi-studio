@@ -1377,7 +1377,20 @@ export class StudioHost {
         runtime.terminal.stop();
       }
 
-      runtime.terminal.start(launchTarget.cwd, 120, 32, launchTarget.sessionFile);
+      let extensionPaths: string[] | undefined;
+      let skillPaths: string[] | undefined;
+
+      if (activeRuntime?.usePiStudioBuiltins) {
+        const builtins = await getPiStudioBuiltinResources();
+        extensionPaths = builtins.additionalExtensionPaths;
+        skillPaths = builtins.additionalSkillPaths;
+      }
+
+      runtime.terminal.startPiSession(launchTarget.cwd, 120, 32, {
+        sessionFile: launchTarget.sessionFile,
+        extensionPaths,
+        skillPaths,
+      });
       runtime.projectId = launchTarget.projectId;
       runtime.cwd = launchTarget.cwd;
       runtime.sessionFile = launchTarget.sessionFile;
