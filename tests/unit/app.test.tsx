@@ -291,6 +291,8 @@ describe("App", () => {
       navigateTree: vi.fn().mockResolvedValue({ cancelled: false }),
       runSlashCommand: vi.fn().mockResolvedValue({ handled: true }),
       getBrowserCdpTarget: vi.fn().mockResolvedValue(null),
+      bindBrowserSurface: vi.fn().mockResolvedValue(undefined),
+      clearBrowserSurfaceBinding: vi.fn().mockResolvedValue(undefined),
       onSnapshot: vi.fn().mockReturnValue(() => {}),
       onTuiData: vi.fn().mockReturnValue(() => {}),
       onTerminalData: vi.fn().mockReturnValue(() => {}),
@@ -398,24 +400,14 @@ describe("App", () => {
     expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
   });
 
-  it("removes an empty project from the sidebar actions", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
+  it("keeps the project row free of a delete button", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Remove empty project empty" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "empty" })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove empty project empty" }));
-
-    expect(confirmSpy).toHaveBeenCalledWith('Remove "empty" from Pi Studio? This only removes it from the sidebar.');
-    expect(bridge.removeProject).toHaveBeenCalledWith("p3");
+    expect(screen.queryByRole("button", { name: "Remove empty project empty" })).not.toBeInTheDocument();
   });
 
   it("deletes a thread from the sidebar hover action", async () => {

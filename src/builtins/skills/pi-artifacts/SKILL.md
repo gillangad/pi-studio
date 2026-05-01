@@ -18,6 +18,8 @@ Use this skill when the user wants a visualization, dashboard, report explorer, 
 
 Emit a fenced code block whose info string starts with `pi-artifact`, and make the body valid JSON.
 
+When the user explicitly asks for an artifact in Pi Studio, fulfill that request with a `pi-artifact` block in the assistant response. Do not satisfy an artifact request by only writing a standalone HTML, TSX, or other file unless the user explicitly asks for a file as the deliverable.
+
 Required fields:
 
 - `id`: stable slug, for example `q2-report-explorer`
@@ -32,6 +34,12 @@ Recommended fields:
 - `css`: styling string
 - `js`: module script for `html` artifacts when needed
 - `data`: structured JSON payload for the artifact to render
+
+Canonical contract:
+
+- The fenced block body itself must be valid JSON.
+- For `kind: "react-tsx"`, provide `tsx` and optionally `css` and `data`.
+- For `kind: "html"`, provide `html` and optionally `css`, `js`, and `data`.
 
 ## Default choice
 
@@ -56,6 +64,12 @@ React artifact rules:
 - Make it look intentional: good spacing, strong information hierarchy, sensible defaults, readable charts/tables, and useful empty states when needed.
 - Keep the UI tightly scoped to the task.
 - Prefer embedding the relevant data in `data` instead of hardcoding display text all over the component.
+
+## Delivery guidance
+
+- You may write brief explanatory text before or after the artifact block.
+- Emit the artifact block directly in the assistant message that creates or revises it.
+- If you also create supporting files, the artifact block is still the primary deliverable for artifact requests in Pi Studio.
 
 ## Example
 

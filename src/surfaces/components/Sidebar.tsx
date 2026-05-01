@@ -472,25 +472,6 @@ export function Sidebar({
                       >
                         <NotebookPen size={14} />
                       </Button>
-                      {threads.length === 0 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-5 w-5 text-destructive transition-colors hover:bg-destructive/10"
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onRemoveProject(project.id);
-                          }}
-                          aria-label={`Remove empty project ${project.name}`}
-                          title={`Remove empty project ${project.name}`}
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      ) : null}
                     </div>
                   </div>
 

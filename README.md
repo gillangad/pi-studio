@@ -11,6 +11,12 @@ Pi Studio ships first-party Pi-native built-ins through a simple directory conve
 
 Those resources are loaded for Pi Studio builtin-enabled sessions through the host resource loader, so built-in capabilities should be packaged as normal Pi extensions and skills rather than ad hoc desktop-only behavior.
 
+Pi Studio now also ships a built-in `pi-browser` package:
+
+- the `pi-browser` extension exposes a single `browser` tool to Pi
+- the `pi-browser` skill teaches the agent how to use that tool
+- the visible browser panel binds to the current thread so Pi acts on the same live surface the user sees
+
 ## Experimental Artifacts
 
 Pi Studio can surface session artifacts directly inside the chat timeline.

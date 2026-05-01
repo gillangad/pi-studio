@@ -92,7 +92,7 @@ export async function buildMasterContext(limit = 16) {
       "CONTROL SESSION MODE",
       "You are the single persistent master Pi session for Pi Studio.",
       "There are currently no managed servant sessions available.",
-      "Use control_target(action=list) to check again later.",
+      "Use control(action=list) to check again later.",
     ].join("\n");
   }
 
@@ -112,9 +112,9 @@ export async function buildMasterContext(limit = 16) {
   return [
     "CONTROL SESSION MODE",
     "You are the single persistent master Pi session for Pi Studio.",
-    "Use control tools to steer servant sessions across projects.",
-    "control_send writes a real user-role prompt into the servant session.",
-    "Prefer control_latest for quick previews and control_read only when you need deeper catch-up.",
+    "Use the control tool to steer servant sessions across projects.",
+    "action=send writes a real user-role prompt into the servant session.",
+    "Prefer action=latest for quick previews and action=read only when you need deeper catch-up.",
     "",
     "Managed servant sessions:",
     ...lines,

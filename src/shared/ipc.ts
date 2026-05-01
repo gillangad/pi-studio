@@ -55,6 +55,8 @@ export const IPC_CHANNELS = {
     navigateTree: "pi-studio:navigate-tree",
     runSlashCommand: "pi-studio:run-slash-command",
     getBrowserCdpTarget: "pi-studio:get-browser-cdp-target",
+    bindBrowserSurface: "pi-studio:bind-browser-surface",
+    clearBrowserSurfaceBinding: "pi-studio:clear-browser-surface-binding",
   },
   push: {
     snapshot: "pi-studio:snapshot",
@@ -99,6 +101,13 @@ export type TuiSessionPayload = {
 };
 
 export type BrowserCdpTargetPayload = {
+  url?: string;
+  title?: string;
+};
+
+export type BrowserSurfaceBindingPayload = {
+  sessionFile: string;
+  webContentsId: number;
   url?: string;
   title?: string;
 };
@@ -177,6 +186,8 @@ export type DesktopBridge = {
   navigateTree(payload: NavigateTreePayload): Promise<NavigateTreeResult>;
   runSlashCommand(payload: RunSlashCommandPayload): Promise<RunSlashCommandResult>;
   getBrowserCdpTarget(payload: BrowserCdpTargetPayload): Promise<BrowserCdpTarget | null>;
+  bindBrowserSurface(payload: BrowserSurfaceBindingPayload): Promise<void>;
+  clearBrowserSurfaceBinding(sessionFile: string): Promise<void>;
   onSnapshot(callback: (snapshot: StudioSnapshot) => void): () => void;
   onTuiData(callback: (chunk: TerminalChunk) => void): () => void;
   onTerminalData(callback: (chunk: TerminalChunk) => void): () => void;

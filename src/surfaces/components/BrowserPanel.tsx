@@ -7,6 +7,7 @@ import { Input } from "./ui/input";
 
 type BrowserPanelProps = {
   threadKey: string;
+  sessionFile: string | null;
   initialUrl: string;
   onUrlChange: (url: string) => void;
 };
@@ -15,6 +16,7 @@ type WebviewElement = HTMLElement & {
   loadURL?: (url: string) => void;
   getURL?: () => string;
   getTitle?: () => string;
+  getWebContentsId?: () => number;
   canGoBack?: () => boolean;
   canGoForward?: () => boolean;
   goBack?: () => void;
@@ -33,7 +35,7 @@ function normalizeUrl(input: string) {
   return `https://${trimmed}`;
 }
 
-export function BrowserPanel({ threadKey, initialUrl, onUrlChange }: BrowserPanelProps) {
+export function BrowserPanel({ threadKey, sessionFile, initialUrl, onUrlChange }: BrowserPanelProps) {
   const webviewRef = useRef<WebviewElement | null>(null);
   const [address, setAddress] = useState(() => normalizeUrl(initialUrl));
   const [canGoBack, setCanGoBack] = useState(false);
@@ -72,25 +74,52 @@ export function BrowserPanel({ threadKey, initialUrl, onUrlChange }: BrowserPane
       .catch(() => {
         setCdpTarget(null);
       });
+
+    if (sessionFile) {
+      const webContentsId = webview.getWebContentsId?.();
+      if (
+        typeof webContentsId === "number" &&
+        Number.isFinite(webContentsId) &&
+        typeof window.piStudio?.bindBrowserSurface === "function"
+      ) {
+        void window.piStudio.bindBrowserSurface({
+          sessionFile,
+          webContentsId,
+          url: currentUrl,
+          title: currentTitle,
+        });
+      }
+    }
   };
 
   useEffect(() => {
     const webview = webviewRef.current;
     if (!webview) return;
 
+    const onDomReady = () => syncStateFromWebview();
     const onDidNavigate = () => syncStateFromWebview();
     const onDidStopLoading = () => syncStateFromWebview();
 
+    webview.addEventListener("dom-ready", onDomReady as EventListener);
     webview.addEventListener("did-navigate", onDidNavigate as EventListener);
     webview.addEventListener("did-stop-loading", onDidStopLoading as EventListener);
     webview.addEventListener("did-navigate-in-page", onDidNavigate as EventListener);
 
     return () => {
+      webview.removeEventListener("dom-ready", onDomReady as EventListener);
       webview.removeEventListener("did-navigate", onDidNavigate as EventListener);
       webview.removeEventListener("did-stop-loading", onDidStopLoading as EventListener);
       webview.removeEventListener("did-navigate-in-page", onDidNavigate as EventListener);
     };
-  }, [threadKey]);
+  }, [sessionFile, threadKey]);
+
+  useEffect(() => {
+    return () => {
+      if (sessionFile && typeof window.piStudio?.clearBrowserSurfaceBinding === "function") {
+        void window.piStudio.clearBrowserSurfaceBinding(sessionFile);
+      }
+    };
+  }, [sessionFile]);
 
   const navigate = () => {
     const next = normalizeUrl(address);

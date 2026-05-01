@@ -619,6 +619,7 @@ export function App() {
                 {selectedUtilityPanel === "browser" && selectedThreadKey ? (
                   <BrowserPanel
                     threadKey={selectedThreadKey}
+                    sessionFile={selectedGuiState?.sessionFile ?? null}
                     initialUrl={browserUrl}
                     onUrlChange={(url) => {
                       setBrowserUrlByThread((current) => ({

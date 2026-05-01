@@ -222,7 +222,7 @@ async function runPromptInSession(options: RunPromptOptions) {
 
 function acquireTargetLock(targetId: string) {
   if (targetLocks.has(targetId)) {
-    throw new Error(`Target ${targetId} already has an active control_send run.`);
+    throw new Error(`Target ${targetId} already has an active control send run.`);
   }
   targetLocks.add(targetId);
 }
@@ -348,14 +348,14 @@ export async function getStatusRuns(params: {
 export async function cancelRuns(params: { runId?: unknown; runIds?: unknown; targetId?: unknown; targetIds?: unknown; reason?: unknown }) {
   const explicitRunIds = [...new Set([params.runId, ...(Array.isArray(params.runIds) ? params.runIds : [])].filter((v): v is string => typeof v === "string" && v.trim().length > 0))];
   const explicitTargetIds = [...new Set([params.targetId, ...(Array.isArray(params.targetIds) ? params.targetIds : [])].filter((v): v is string => typeof v === "string" && v.trim().length > 0))];
-  const reason = typeof params.reason === "string" && params.reason.trim() ? params.reason.trim() : "Cancelled by control_cancel";
+  const reason = typeof params.reason === "string" && params.reason.trim() ? params.reason.trim() : "Cancelled by control action";
 
   let runIdsToCancel = explicitRunIds;
   if (runIdsToCancel.length === 0 && explicitTargetIds.length > 0) {
     runIdsToCancel = [...activeRuns.values()].filter((run) => explicitTargetIds.includes(run.targetId)).map((run) => run.runId);
   }
   if (runIdsToCancel.length === 0) {
-    throw new Error("Provide run_id/run_ids or target_id/target_ids for control_cancel.");
+    throw new Error("Provide run_id/run_ids or target_id/target_ids for action=cancel.");
   }
 
   const cancelled: ControlRunRecord[] = [];

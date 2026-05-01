@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
@@ -38,6 +38,74 @@ async function pathExists(targetPath: string) {
   } catch {
     return false;
   }
+}
+
+async function readPiManifest(packageJsonPath: string) {
+  try {
+    const content = await readFile(packageJsonPath, "utf8");
+    const parsed = JSON.parse(content) as { pi?: { extensions?: string[] } };
+    return parsed.pi ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function isExtensionEntryFile(name: string) {
+  return name.endsWith(".ts") || name.endsWith(".js");
+}
+
+export async function discoverBuiltinExtensionPaths(root: string) {
+  if (!(await pathExists(root))) {
+    return [] as string[];
+  }
+
+  const entries = await readdir(root, { withFileTypes: true });
+  const discovered: string[] = [];
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) {
+      continue;
+    }
+
+    const entryPath = path.join(root, entry.name);
+
+    if ((entry.isFile() || entry.isSymbolicLink()) && isExtensionEntryFile(entry.name)) {
+      discovered.push(entryPath);
+      continue;
+    }
+
+    if (!entry.isDirectory() && !entry.isSymbolicLink()) {
+      continue;
+    }
+
+    const packageJsonPath = path.join(entryPath, "package.json");
+    if (await pathExists(packageJsonPath)) {
+      const manifest = await readPiManifest(packageJsonPath);
+      if (Array.isArray(manifest?.extensions) && manifest.extensions.length > 0) {
+        for (const extensionPath of manifest.extensions) {
+          const resolvedPath = path.resolve(entryPath, extensionPath);
+          if (await pathExists(resolvedPath)) {
+            discovered.push(resolvedPath);
+          }
+        }
+
+        continue;
+      }
+    }
+
+    const indexTsPath = path.join(entryPath, "index.ts");
+    if (await pathExists(indexTsPath)) {
+      discovered.push(indexTsPath);
+      continue;
+    }
+
+    const indexJsPath = path.join(entryPath, "index.js");
+    if (await pathExists(indexJsPath)) {
+      discovered.push(indexJsPath);
+    }
+  }
+
+  return dedupe(discovered);
 }
 
 async function findBundledBuiltinsRoot() {
@@ -87,7 +155,9 @@ export function getPiStudioBuiltinResources() {
       const skillDir = root ? path.join(root, "skills") : null;
 
       const additionalExtensionPaths =
-        extensionDir && (await pathExists(extensionDir)) ? [extensionDir] : [];
+        extensionDir && (await pathExists(extensionDir))
+          ? await discoverBuiltinExtensionPaths(extensionDir)
+          : [];
       const additionalSkillPaths =
         skillDir && (await pathExists(skillDir)) ? [skillDir] : [];
 

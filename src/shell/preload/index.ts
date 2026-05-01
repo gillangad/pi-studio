@@ -63,6 +63,9 @@ const bridge: DesktopBridge = {
   navigateTree: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.navigateTree, payload),
   runSlashCommand: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.runSlashCommand, payload),
   getBrowserCdpTarget: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.getBrowserCdpTarget, payload),
+  bindBrowserSurface: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.bindBrowserSurface, payload),
+  clearBrowserSurfaceBinding: (sessionFile) =>
+    ipcRenderer.invoke(IPC_CHANNELS.invoke.clearBrowserSurfaceBinding, sessionFile),
   onSnapshot: (callback) => subscribe(IPC_CHANNELS.push.snapshot, callback),
   onTuiData: (callback) => subscribe(IPC_CHANNELS.push.tuiData, callback),
   onTerminalData: (callback) => subscribe(IPC_CHANNELS.push.terminalData, callback),

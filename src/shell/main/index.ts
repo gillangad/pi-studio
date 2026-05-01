@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain, Menu } from "electron";
 import { StudioHost } from "../../pi-host/studio-host";
 import { IPC_CHANNELS } from "../../shared/ipc";
+import { BrowserRuntime } from "./browser-runtime";
 import { resolvePreloadScriptPath } from "./preload-path";
 
 const currentFilePath = fileURLToPath(import.meta.url);
@@ -16,6 +17,7 @@ app.commandLine.appendSwitch("remote-debugging-port", "9222");
 
 let mainWindow: BrowserWindow | null = null;
 let host: StudioHost | null = null;
+let browserRuntime: BrowserRuntime | null = null;
 
 function sendSnapshot(snapshot: unknown) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -286,6 +288,18 @@ function registerIpcHandlers() {
     IPC_CHANNELS.invoke.getBrowserCdpTarget,
     async (_event, payload?: { url?: string; title?: string }) => resolveBrowserCdpTarget(payload),
   );
+  ipcMain.handle(
+    IPC_CHANNELS.invoke.bindBrowserSurface,
+    async (_event, payload: { sessionFile: string; webContentsId: number; url?: string; title?: string }) => {
+      browserRuntime?.bindSurface(payload.sessionFile, payload.webContentsId, {
+        url: payload.url,
+        title: payload.title,
+      });
+    },
+  );
+  ipcMain.handle(IPC_CHANNELS.invoke.clearBrowserSurfaceBinding, async (_event, sessionFile: string) => {
+    browserRuntime?.clearSurfaceBinding(sessionFile);
+  });
   ipcMain.on(
     IPC_CHANNELS.invoke.resizeTui,
     (_event, payload: { cols: number; rows: number; sessionId?: string }) =>
@@ -311,6 +325,7 @@ app
       Menu.setApplicationMenu(null);
     }
 
+    browserRuntime = new BrowserRuntime();
     registerIpcHandlers();
     await initializeHost();
     await createMainWindow();
@@ -334,4 +349,5 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   host?.dispose();
+  browserRuntime?.dispose();
 });
