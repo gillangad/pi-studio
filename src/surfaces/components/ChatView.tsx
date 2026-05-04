@@ -203,7 +203,7 @@ export function ChatView({
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="chat-scroll-region min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
-        <div className="mx-auto flex w-full max-w-[840px] min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5">
+        <div className="chat-width-shell mx-auto flex min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5">
           {timelineItems.length > 0 ? (
             timelineItems.map((item) => (
               <div key={item.id} className="mx-auto flex w-full min-w-0">
@@ -235,26 +235,28 @@ export function ChatView({
       ) : null}
 
       <div className={cn("border-t border-border/50 bg-background px-4 py-3 sm:px-5", gui.isStreaming && "shadow-inner")}>
-        <Composer
-          busy={gui.isStreaming}
-          value={resolvedComposerValue}
-          onValueChange={setComposerValue}
-          onSubmit={send}
-          onAbort={() => onAbort(sessionId)}
-          models={gui.availableModels}
-          currentModel={gui.model}
-          thinkingLevel={gui.thinkingLevel}
-          availableThinkingLevels={gui.availableThinkingLevels}
-          attachments={gui.attachments}
-          slashCommands={gui.slashCommands}
-          onSetModel={(provider, modelId) => void onSetModel(provider, modelId, sessionId)}
-          onSetThinkingLevel={(level) => void onSetThinkingLevel(level, sessionId)}
-          onPickAttachments={() => void onPickAttachments(sessionId)}
-          onRemoveAttachment={(attachmentId) => void onRemoveAttachment(attachmentId, sessionId)}
-          onClearAttachments={() => void onClearAttachments(sessionId)}
-          agentMenuOpen={agentMenuOpen}
-          onAgentMenuOpenChange={setAgentMenuOpen}
-        />
+        <div className="chat-width-shell mx-auto w-full">
+          <Composer
+            busy={gui.isStreaming}
+            value={resolvedComposerValue}
+            onValueChange={setComposerValue}
+            onSubmit={send}
+            onAbort={() => onAbort(sessionId)}
+            models={gui.availableModels}
+            currentModel={gui.model}
+            thinkingLevel={gui.thinkingLevel}
+            availableThinkingLevels={gui.availableThinkingLevels}
+            attachments={gui.attachments}
+            slashCommands={gui.slashCommands}
+            onSetModel={(provider, modelId) => void onSetModel(provider, modelId, sessionId)}
+            onSetThinkingLevel={(level) => void onSetThinkingLevel(level, sessionId)}
+            onPickAttachments={() => void onPickAttachments(sessionId)}
+            onRemoveAttachment={(attachmentId) => void onRemoveAttachment(attachmentId, sessionId)}
+            onClearAttachments={() => void onClearAttachments(sessionId)}
+            agentMenuOpen={agentMenuOpen}
+            onAgentMenuOpenChange={setAgentMenuOpen}
+          />
+        </div>
       </div>
 
       <SessionTreeDialog

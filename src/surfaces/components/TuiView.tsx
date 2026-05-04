@@ -116,10 +116,9 @@ export function TuiView({
           ref={ref}
           autoResize
           cursorBlink
-          theme={document.documentElement.getAttribute("data-theme") === "light" ? "light" : "monokai"}
           onReady={handleReady}
           onData={handleData}
-          className="h-full w-full"
+          className="pi-studio-wterm h-full w-full"
         />
       </div>
     </section>

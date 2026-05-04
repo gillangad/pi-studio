@@ -481,12 +481,11 @@ export function App() {
       </div>
 
       <section className="relative flex min-w-0 flex-1">
-        <div className="relative flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           <section
-            hidden={!isWorkspaceMode}
             className={cn(
-              "flex min-h-0 min-w-0 flex-1 flex-col pt-2",
-              !isWorkspaceMode && "workspace-surface-hidden",
+              "min-h-0 min-w-0 flex-col pt-2",
+              isWorkspaceMode ? "workspace-surface-active flex" : "workspace-surface-hidden",
             )}
             aria-label="GUI workspace"
           >
@@ -708,10 +707,9 @@ export function App() {
             </div>
           </section>
           <section
-            hidden={activeMode !== "tui"}
             className={cn(
-              "relative flex min-h-0 min-w-0 flex-1",
-              activeMode !== "tui" && "workspace-surface-hidden",
+              "min-h-0 min-w-0",
+              activeMode === "tui" ? "workspace-surface-active flex" : "workspace-surface-hidden",
             )}
             aria-label="TUI workspace"
           >
