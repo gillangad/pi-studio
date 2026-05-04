@@ -44,8 +44,8 @@ Examples:
 - extension discovery integration
 - session and thread lifecycle
 - event bridging into desktop-safe view models
-- shared-runtime GUI/TUI session hosting
-- compatibility terminal hosting support
+- hosted TUI session management
+- terminal hosting support
 
 This lane is the boundary where Pi semantics meet desktop-app semantics.
 
@@ -159,7 +159,7 @@ That means:
 - Pi remains the source of truth for extension/resource behavior.
 - Studio adds desktop-native shell and surface layers.
 - Shared first-party behavior should be Pi-native whenever practical.
-- GUI and the primary TUI should be two renderers over the same Pi session state whenever practical.
+- GUI and TUI should stay operationally aligned, even when they are backed by different runtime surfaces.
 
 ## Update Policy
 

@@ -20,7 +20,6 @@ type StudioTheme = "dark" | "light";
 
 type BrowserUrlByThread = Record<string, string>;
 type ArtifactSelectionByThread = Record<string, string | null>;
-type DraftByThread = Record<string, string>;
 type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff" | "artifacts";
 type UtilityPanelByThread = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
@@ -104,9 +103,6 @@ export function App() {
   const [browserUrlByThread, setBrowserUrlByThread] = useState<BrowserUrlByThread>(() =>
     readJsonRecord<BrowserUrlByThread>("pi-studio-browser-url-by-thread"),
   );
-  const [draftByThread, setDraftByThread] = useState<DraftByThread>(() =>
-    readJsonRecord<DraftByThread>("pi-studio-draft-by-thread"),
-  );
   const [artifactSelectionByThread, setArtifactSelectionByThread] = useState<ArtifactSelectionByThread>(() =>
     readJsonRecord<ArtifactSelectionByThread>("pi-studio-artifact-selection-by-thread"),
   );
@@ -141,10 +137,6 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-browser-url-by-thread", JSON.stringify(browserUrlByThread));
   }, [browserUrlByThread]);
-
-  useEffect(() => {
-    window.localStorage.setItem("pi-studio-draft-by-thread", JSON.stringify(draftByThread));
-  }, [draftByThread]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -202,7 +194,6 @@ export function App() {
   const selectedThreadKey = activeGuiThreadKey ?? pendingGuiThreadKey;
   const selectedUtilityPanel = selectedThreadKey ? utilityPanelByThread[selectedThreadKey] ?? null : null;
   const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
-  const sharedDraft = selectedThreadKey ? draftByThread[selectedThreadKey] ?? "" : "";
   const selectedArtifactId = selectedThreadKey ? artifactSelectionByThread[selectedThreadKey] ?? null : null;
   const showingCachedThread = Boolean(pendingGuiThreadKey && pendingGuiThreadKey !== activeGuiThreadKey);
   const activeProjectId = selectedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
@@ -227,17 +218,6 @@ export function App() {
           }
         : null,
     [derivedArtifacts.messages, selectedGuiState],
-  );
-
-  const setSharedDraft = useCallback(
-    (value: string) => {
-      if (!selectedThreadKey) return;
-      setDraftByThread((current) => ({
-        ...current,
-        [selectedThreadKey]: value,
-      }));
-    },
-    [selectedThreadKey],
   );
 
   useEffect(() => {
@@ -482,13 +462,8 @@ export function App() {
 
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <section
-            className={cn(
-              "min-h-0 min-w-0 flex-col pt-2",
-              isWorkspaceMode ? "workspace-surface-active flex" : "workspace-surface-hidden",
-            )}
-            aria-label="GUI workspace"
-          >
+          {isWorkspaceMode ? (
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="GUI workspace">
             <header className="flex items-center justify-between gap-3 px-5 py-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -615,8 +590,6 @@ export function App() {
                 {renderedGuiState ? (
                   <ChatView
                     gui={renderedGuiState}
-                    composerValue={sharedDraft}
-                    onComposerValueChange={setSharedDraft}
                     onSendPrompt={actions.sendPrompt}
                     onAbort={actions.abortPrompt}
                     onSetModel={actions.setModel}
@@ -702,28 +675,26 @@ export function App() {
                   onAddComment={actions.addGitComment}
                   onRemoveComment={actions.removeGitComment}
                 />
-              ) : null}
+                ) : null}
               </div>
             </div>
-          </section>
-          <section
-            className={cn(
-              "min-h-0 min-w-0",
-              activeMode === "tui" ? "workspace-surface-active flex" : "workspace-surface-hidden",
-            )}
-            aria-label="TUI workspace"
-          >
-            <TuiView
-              active={activeMode === "tui"}
-              sessionId={selectedGuiState?.sessionId}
-              gui={renderedGuiState ?? snapshot.gui}
-              tui={snapshot.tui}
-              draft={sharedDraft}
-              onDraftChange={setSharedDraft}
-              onSendPrompt={actions.sendPrompt}
-              onAbort={actions.abortPrompt}
-            />
-          </section>
+            </section>
+          ) : null}
+
+          {activeMode === "tui" ? (
+            <section className="relative flex min-h-0 min-w-0 flex-1" aria-label="TUI workspace">
+              <TuiView
+                sessionId="default"
+                stopOnUnmount={false}
+                tui={snapshot.tui}
+                onStart={actions.startTui}
+                onStop={actions.stopTui}
+                onResize={actions.resizeTui}
+                onData={actions.writeToTui}
+                subscribeToData={actions.onTuiData}
+              />
+            </section>
+          ) : null}
 
           {activeMode === "git" ? (
             <section className="flex min-h-0 min-w-0 flex-1 p-3">

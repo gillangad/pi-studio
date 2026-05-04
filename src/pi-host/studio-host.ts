@@ -412,7 +412,6 @@ export class StudioHost {
     if (activeProject) {
       await this.openSessionForProject(activeProject, { kind: "continue" });
       await this.refreshGitState();
-      await this.warmTuiForActiveWorkspace();
     }
 
     if (this.workspaceState.activeMode === "tui") {
@@ -544,29 +543,30 @@ export class StudioHost {
         } satisfies MasterState;
       })(),
       tui: (() => {
-        const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
-        const projectId = activeRuntime?.projectId ?? this.workspaceState.activeProjectId;
-        const cwd = activeRuntime?.projectPath ?? this.currentProjectPath;
-        const errorText = activeRuntime?.errorText ?? this.guiErrorText;
-        const status = activeRuntime?.isStreaming ? "running" : projectId ? "idle" : "stopped";
+        const sessionEntries = Object.entries(this.tuiSessions);
+        const defaultRuntime = this.tuiSessions.default ?? sessionEntries[0]?.[1] ?? null;
+        const active = sessionEntries.some(([, runtime]) => runtime.terminal.active);
 
         return {
-          active: Boolean(projectId),
-          projectId,
-          cwd,
-          status,
-          errorText,
-          runningInBackground: Boolean(projectId) && this.workspaceState.activeMode !== "tui",
-          sessions: {
-            default: {
-              sessionId: "default",
-              active: Boolean(projectId),
-              projectId,
-              cwd,
-              status,
-              errorText,
-            },
-          },
+          active,
+          projectId: defaultRuntime?.projectId ?? this.workspaceState.activeProjectId,
+          cwd: defaultRuntime?.cwd ?? this.currentProjectPath,
+          status: defaultRuntime?.status ?? "idle",
+          errorText: defaultRuntime?.errorText ?? null,
+          runningInBackground: active && this.workspaceState.activeMode !== "tui",
+          sessions: Object.fromEntries(
+            sessionEntries.map(([sessionId, runtime]) => [
+              sessionId,
+              {
+                sessionId,
+                active: runtime.terminal.active,
+                projectId: runtime.projectId,
+                cwd: runtime.cwd,
+                status: runtime.status,
+                errorText: runtime.errorText,
+              },
+            ]),
+          ),
         };
       })(),
       terminal: (() => {
@@ -633,9 +633,6 @@ export class StudioHost {
     void this.refreshGitState().catch(() => {
       // Keep project add responsive even if git probing fails.
     });
-    void this.warmTuiForActiveWorkspace().catch(() => {
-      // Keep project add responsive even if the hosted TUI warmup fails.
-    });
     return this.getSnapshot();
   }
 
@@ -650,10 +647,6 @@ export class StudioHost {
     void this.refreshGitState().catch(() => {
       // Keep project switching responsive even if git probing fails.
     });
-    void this.warmTuiForActiveWorkspace().catch(() => {
-      // Keep project switching responsive even if the hosted TUI warmup fails.
-    });
-
     if (this.workspaceState.activeMode === "tui") {
       const runningSessionIds = Object.entries(this.tuiSessions)
         .filter(([, runtime]) => runtime.terminal.active)
@@ -797,9 +790,6 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "new" }, sessionId);
-    void this.warmTuiForActiveWorkspace().catch(() => {
-      // Keep thread creation responsive even if the hosted TUI warmup fails.
-    });
     return this.getSnapshot();
   }
 
@@ -829,9 +819,6 @@ export class StudioHost {
     }
 
     await this.openSessionForProject(project, { kind: "open", sessionFile }, sessionId);
-    void this.warmTuiForActiveWorkspace().catch(() => {
-      // Keep thread switching responsive even if the hosted TUI warmup fails.
-    });
     return this.getSnapshot();
   }
 
@@ -872,7 +859,6 @@ export class StudioHost {
       } else {
         await this.openSessionForProject(project, { kind: "new" }, "default");
       }
-      await this.warmTuiForActiveWorkspace();
     }
 
     await this.persistWorkspace();
@@ -1325,27 +1311,54 @@ export class StudioHost {
 
     if (mode === "tui") {
       await this.startTui("default");
-    } else {
-      await this.warmTuiForActiveWorkspace();
     }
 
     this.emitSnapshot();
     return this.getSnapshot();
   }
 
-  private async warmTuiForActiveWorkspace() {
-    return this.startTui("default");
-  }
-
   async startTui(sessionId = "default") {
+    const activeProject = this.getActiveProject();
+    if (!activeProject) return this.getSnapshot();
+
     const runtime = this.ensureTuiSession(sessionId);
     const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? this.getGuiRuntime("default");
-    const activeProject = this.getActiveProject();
+
+    if (runtime.terminal.active && runtime.projectId === activeProject.id) {
+      runtime.status = "running";
+      runtime.errorText = null;
+      runtime.cwd = activeProject.path;
+      this.emitSnapshot();
+      return this.getSnapshot();
+    }
+
+    runtime.status = "starting";
     runtime.errorText = null;
-    runtime.projectId = activeRuntime?.projectId ?? activeProject?.id ?? null;
-    runtime.cwd = activeRuntime?.projectPath ?? activeProject?.path ?? null;
-    runtime.sessionFile = activeRuntime?.sessionFile ?? null;
-    runtime.status = runtime.projectId ? "running" : "idle";
+    runtime.projectId = activeProject.id;
+    runtime.cwd = activeProject.path;
+    this.emitSnapshot();
+
+    try {
+      let extensionPaths: string[] | undefined;
+      let skillPaths: string[] | undefined;
+
+      if (activeRuntime?.usePiStudioBuiltins) {
+        const builtins = await getPiStudioBuiltinResources();
+        extensionPaths = builtins.additionalExtensionPaths;
+        skillPaths = builtins.additionalSkillPaths;
+      }
+
+      runtime.terminal.startPiSession(activeProject.path, 120, 32, {
+        sessionFile: activeRuntime?.sessionFile ?? null,
+        extensionPaths,
+        skillPaths,
+      });
+      runtime.sessionFile = activeRuntime?.sessionFile ?? null;
+      runtime.status = "running";
+    } catch (error) {
+      runtime.status = "error";
+      runtime.errorText = error instanceof Error ? error.message : String(error);
+    }
 
     this.emitSnapshot();
     return this.getSnapshot();
@@ -1355,8 +1368,11 @@ export class StudioHost {
     const runtime = this.tuiSessions[sessionId];
     if (!runtime) return this.getSnapshot();
 
-    runtime.errorText = null;
-    runtime.status = "idle";
+    runtime.terminal.stop();
+    runtime.status = "stopped";
+    runtime.projectId = null;
+    runtime.cwd = null;
+    runtime.sessionFile = null;
     this.emitSnapshot();
     return this.getSnapshot();
   }
