@@ -221,6 +221,7 @@ export default function browserExtension(pi: ExtensionAPI) {
     name: "browser",
     label: "Browser",
     description: "Control the live Pi Studio browser panel for this thread.",
+    promptSnippet: "Control the live Pi Studio browser panel for this thread.",
     parameters: BrowserParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const runtime = getBrowserRuntime();

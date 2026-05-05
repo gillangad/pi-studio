@@ -27,6 +27,9 @@ describe("pi-browser extension", () => {
     expect(tools).toHaveLength(1);
     expect(tools[0].name).toBe("browser");
     expect(tools[0].description).toBe("Control the live Pi Studio browser panel for this thread.");
+    expect((tools[0] as { promptSnippet?: string }).promptSnippet).toBe(
+      "Control the live Pi Studio browser panel for this thread.",
+    );
     expect(events).toEqual(["session_start"]);
     expect(activeTools).not.toContain("browser");
 

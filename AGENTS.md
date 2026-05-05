@@ -9,7 +9,10 @@ Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practi
 * [README.md](/home/angad/projects/pi-studio/README.md) explains usage.
 * [docs/ARCHITECTURE.md](/home/angad/projects/pi-studio/docs/ARCHITECTURE.md) explains the present structure.
 * [docs/VISION.md](/home/angad/projects/pi-studio/docs/VISION.md) explains the future direction.
-* When developing Pi extensions, skills, prompts, themes, or Pi SDK integrations, read the upstream Pi docs and examples first and follow relevant `.md` cross-references before implementing.
+* When developing Pi extensions, skills, prompts, themes, or Pi SDK integrations, read the upstream Pi docs and examples first and follow relevant `.md` cross-references before implementing:
+  * [Pi SDK README](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/README.md)
+  * [Pi extensions docs](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/docs/extensions.md)
+  * [Pi extension examples](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/examples/extensions/README.md)
 
 ## Source Lanes
 
@@ -25,6 +28,7 @@ Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practi
 * Keep Pi SDK/runtime logic out of `src/shell/` and `src/surfaces/`.
 * Keep UI code out of `src/pi-host/`.
 * Prefer Pi-native extensions/resources over desktop-only behavior when the feature belongs to Pi behavior.
+* New Pi-facing functionality such as artifacts, browser control, session control, and similar agent capabilities must ship as Pi extensions/tools unless there is a clear documented reason not to.
 * For extension or skill work, treat Pi docs and examples as required implementation context, not optional background reading.
 * Do not add new top-level lanes without updating `docs/ARCHITECTURE.md`.
 
@@ -41,10 +45,9 @@ Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practi
 * Prefer contract, integration, and end-to-end coverage for boundary-heavy behavior.
 * Do not rely on manual testing when automated verification is practical.
 * After finishing a change set, run automated checks (`npm run typecheck`, `npm run test`, and `npm run build`) before handoff when practical.
-* Treat the WSL repo at `/home/angad/projects/pi-studio` as the source of truth for edits, verification, git history, and pushes.
 * When a Pi Studio session is hosted by the Windows desktop app, file tools may need to use the actual workspace path reported by the session (for example `\\wsl.localhost\Ubuntu\home\angad\projects\pi-studio` or `C:\Users\Angad\projects\pi-studio`). Do not invent bare `C:\home\...` paths.
 * After each change set, sync the updated project to the Windows workspace and rebuild/relink there (`C:\\Users\\Angad\\projects\\pi-studio`; run `npm run build` then `npm link`) so `pistudio` launched from Windows uses the latest code.
-* Before ending a turn, push the latest committed WSL state to the configured remote when git is available and the user has not asked to avoid pushing.
+* Before ending a turn, push the latest committed state to the configured remote when git is available and the user has not asked to avoid pushing.
 
 ## Documentation
 

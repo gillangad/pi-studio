@@ -5,7 +5,7 @@ import controlSessionExtension from "../../src/builtins/extensions/pi-control-se
 
 describe("pi-control-session extension", () => {
   it("registers one control tool, hooks session startup, and keeps control active", async () => {
-    const tools: Array<{ name: string; description?: string }> = [];
+    const tools: Array<{ name: string; description?: string; promptSnippet?: string; promptGuidelines?: string[] }> = [];
     const events: string[] = [];
     const handlers = new Map<string, (...args: any[]) => unknown>();
     const activeTools: string[] = ["read", "bash", "edit", "write"];
@@ -29,6 +29,10 @@ describe("pi-control-session extension", () => {
     expect(tools).toHaveLength(1);
     expect(tools[0].name).toBe("control");
     expect(tools[0].description).toBe("Control and inspect other Pi Studio sessions.");
+    expect(tools[0].promptSnippet).toBe("Control and inspect other Pi Studio sessions from this session.");
+    expect(tools[0].promptGuidelines).toContain(
+      "Use this tool when the user asks to inspect, create, steer, monitor, or cancel work in other Pi Studio sessions.",
+    );
     expect(events).toEqual(["session_start"]);
     expect(activeTools).not.toContain("control");
 

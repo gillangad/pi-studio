@@ -48,6 +48,7 @@ export default function artifactsExtension(pi: ExtensionAPI) {
     name: "artifact",
     label: "Artifact",
     description: "Create or update a Pi Studio artifact for the current chat sidebar.",
+    promptSnippet: "Create or update a Pi Studio artifact in the current chat sidebar.",
     promptGuidelines: [
       "Use this tool when the user asks for a Pi Studio artifact, dashboard, mini app, explorer, or custom sidebar surface.",
       "Pass the full artifact implementation through this tool instead of printing artifact JSON in the assistant message.",

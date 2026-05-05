@@ -3,7 +3,7 @@ import artifactsExtension from "../../src/builtins/extensions/pi-artifacts/index
 
 describe("pi-artifacts extension", () => {
   it("registers the artifact tool, hooks session startup, and keeps artifact active", async () => {
-    const tools: Array<{ name: string; description?: string }> = [];
+    const tools: Array<{ name: string; description?: string; promptSnippet?: string; promptGuidelines?: string[] }> = [];
     const events: string[] = [];
     const handlers = new Map<string, (...args: any[]) => unknown>();
     const activeTools: string[] = ["read", "bash", "edit", "write"];
@@ -27,6 +27,10 @@ describe("pi-artifacts extension", () => {
     expect(tools).toHaveLength(1);
     expect(tools[0].name).toBe("artifact");
     expect(tools[0].description).toBe("Create or update a Pi Studio artifact for the current chat sidebar.");
+    expect(tools[0].promptSnippet).toBe("Create or update a Pi Studio artifact in the current chat sidebar.");
+    expect(tools[0].promptGuidelines).toContain(
+      "Use this tool when the user asks for a Pi Studio artifact, dashboard, mini app, explorer, or custom sidebar surface.",
+    );
     expect(events).toEqual(["session_start"]);
     expect(activeTools).not.toContain("artifact");
 

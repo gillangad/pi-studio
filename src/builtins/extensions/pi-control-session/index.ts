@@ -90,6 +90,12 @@ export default function controlSessionExtension(pi: ExtensionAPI) {
     name: "control",
     label: "Session Control",
     description: "Control and inspect other Pi Studio sessions.",
+    promptSnippet: "Control and inspect other Pi Studio sessions from this session.",
+    promptGuidelines: [
+      "Use this tool when the user asks to inspect, create, steer, monitor, or cancel work in other Pi Studio sessions.",
+      "Prefer action=\"list\" before guessing which target session exists.",
+      "Prefer lighter actions like action=\"status\" or action=\"latest\" before action=\"read\" when they are sufficient.",
+    ],
     parameters: ControlParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       if (params.action === "new") {
