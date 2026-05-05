@@ -122,7 +122,7 @@ export function ArtifactPanel({ artifacts, selectedArtifactId, onSelectArtifact 
             <div>
               <h4 className="text-sm font-semibold text-foreground">No artifacts yet</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                When Pi emits a `pi-artifact` block, it will show up here for this chat.
+                When Pi uses the `artifact` tool, it will show up here for this chat.
               </p>
             </div>
           </div>

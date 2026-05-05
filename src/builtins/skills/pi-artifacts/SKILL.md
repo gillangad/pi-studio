@@ -1,6 +1,6 @@
 ---
 name: pi-artifacts
-description: Guidance for creating and revising Pi Studio session artifacts that appear inline in chat and open in the session artifact sidebar.
+description: Guidance for creating and revising Pi Studio session artifacts through the built-in artifact tool.
 ---
 
 # Pi Studio session artifacts
@@ -15,11 +15,9 @@ Use this skill when the user wants a visualization, dashboard, report explorer, 
 
 ## How to create one
 
-Emit a fenced code block whose info string starts with `pi-artifact`, and make the body valid JSON.
+Use the built-in `artifact` tool.
 
-The final assistant message must include that fenced `pi-artifact` block directly. A bare JSON object without the fence will not reliably render as an artifact.
-
-When the user explicitly asks for an artifact in Pi Studio, fulfill that request with a `pi-artifact` block in the assistant response. Do not satisfy an artifact request by only writing a standalone HTML, TSX, or other file unless the user explicitly asks for a file as the deliverable.
+When the user explicitly asks for an artifact in Pi Studio, fulfill that request by calling the `artifact` tool with the complete artifact payload. Do not satisfy an artifact request by only writing a standalone HTML, TSX, or other file unless the user explicitly asks for a file as the deliverable.
 
 Required fields:
 
@@ -38,7 +36,6 @@ Recommended fields:
 
 Canonical contract:
 
-- The fenced block body itself must be valid JSON.
 - For `kind: "react-tsx"`, provide `tsx` and optionally `css` and `data`.
 - For `kind: "html"`, provide `html` and optionally `css`, `js`, and `data`.
 
@@ -55,7 +52,7 @@ React artifact rules:
 
 ## Revision flow
 
-- To revise an artifact, send another `pi-artifact` block with the same `id`.
+- To revise an artifact, call the `artifact` tool again with the same `id`.
 - Keep the `title` stable unless the user asks to rename it.
 - Replace the UI implementation with the updated one rather than describing the change abstractly.
 
@@ -67,30 +64,24 @@ React artifact rules:
 - Prefer embedding the relevant data in `data` instead of hardcoding display text all over the component.
 - Keep the first shipped version compact. Prefer a small, complete artifact over a sprawling one that risks truncation.
 - For test/status/checklist artifacts, use a minimal dashboard or summary card layout rather than a large custom app.
-- Keep `tsx` concise. Avoid giant inline style blobs, repeated markup, or writing the artifact JSON out to a side file before emitting the real artifact block.
+- Keep `tsx` concise. Avoid giant inline style blobs, repeated markup, or writing the artifact payload out to a side file before making the real tool call.
 
 ## Delivery guidance
 
-- You may write brief explanatory text before or after the artifact block.
-- Emit the artifact block directly in the assistant message that creates or revises it.
-- When an artifact is the main deliverable, keep surrounding prose short so the artifact block itself has room to complete.
-- If you also create supporting files, the artifact block is still the primary deliverable for artifact requests in Pi Studio.
-- Do not stop after writing temporary files or printing only the JSON body. The fenced artifact block in the assistant response is the thing Pi Studio renders.
+- You may write brief explanatory text before or after the tool call.
+- Call the `artifact` tool directly in the turn that creates or revises the artifact.
+- When an artifact is the main deliverable, keep surrounding prose short.
+- If you also create supporting files, the tool call is still the primary deliverable for artifact requests in Pi Studio.
+- Do not stop after writing temporary files or printing only JSON in the assistant text. The artifact tool call is the thing Pi Studio renders.
 
 ## Example
 
-```pi-artifact
-{
-  "id": "quarterly-report-explorer",
-  "title": "Quarterly Report Explorer",
-  "summary": "Revenue, margin, and segment breakdowns for the uploaded quarter.",
-  "kind": "react-tsx",
-  "data": {
-    "quarter": "Q2 2026",
-    "revenue": 128.4,
-    "margin": 0.31
-  },
-  "tsx": "type ArtifactData = { quarter: string; revenue: number; margin: number }; export default function ArtifactApp({ artifact }: { artifact: ArtifactData }) { return <main style={{ padding: 24 }}><h1>{artifact.quarter}</h1><p>Revenue: ${artifact.revenue}M</p><p>Margin: {(artifact.margin * 100).toFixed(1)}%</p></main>; }",
-  "css": "body { background: #0f1115; color: #f5f7fb; font-family: Inter, system-ui, sans-serif; } h1 { margin: 0 0 12px; font-size: 24px; } p { margin: 0 0 8px; }"
-}
-```
+Call `artifact` with:
+
+- `id`: `quarterly-report-explorer`
+- `title`: `Quarterly Report Explorer`
+- `summary`: `Revenue, margin, and segment breakdowns for the uploaded quarter.`
+- `kind`: `react-tsx`
+- `data`: `{ "quarter": "Q2 2026", "revenue": 128.4, "margin": 0.31 }`
+- `tsx`: concise React component source
+- `css`: optional styling string

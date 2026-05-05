@@ -1,24 +1,26 @@
 import ts from "typescript";
 import type { UiMessage } from "../../shared/types";
 
-const ARTIFACT_BLOCK_PATTERN = /```pi-artifact(?:-[\w-]+)?\s*\n([\s\S]*?)```/g;
 const REACT_IMPORT_SPECIFIER = "https://esm.sh/react@19.1.0";
 const REACT_DOM_CLIENT_IMPORT_SPECIFIER = "https://esm.sh/react-dom@19.1.0/client";
 const REACT_JSX_RUNTIME_IMPORT_SPECIFIER = "https://esm.sh/react@19.1.0/jsx-runtime";
 const REACT_JSX_DEV_RUNTIME_IMPORT_SPECIFIER = "https://esm.sh/react@19.1.0/jsx-dev-runtime";
+const ARTIFACT_TOOL_NAME = "artifact";
 
 export type SessionArtifactKind = "react-tsx" | "html";
 
-type ArtifactPayload = {
-  id?: string;
-  title?: string;
-  summary?: string;
-  kind?: unknown;
-  tsx?: unknown;
-  html?: unknown;
-  css?: unknown;
-  js?: unknown;
-  data?: unknown;
+type ArtifactToolDetails = {
+  artifact?: {
+    id?: unknown;
+    title?: unknown;
+    summary?: unknown;
+    kind?: unknown;
+    tsx?: unknown;
+    html?: unknown;
+    css?: unknown;
+    js?: unknown;
+    data?: unknown;
+  };
 };
 
 export type SessionArtifact = {
@@ -45,31 +47,15 @@ export type DerivedArtifactState = {
   artifactById: Record<string, SessionArtifact>;
 };
 
-type ParsedArtifactBlock = {
-  artifactId: string;
-  title: string;
-  summary: string;
-  kind: SessionArtifactKind;
-  tsx: string | null;
-  html: string | null;
-  css: string;
-  js: string;
-  data: unknown;
-};
+type ParsedArtifact = Omit<
+  SessionArtifact,
+  "createdInMessageId" | "updatedInMessageId" | "createdAt" | "updatedAt" | "revisionCount" | "updatedSequence"
+>;
 
 type ArtifactDocumentResult = {
   html: string;
   errorText: string | null;
 };
-
-function normalizeTextBlock(text: string) {
-  return text.replace(/\r\n/g, "\n").replace(/^\s+|\s+$/g, "");
-}
-
-function normalizeDisplayContent(text: string) {
-  const normalized = normalizeTextBlock(text);
-  return normalized ? [normalized] : [];
-}
 
 function slugifyArtifactId(value: string) {
   const normalized = value
@@ -82,195 +68,48 @@ function slugifyArtifactId(value: string) {
   return normalized || null;
 }
 
-function inferArtifactKind(payload: ArtifactPayload): SessionArtifactKind | null {
-  if (payload.kind === "html") return "html";
-  if (payload.kind === "react-tsx") return "react-tsx";
-  if (typeof payload.html === "string" && payload.html.trim()) return "html";
-  if (typeof payload.tsx === "string" && payload.tsx.trim()) return "react-tsx";
+function inferArtifactKind(value: unknown, payload: ArtifactToolDetails["artifact"]): SessionArtifactKind | null {
+  if (value === "html") return "html";
+  if (value === "react-tsx") return "react-tsx";
+  if (typeof payload?.html === "string" && payload.html.trim()) return "html";
+  if (typeof payload?.tsx === "string" && payload.tsx.trim()) return "react-tsx";
   return null;
 }
 
-function parseArtifactPayload(
-  rawJson: string,
-  messageId: string,
-  index: number,
-): ParsedArtifactBlock | null {
-  try {
-    const parsed = JSON.parse(rawJson) as ArtifactPayload;
-    const title = typeof parsed.title === "string" ? parsed.title.trim() : "";
-    const kind = inferArtifactKind(parsed);
-
-    if (!title || !kind) {
-      return null;
-    }
-
-    const explicitId =
-      typeof parsed.id === "string" && parsed.id.trim()
-        ? slugifyArtifactId(parsed.id)
-        : null;
-    const artifactId = explicitId ?? `artifact-${slugifyArtifactId(messageId) ?? messageId}-${index + 1}`;
-
-    return {
-      artifactId,
-      title,
-      summary: typeof parsed.summary === "string" ? parsed.summary.trim() : "",
-      kind,
-      tsx: typeof parsed.tsx === "string" && parsed.tsx.trim() ? parsed.tsx : null,
-      html: typeof parsed.html === "string" && parsed.html.trim() ? parsed.html : null,
-      css: typeof parsed.css === "string" ? parsed.css : "",
-      js: typeof parsed.js === "string" ? parsed.js : "",
-      data: parsed.data,
-    };
-  } catch {
+function parseArtifactFromMessage(message: UiMessage): ParsedArtifact | null {
+  if (message.role !== "toolResult" || message.toolName !== ARTIFACT_TOOL_NAME) {
     return null;
   }
-}
 
-type JsonObjectSpan = {
-  start: number;
-  end: number;
-  rawJson: string;
-};
-
-function extractTopLevelJsonObjects(text: string) {
-  const results: JsonObjectSpan[] = [];
-  let depth = 0;
-  let start = -1;
-  let inString = false;
-  let escaped = false;
-
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (character === undefined) continue;
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-
-      if (character === "\\") {
-        escaped = true;
-        continue;
-      }
-
-      if (character === "\"") {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (character === "\"") {
-      inString = true;
-      continue;
-    }
-
-    if (character === "{") {
-      if (depth === 0) {
-        start = index;
-      }
-      depth += 1;
-      continue;
-    }
-
-    if (character === "}") {
-      if (depth === 0) {
-        continue;
-      }
-
-      depth -= 1;
-      if (depth === 0 && start >= 0) {
-        results.push({
-          start,
-          end: index + 1,
-          rawJson: text.slice(start, index + 1),
-        });
-        start = -1;
-      }
-    }
+  const details = message.details as ArtifactToolDetails | undefined;
+  const payload = details?.artifact;
+  if (!payload || typeof payload !== "object") {
+    return null;
   }
 
-  return results;
-}
-
-function extractLooseArtifacts(rawContent: string, messageId: string) {
-  const artifacts: ParsedArtifactBlock[] = [];
-  const cleanedParts: string[] = [];
-  const matches: Array<JsonObjectSpan & { artifact: ParsedArtifactBlock }> = [];
-
-  for (const candidate of extractTopLevelJsonObjects(rawContent)) {
-    const artifact = parseArtifactPayload(candidate.rawJson, messageId, matches.length);
-    if (!artifact) {
-      continue;
-    }
-
-    matches.push({
-      ...candidate,
-      artifact,
-    });
+  const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const kind = inferArtifactKind(payload.kind, payload);
+  if (!title || !kind) {
+    return null;
   }
 
-  if (matches.length === 0) {
-    return {
-      displayContent: normalizeDisplayContent(rawContent),
-      artifacts,
-    };
+  const explicitId =
+    typeof payload.id === "string" && payload.id.trim() ? slugifyArtifactId(payload.id) : null;
+  const artifactId = explicitId ?? slugifyArtifactId(title);
+  if (!artifactId) {
+    return null;
   }
-
-  let lastIndex = 0;
-  for (const match of matches) {
-    cleanedParts.push(rawContent.slice(lastIndex, match.start));
-    lastIndex = match.end;
-    artifacts.push(match.artifact);
-  }
-
-  cleanedParts.push(rawContent.slice(lastIndex));
 
   return {
-    displayContent: normalizeDisplayContent(cleanedParts.join("").replace(/\n{3,}/g, "\n\n")),
-    artifacts,
-  };
-}
-
-function extractArtifactsFromMessage(message: UiMessage) {
-  if (message.content.length === 0) {
-    return {
-      displayContent: message.content,
-      artifacts: [] as ParsedArtifactBlock[],
-    };
-  }
-
-  const rawContent = message.content.join("\n\n");
-  const artifacts: ParsedArtifactBlock[] = [];
-  const cleanedParts: string[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let artifactIndex = 0;
-
-  ARTIFACT_BLOCK_PATTERN.lastIndex = 0;
-
-  while ((match = ARTIFACT_BLOCK_PATTERN.exec(rawContent))) {
-    const artifact = parseArtifactPayload(match[1] ?? "", message.id, artifactIndex);
-    artifactIndex += 1;
-    if (!artifact) {
-      continue;
-    }
-
-    cleanedParts.push(rawContent.slice(lastIndex, match.index));
-    lastIndex = match.index + match[0].length;
-    artifacts.push(artifact);
-  }
-
-  if (artifacts.length === 0) {
-    return extractLooseArtifacts(rawContent, message.id);
-  }
-
-  cleanedParts.push(rawContent.slice(lastIndex));
-  const displayContent = normalizeDisplayContent(cleanedParts.join("").replace(/\n{3,}/g, "\n\n"));
-
-  return {
-    displayContent,
-    artifacts,
+    artifactId,
+    title,
+    summary: typeof payload.summary === "string" ? payload.summary.trim() : "",
+    kind,
+    tsx: typeof payload.tsx === "string" && payload.tsx.trim() ? payload.tsx : null,
+    html: typeof payload.html === "string" && payload.html.trim() ? payload.html : null,
+    css: typeof payload.css === "string" ? payload.css : "",
+    js: typeof payload.js === "string" ? payload.js : "",
+    data: payload.data ?? null,
   };
 }
 
@@ -460,45 +299,38 @@ export function deriveArtifactsFromMessages(messages: UiMessage[]): DerivedArtif
   const artifactById = new Map<string, SessionArtifact>();
   let sequence = 0;
 
-  const processedMessages = messages.map((message) => {
-    const extracted = extractArtifactsFromMessage(message);
-    if (extracted.artifacts.length === 0) {
-      return message;
+  for (const message of messages) {
+    const artifact = parseArtifactFromMessage(message);
+    if (!artifact) {
+      continue;
     }
 
-    for (const artifact of extracted.artifacts) {
-      const previous = artifactById.get(artifact.artifactId);
-      sequence += 1;
+    const previous = artifactById.get(artifact.artifactId);
+    sequence += 1;
 
-      artifactById.set(artifact.artifactId, {
-        artifactId: artifact.artifactId,
-        title: artifact.title || previous?.title || "Artifact",
-        summary: artifact.summary || previous?.summary || "",
-        kind: artifact.kind ?? previous?.kind ?? "react-tsx",
-        tsx: artifact.tsx ?? previous?.tsx ?? null,
-        html: artifact.html ?? previous?.html ?? null,
-        css: artifact.css || previous?.css || "",
-        js: artifact.js || previous?.js || "",
-        data: artifact.data ?? previous?.data ?? null,
-        createdInMessageId: previous?.createdInMessageId ?? message.id,
-        updatedInMessageId: message.id,
-        createdAt: previous?.createdAt ?? message.timestamp,
-        updatedAt: message.timestamp,
-        revisionCount: (previous?.revisionCount ?? 0) + 1,
-        updatedSequence: sequence,
-      });
-    }
-
-    return {
-      ...message,
-      content: extracted.displayContent,
-    };
-  });
+    artifactById.set(artifact.artifactId, {
+      artifactId: artifact.artifactId,
+      title: artifact.title || previous?.title || "Artifact",
+      summary: artifact.summary || previous?.summary || "",
+      kind: artifact.kind ?? previous?.kind ?? "react-tsx",
+      tsx: artifact.tsx ?? previous?.tsx ?? null,
+      html: artifact.html ?? previous?.html ?? null,
+      css: artifact.css || previous?.css || "",
+      js: artifact.js || previous?.js || "",
+      data: artifact.data ?? previous?.data ?? null,
+      createdInMessageId: previous?.createdInMessageId ?? message.id,
+      updatedInMessageId: message.id,
+      createdAt: previous?.createdAt ?? message.timestamp,
+      updatedAt: message.timestamp,
+      revisionCount: (previous?.revisionCount ?? 0) + 1,
+      updatedSequence: sequence,
+    });
+  }
 
   const artifacts = [...artifactById.values()].sort((left, right) => right.updatedSequence - left.updatedSequence);
 
   return {
-    messages: processedMessages,
+    messages,
     artifacts,
     artifactById: Object.fromEntries(artifacts.map((artifact) => [artifact.artifactId, artifact])),
   };

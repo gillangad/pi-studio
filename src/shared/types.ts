@@ -31,6 +31,7 @@ export type UiMessage = {
   thinkingContent?: string[];
   thinkingHeaders?: string[];
   thinkingRedacted?: boolean;
+  details?: unknown;
   toolDetails?: UiToolDetails;
 };
 

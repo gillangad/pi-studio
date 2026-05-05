@@ -35,6 +35,10 @@ Pi Studio can surface session artifacts directly inside the active session works
 - Artifacts open in the right sidebar for the current session.
 - The workspace header includes an `Artifacts` button for browsing every artifact created in the current session.
 
-Pi Studio ships a built-in `pi-artifacts` skill that teaches Pi how to emit fenced `pi-artifact` blocks in assistant markdown. The sidebar always resolves to the latest artifact revision with the same artifact id inside the active thread.
+Pi Studio ships a built-in `pi-artifacts` extension and skill:
 
-When a user asks Pi Studio to make an artifact, the intended deliverable is a `pi-artifact` block in the assistant response, not just a standalone HTML or source file on disk.
+- the `pi-artifacts` extension exposes an `artifact` tool to Pi
+- the `pi-artifacts` skill teaches the agent how to use that tool
+- artifact revisions are carried in tool result details, so they stay branch-aware and chat-scoped
+
+When a user asks Pi Studio to make an artifact, the intended deliverable is an `artifact` tool call with the full payload, not a standalone HTML/source file or a blob printed into the assistant message.

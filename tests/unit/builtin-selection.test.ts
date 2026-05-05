@@ -50,6 +50,7 @@ describe("shouldUsePiStudioBuiltins", () => {
       "write",
       "browser",
       "control",
+      "artifact",
     ]);
     expect(getPiStudioInitialActiveToolNames(false)).toBeUndefined();
   });

@@ -14,17 +14,15 @@ type RuntimeMessage = {
   truncated?: boolean;
   customType?: string;
   summary?: string;
-  details?: {
-    diff?: string;
-    firstChangedLine?: number | null;
-  };
+  details?: unknown;
 };
 
 function mapToolDetails(details: RuntimeMessage["details"]): UiToolDetails | undefined {
   if (!details || typeof details !== "object") return undefined;
 
-  const diff = typeof details.diff === "string" && details.diff.trim() ? details.diff : undefined;
-  const firstChangedLine = typeof details.firstChangedLine === "number" ? details.firstChangedLine : null;
+  const toolDetails = details as { diff?: unknown; firstChangedLine?: unknown };
+  const diff = typeof toolDetails.diff === "string" && toolDetails.diff.trim() ? toolDetails.diff : undefined;
+  const firstChangedLine = typeof toolDetails.firstChangedLine === "number" ? toolDetails.firstChangedLine : null;
 
   if (!diff && firstChangedLine === null) return undefined;
 
@@ -160,6 +158,7 @@ function mapAgentMessage(message: RuntimeMessage, index: number): UiMessage | nu
         toolName: message.toolName ?? "tool",
         content: content.length > 0 ? content : [message.isError ? "Tool failed." : "Tool finished."],
         isError: Boolean(message.isError),
+        details: message.details,
         toolDetails: mapToolDetails(message.details),
       };
     }
@@ -186,6 +185,7 @@ function mapAgentMessage(message: RuntimeMessage, index: number): UiMessage | nu
             timestamp: message.timestamp,
             content,
             customType: message.customType ?? "custom",
+            details: message.details,
           }
         : null;
     }
