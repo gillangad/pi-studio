@@ -34,6 +34,7 @@ const SIDEBAR_EXPANDED_MAX_WIDTH = 420;
 const SIDEBAR_COLLAPSED_WIDTH = 74;
 const UTILITY_PANEL_MIN_WIDTH = 320;
 const UTILITY_PANEL_MAX_WIDTH = 920;
+const BROWSER_PANEL_MIN_WIDTH = 420;
 
 function threadKey(projectId: string, sessionFile: string) {
   return `${projectId}::${sessionFile}`;
@@ -69,8 +70,16 @@ function readInitialSidebarWidth() {
   return clampSidebarWidth(parsed);
 }
 
-function clampUtilityPanelWidth(width: number) {
-  return Math.min(UTILITY_PANEL_MAX_WIDTH, Math.max(UTILITY_PANEL_MIN_WIDTH, width));
+function minimumUtilityPanelWidth(panel: WorkspaceUtilityPanel | null | undefined) {
+  if (panel === "browser") {
+    return BROWSER_PANEL_MIN_WIDTH;
+  }
+
+  return UTILITY_PANEL_MIN_WIDTH;
+}
+
+function clampUtilityPanelWidth(width: number, panel: WorkspaceUtilityPanel | null | undefined = null) {
+  return Math.min(UTILITY_PANEL_MAX_WIDTH, Math.max(minimumUtilityPanelWidth(panel), width));
 }
 
 function readInitialUtilityPanelWidth() {
@@ -316,6 +325,10 @@ export function App() {
     if (!selectedThreadKey) return;
 
     const nextPanel = selectedUtilityPanel === panel ? null : panel;
+    if (nextPanel) {
+      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current, nextPanel));
+    }
+
     setUtilityPanelByThread((current) => ({
       ...current,
       [selectedThreadKey]: nextPanel,
@@ -386,12 +399,12 @@ export function App() {
 
   const startUtilityPanelResize = useCallback(
     (pointerStartX: number) => {
-      if (!hasSideUtilityPanel) return;
+      if (!hasSideUtilityPanel || !selectedUtilityPanel) return;
 
       const widthAtStart = utilityPanelWidth;
 
       const handleMove = (event: PointerEvent) => {
-        const nextWidth = clampUtilityPanelWidth(widthAtStart + pointerStartX - event.clientX);
+        const nextWidth = clampUtilityPanelWidth(widthAtStart + pointerStartX - event.clientX, selectedUtilityPanel);
         setUtilityPanelWidth(nextWidth);
       };
 
@@ -403,8 +416,14 @@ export function App() {
       window.addEventListener("pointermove", handleMove);
       window.addEventListener("pointerup", handleEnd);
     },
-    [hasSideUtilityPanel, utilityPanelWidth],
+    [hasSideUtilityPanel, selectedUtilityPanel, utilityPanelWidth],
   );
+
+  useEffect(() => {
+    if (!selectedUtilityPanel) return;
+
+    setUtilityPanelWidth((current) => clampUtilityPanelWidth(current, selectedUtilityPanel));
+  }, [selectedUtilityPanel]);
 
   if (!snapshot) {
     return (
@@ -652,7 +671,7 @@ export function App() {
                   aria-orientation="vertical"
                   aria-label="Resize utility panel"
                   tabIndex={0}
-                  className="absolute bottom-3 right-0 top-0 z-20 w-2 cursor-col-resize touch-none"
+                  className="utility-panel-resizer absolute bottom-3 right-0 top-0 z-20 w-3 cursor-col-resize touch-none"
                   style={{ right: `${utilityPanelWidth - 4}px` }}
                   onPointerDown={(event) => {
                     event.preventDefault();
@@ -661,11 +680,11 @@ export function App() {
                   onKeyDown={(event) => {
                     if (event.key === "ArrowLeft") {
                       event.preventDefault();
-                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current + 16));
+                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current + 16, selectedUtilityPanel));
                     }
                     if (event.key === "ArrowRight") {
                       event.preventDefault();
-                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current - 16));
+                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current - 16, selectedUtilityPanel));
                     }
                   }}
                 />
@@ -674,6 +693,7 @@ export function App() {
               {selectedUtilityPanel === "browser" && selectedThreadKey ? (
                 <div className="relative min-h-0 min-w-0">
                   <BrowserPanel
+                    className="h-full w-full"
                     threadKey={selectedThreadKey}
                     sessionFile={selectedGuiState?.sessionFile ?? null}
                     initialUrl={browserUrl}

@@ -133,12 +133,12 @@ export function BrowserPanel({ className, threadKey, sessionFile, initialUrl, on
   return (
     <aside
       className={cn(
-        "flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border/55 bg-background/60",
+        "flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-l border-border/55 bg-background/60",
         className,
       )}
       aria-label="Agent browser surface"
     >
-      <header className="space-y-2 border-b border-border/55 px-3 py-2">
+      <header className="shrink-0 space-y-2 border-b border-border/55 px-3 py-2">
         <div className="flex items-center gap-1.5">
           <Button type="button" size="icon" variant="ghost" onClick={() => webviewRef.current?.goBack?.()} disabled={!canGoBack}>
             <ArrowLeft size={14} />
@@ -191,7 +191,7 @@ export function BrowserPanel({ className, threadKey, sessionFile, initialUrl, on
         ref={(node) => {
           webviewRef.current = node as WebviewElement | null;
         }}
-        className="h-full w-full min-h-0 flex-1 bg-background"
+        className="browser-webview block h-full w-full min-h-0 min-w-0 flex-1 self-stretch bg-background"
         src={normalizedInitialUrl}
       />
     </aside>

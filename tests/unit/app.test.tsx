@@ -532,10 +532,35 @@ describe("App", () => {
 
     const handle = screen.getByRole("separator", { name: "Resize utility panel" });
     const startingWidth = Number.parseInt(handle.style.right, 10);
-    expect(startingWidth).toBeGreaterThanOrEqual(316);
+    expect(startingWidth).toBeGreaterThanOrEqual(416);
 
     fireEvent.keyDown(handle, { key: "ArrowLeft" });
     expect(handle).toHaveStyle({ right: `${startingWidth + 16}px` });
+  });
+
+  it("keeps the browser utility panel at a readable minimum width", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole("separator", { name: "Resize utility panel" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+
+    expect(Number.parseInt(handle.style.right, 10)).toBeGreaterThanOrEqual(416);
   });
 
   it("opens the artifacts side panel and shows the latest artifact revision for the active chat", async () => {
@@ -550,27 +575,19 @@ describe("App", () => {
         ...snapshot.gui,
         messages: [
           {
-            id: "assistant-1",
-            role: "assistant",
-            content: [
-              [
-                "Built a report.",
-                "",
-                "```pi-artifact",
-                JSON.stringify(
-                  {
-                    id: "report",
-                    title: "Quarterly Report",
-                    summary: "Latest revision",
-                    kind: "react-tsx",
-                    tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
-                  },
-                  null,
-                  2,
-                ),
-                "```",
-              ].join("\n"),
-            ],
+            id: "tool-1",
+            role: "toolResult",
+            toolName: "artifact",
+            content: ['Saved artifact "Quarterly Report" (report) for this chat.'],
+            details: {
+              artifact: {
+                id: "report",
+                title: "Quarterly Report",
+                summary: "Latest revision",
+                kind: "react-tsx",
+                tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
+              },
+            },
           },
         ],
       },
@@ -605,27 +622,19 @@ describe("App", () => {
         ...snapshot.gui,
         messages: [
           {
-            id: "assistant-1",
-            role: "assistant",
-            content: [
-              [
-                "Built a report.",
-                "",
-                "```pi-artifact",
-                JSON.stringify(
-                  {
-                    id: "report",
-                    title: "Quarterly Report",
-                    summary: "Latest revision",
-                    kind: "react-tsx",
-                    tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
-                  },
-                  null,
-                  2,
-                ),
-                "```",
-              ].join("\n"),
-            ],
+            id: "tool-1",
+            role: "toolResult",
+            toolName: "artifact",
+            content: ['Saved artifact "Quarterly Report" (report) for this chat.'],
+            details: {
+              artifact: {
+                id: "report",
+                title: "Quarterly Report",
+                summary: "Latest revision",
+                kind: "react-tsx",
+                tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
+              },
+            },
           },
         ],
       },
