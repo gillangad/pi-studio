@@ -1,9 +1,13 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MessageCard } from "../../src/surfaces/components/MessageCard";
 
 describe("MessageCard", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("renders user messages as compact right-aligned bubbles", () => {
     const { container } = render(
       <MessageCard
@@ -11,6 +15,7 @@ describe("MessageCard", () => {
           id: "u1",
           role: "user",
           content: ["hello there"],
+          timestamp: "2026-05-05T16:28:00.000Z",
         }}
       />,
     );
@@ -18,8 +23,9 @@ describe("MessageCard", () => {
     expect(screen.getByText("hello there")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveClass("ml-auto");
     expect(container.firstElementChild).toHaveClass("w-fit");
-    expect(container.firstElementChild).toHaveClass("message-user-bubble");
+    expect(container.querySelector(".message-user-bubble")).toBeTruthy();
     expect(container.firstElementChild).not.toHaveClass("w-full");
+    expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument();
   });
 
   it("renders markdown content in assistant messages", () => {
@@ -100,5 +106,28 @@ describe("MessageCard", () => {
     expect(screen.getByText("Revenue and margin explorer")).toBeInTheDocument();
     expect(screen.getByText("Opens latest update")).toBeInTheDocument();
     expect(onOpenArtifact).toHaveBeenCalledWith("report");
+  });
+
+  it("copies assistant message text from the hover footer action", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(globalThis.navigator, {
+      clipboard: { writeText },
+    });
+
+    render(
+      <MessageCard
+        message={{
+          id: "m4",
+          role: "assistant",
+          content: ["Copied body"],
+          timestamp: 1714926480000,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy message" }));
+
+    expect(writeText).toHaveBeenCalledWith("Copied body");
+    expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { Boxes, Code2 } from "lucide-react";
+import { Boxes, Code2, Copy } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -18,6 +18,56 @@ function renderMarkdown(content: string[], className: string) {
   return (
     <div className={cn("markdown-content text-sm leading-relaxed", className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content.join("\n\n")}</ReactMarkdown>
+    </div>
+  );
+}
+
+function formatMessageTimestamp(timestamp?: string | number) {
+  if (timestamp === undefined || timestamp === null) return null;
+
+  const value = typeof timestamp === "number" ? new Date(timestamp) : new Date(String(timestamp));
+  if (Number.isNaN(value.getTime())) return null;
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function MessageFooter({
+  message,
+  align = "start",
+}: {
+  message: UiMessage;
+  align?: "start" | "end";
+}) {
+  const timestampLabel = formatMessageTimestamp(message.timestamp);
+  const copyValue = message.content.join("\n\n").trim();
+
+  if (!timestampLabel && !copyValue) return null;
+
+  return (
+    <div
+      className={cn(
+        "message-meta-row mt-1 flex items-center gap-2 px-1 text-[12px] text-muted-foreground",
+        align === "end" ? "justify-end" : "justify-start",
+      )}
+    >
+      {timestampLabel ? <span>{timestampLabel}</span> : null}
+      {copyValue ? (
+        <button
+          type="button"
+          className="message-meta-button"
+          aria-label="Copy message"
+          title="Copy message"
+          onClick={() => {
+            if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+            void navigator.clipboard.writeText(copyValue);
+          }}
+        >
+          <Copy size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -79,9 +129,12 @@ function ArtifactInlineCards({
 export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCardProps) {
   if (message.role === "user") {
     return (
-      <article className="message-user-bubble ml-auto w-fit max-w-[680px] rounded-[18px] px-4 py-3">
-        {renderMarkdown(message.content, "text-foreground")}
-      </article>
+      <div className="message-meta-group ml-auto w-fit max-w-[680px]">
+        <article className="message-user-bubble rounded-[18px] px-4 py-3">
+          {renderMarkdown(message.content, "text-foreground")}
+        </article>
+        <MessageFooter message={message} align="end" />
+      </div>
     );
   }
 
@@ -89,26 +142,29 @@ export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCa
     const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
     return (
-      <article className="w-full max-w-[760px] space-y-2 px-0.5 py-0.5">
-        {message.thinkingContent?.length ? (
-          <button
-            type="button"
-            className="block space-y-1 px-0.5 py-0.5 text-left"
-            onClick={() => setThinkingExpanded((current) => !current)}
-            aria-expanded={thinkingExpanded}
-            aria-label={thinkingExpanded ? "Collapse thinking" : "Expand thinking"}
-          >
-            {thinkingExpanded ? (
-              renderMarkdown(message.thinkingContent, "italic text-muted-foreground")
-            ) : (
-              <p className="text-[14px] italic leading-relaxed text-muted-foreground">Thinking</p>
-            )}
-          </button>
-        ) : null}
+      <div className="message-meta-group w-full max-w-[760px]">
+        <article className="space-y-2 px-0.5 py-0.5">
+          {message.thinkingContent?.length ? (
+            <button
+              type="button"
+              className="block space-y-1 px-0.5 py-0.5 text-left"
+              onClick={() => setThinkingExpanded((current) => !current)}
+              aria-expanded={thinkingExpanded}
+              aria-label={thinkingExpanded ? "Collapse thinking" : "Expand thinking"}
+            >
+              {thinkingExpanded ? (
+                renderMarkdown(message.thinkingContent, "italic text-muted-foreground")
+              ) : (
+                <p className="text-[14px] italic leading-relaxed text-muted-foreground">Thinking</p>
+              )}
+            </button>
+          ) : null}
 
-        {renderMarkdown(message.content, "text-foreground")}
-        <ArtifactInlineCards message={message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
-      </article>
+          {renderMarkdown(message.content, "text-foreground")}
+          <ArtifactInlineCards message={message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
+        </article>
+        <MessageFooter message={message} align="start" />
+      </div>
     );
   }
 
