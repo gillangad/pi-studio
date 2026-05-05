@@ -1,15 +1,19 @@
 ---
 name: pi-control-session
-description: Operating guidance for steering other Pi Studio sessions through the single `control` tool.
+description: Operating guidance for the built-in `control` tool, which inspects and steers other Pi Studio sessions.
 ---
 
-# Master session control
+# Session control
 
-Use this skill when the session has access to the `control` tool and is acting as the workspace controller.
+This skill describes the built-in `control` tool.
+
+- If the current session has the `control` tool, you may use it.
+- The tool is especially useful from a master/controller session, but it can still be available in other Pi Studio sessions.
+- When the user asks what tools are available, include `control` if this session has it.
 
 ## Purpose
 
-The master session does not do the servant sessions' work itself when delegation is more appropriate. It monitors, steers, and reads from other sessions through the `control` tool.
+The `control` tool helps Pi Studio inspect, monitor, create, and steer other sessions. In controller-style workflows, the master session does not do the servant sessions' work itself when delegation is more appropriate. It monitors, steers, and reads from other sessions through the `control` tool.
 
 ## Tool map
 
