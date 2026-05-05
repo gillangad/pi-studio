@@ -85,7 +85,30 @@ describe("resolveTuiLaunchCommand", () => {
     });
   });
 
-  it("launches pi inside WSL for WSL-backed projects on windows", () => {
+  it("prefers native windows pi for WSL-backed projects when available", () => {
+    const command = resolveTuiLaunchCommand({
+      platform: "win32",
+      cwd: "\\\\wsl.localhost\\Ubuntu\\home\\angad\\projects\\pi-studio",
+      sessionFile: "C:\\Users\\Angad\\.pi\\agent\\sessions\\demo.jsonl",
+      extensionPaths: ["C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\extensions\\pi-browser\\index.ts"],
+      skillPaths: ["C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\skills"],
+      env: { PATH: "C:\\Tools" },
+      findExecutable: (candidates) => (candidates.includes("pi.cmd") ? "C:\\Tools\\pi.cmd" : null),
+    });
+
+    expect(command).toEqual({
+      file: "cmd.exe",
+      args: [
+        "/d",
+        "/s",
+        "/c",
+        'pushd \\\\wsl.localhost\\Ubuntu\\home\\angad\\projects\\pi-studio && call C:\\Tools\\pi.cmd --session C:\\Users\\Angad\\.pi\\agent\\sessions\\demo.jsonl -e C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\extensions\\pi-browser\\index.ts --skill C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\skills',
+      ],
+      source: "pi",
+    });
+  });
+
+  it("falls back to WSL pi for WSL-backed projects when no native windows pi is available", () => {
     const command = resolveTuiLaunchCommand({
       platform: "win32",
       cwd: "\\\\wsl.localhost\\Ubuntu\\home\\angad\\projects\\pi-studio",

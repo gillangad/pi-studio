@@ -31,6 +31,23 @@ function appendResourceFlags(args: string[], options: ResolveTuiLaunchCommandOpt
   }
 }
 
+function quoteForCmd(segment: string) {
+  if (/^[a-zA-Z0-9_./:\\-]+$/.test(segment)) {
+    return segment;
+  }
+
+  return `"${segment.replace(/"/g, '""')}"`;
+}
+
+function buildWindowsPiWrappedArgs(
+  command: string,
+  commandArgs: string[],
+  cwd: string,
+) {
+  const joinedCommand = [quoteForCmd(command), ...commandArgs.map(quoteForCmd)].join(" ");
+  return ["/d", "/s", "/c", `pushd ${quoteForCmd(cwd)} && call ${joinedCommand}`];
+}
+
 type WslWorkspaceLocation = {
   distro: string;
   linuxPath: string;
@@ -116,7 +133,18 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
   const pathValue = env.PATH ?? "";
 
   if (platform === "win32") {
+    const piCommand = lookup(["pi.cmd", "pi.exe", "pi.bat"], pathValue);
     const wslLocation = parseWslWorkspaceLocation(cwd);
+    if (wslLocation && piCommand) {
+      const nativePiArgs = sessionFile ? ["--session", sessionFile] : ["-c"];
+      appendResourceFlags(nativePiArgs, options);
+      return {
+        file: env.COMSPEC || "cmd.exe",
+        args: buildWindowsPiWrappedArgs(piCommand, nativePiArgs, cwd!),
+        source: "pi",
+      };
+    }
+
     if (wslLocation) {
       const args = ["-d", wslLocation.distro, "--cd", wslLocation.linuxPath, "pi"];
       if (sessionFile) {
@@ -150,8 +178,6 @@ export function resolveTuiLaunchCommand(options: ResolveTuiLaunchCommandOptions 
         source: "pi-wsl",
       };
     }
-
-    const piCommand = lookup(["pi.cmd", "pi.exe", "pi.bat"], pathValue);
 
     if (piCommand) {
       const args = sessionFile ? ["--session", sessionFile] : ["-c"];

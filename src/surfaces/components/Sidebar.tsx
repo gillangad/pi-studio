@@ -472,6 +472,23 @@ export function Sidebar({
                       >
                         <NotebookPen size={14} />
                       </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100 focus-visible:opacity-100"
+                        onPointerDown={(event) => {
+                          event.stopPropagation();
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRemoveProject(project.id);
+                        }}
+                        aria-label={`Delete project ${project.name}`}
+                        title={`Delete ${project.name}`}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   </div>
 

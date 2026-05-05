@@ -400,14 +400,24 @@ describe("App", () => {
     expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
   });
 
-  it("keeps the project row free of a delete button", async () => {
+  it("deletes a project from the project row action", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "empty" })).toBeInTheDocument();
     });
 
-    expect(screen.queryByRole("button", { name: "Remove empty project empty" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete project empty" }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Remove "empty" from Pi Studio? This only removes it from the sidebar.');
+    expect(bridge.removeProject).toHaveBeenCalledWith("p3");
   });
 
   it("deletes a thread from the sidebar hover action", async () => {
