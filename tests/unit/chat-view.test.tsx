@@ -98,6 +98,7 @@ describe("ChatView", () => {
     expect(screen.getByText("Fix it")).toBeInTheDocument();
     expect(screen.getByText("Worked for 9s")).toBeInTheDocument();
     expect(screen.getByText("Done.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Copy message" })).toHaveLength(2);
     expect(screen.queryByText("Looking around")).not.toBeInTheDocument();
     expect(screen.queryByText(/Edited file\.ts/)).not.toBeInTheDocument();
 
@@ -106,6 +107,7 @@ describe("ChatView", () => {
     expect(screen.getByText("Looking around")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Read\s+file\.ts/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Edited\s+file\.ts/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Copy message" })).toHaveLength(2);
   });
 
   it("keeps the in-progress turn expanded while streaming", () => {

@@ -130,4 +130,22 @@ describe("MessageCard", () => {
     expect(writeText).toHaveBeenCalledWith("Copied body");
     expect(screen.getByText(/\d{1,2}:\d{2}/)).toBeInTheDocument();
   });
+
+  it("can suppress the hover footer for non-final assistant messages", () => {
+    render(
+      <MessageCard
+        message={{
+          id: "m5",
+          role: "assistant",
+          content: ["Interim note"],
+          timestamp: 1714926480000,
+        }}
+        showFooter={false}
+      />,
+    );
+
+    expect(screen.getByText("Interim note")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy message" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/\d{1,2}:\d{2}/)).not.toBeInTheDocument();
+  });
 });

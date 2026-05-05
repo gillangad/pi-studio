@@ -129,6 +129,7 @@ export function WorkTraceCard({ messages, endTimestamp, artifactById, onOpenArti
                     message={item.message}
                     artifactById={artifactById}
                     onOpenArtifact={onOpenArtifact}
+                    showFooter={false}
                   />
                 ) : (
                   renderMarkdown(item.message.content)

@@ -10,6 +10,7 @@ type MessageCardProps = {
   message: UiMessage;
   artifactById?: Record<string, SessionArtifact>;
   onOpenArtifact?: (artifactId: string) => void;
+  showFooter?: boolean;
 };
 
 function renderMarkdown(content: string[], className: string) {
@@ -126,14 +127,14 @@ function ArtifactInlineCards({
   );
 }
 
-export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCardProps) {
+export function MessageCard({ message, artifactById, onOpenArtifact, showFooter = true }: MessageCardProps) {
   if (message.role === "user") {
     return (
       <div className="message-meta-group ml-auto w-fit max-w-[680px]">
         <article className="message-user-bubble rounded-[18px] px-4 py-3">
           {renderMarkdown(message.content, "text-foreground")}
         </article>
-        <MessageFooter message={message} align="end" />
+        {showFooter ? <MessageFooter message={message} align="end" /> : null}
       </div>
     );
   }
@@ -163,7 +164,7 @@ export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCa
           {renderMarkdown(message.content, "text-foreground")}
           <ArtifactInlineCards message={message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
         </article>
-        <MessageFooter message={message} align="start" />
+        {showFooter ? <MessageFooter message={message} align="start" /> : null}
       </div>
     );
   }

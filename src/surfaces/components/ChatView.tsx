@@ -76,13 +76,14 @@ export function ChatView({
     type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
 
     const items: Array<
-      | { id: string; kind: "message"; message: UiMessage }
+      | { id: string; kind: "message"; message: UiMessage; showFooter: boolean }
       | { id: string; kind: "tool-group"; messages: ToolCallMessage[] }
       | { id: string; kind: "work-trace"; messages: UiMessage[]; endTimestamp?: string | number }
     > = [];
 
-    const pushRawSegment = (segment: UiMessage[]) => {
+    const pushRawSegment = (segment: UiMessage[], options?: { assistantFooter?: boolean }) => {
       let toolBuffer: ToolCallMessage[] = [];
+      const assistantFooter = options?.assistantFooter ?? false;
 
       const flushToolBuffer = () => {
         if (toolBuffer.length === 0) return;
@@ -101,7 +102,12 @@ export function ChatView({
         }
 
         flushToolBuffer();
-        items.push({ id: message.id, kind: "message", message });
+        items.push({
+          id: message.id,
+          kind: "message",
+          message,
+          showFooter: message.role === "user" || (message.role === "assistant" && assistantFooter),
+        });
       }
 
       flushToolBuffer();
@@ -113,7 +119,7 @@ export function ChatView({
       if (!message) break;
 
       if (message.role === "user") {
-        items.push({ id: message.id, kind: "message", message });
+        items.push({ id: message.id, kind: "message", message, showFooter: true });
         index += 1;
         continue;
       }
@@ -127,7 +133,7 @@ export function ChatView({
       const isOpenStreamingSegment = gui.isStreaming && index === gui.messages.length;
 
       if (isOpenStreamingSegment) {
-        pushRawSegment(segment);
+        pushRawSegment(segment, { assistantFooter: false });
         continue;
       }
 
@@ -150,12 +156,14 @@ export function ChatView({
           });
         }
 
-        items.push({ id: finalAssistant.id, kind: "message", message: finalAssistant });
-        pushRawSegment(trailingMessages);
+        items.push({ id: finalAssistant.id, kind: "message", message: finalAssistant, showFooter: true });
+        pushRawSegment(trailingMessages, { assistantFooter: false });
         continue;
       }
 
-      pushRawSegment(segment);
+      const singleAssistantSegment =
+        segment.length === 1 && segment[0]?.role === "assistant";
+      pushRawSegment(segment, { assistantFooter: singleAssistantSegment });
     }
 
     return items;
@@ -238,7 +246,12 @@ export function ChatView({
             timelineItems.map((item) => (
               <div key={item.id} className="mx-auto flex w-full min-w-0">
                 {item.kind === "message" ? (
-                  <MessageCard message={item.message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
+                  <MessageCard
+                    message={item.message}
+                    artifactById={artifactById}
+                    onOpenArtifact={onOpenArtifact}
+                    showFooter={item.showFooter}
+                  />
                 ) : null}
                 {item.kind === "tool-group" ? <ToolCallsCard messages={item.messages} /> : null}
                 {item.kind === "work-trace" ? (
