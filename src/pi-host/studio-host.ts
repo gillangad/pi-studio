@@ -56,7 +56,7 @@ import {
 } from "./workspace-bootstrap";
 import { WorkspaceStore } from "./workspace-store";
 import { getPiStudioBuiltinResources } from "./builtin-resources";
-import { shouldUsePiStudioBuiltins } from "./builtin-selection";
+import { getPiStudioInitialActiveToolNames, shouldUsePiStudioBuiltins } from "./builtin-selection";
 import { getDashboardState, syncStudioTargets } from "../builtins/extensions/pi-control-session/sync";
 import type { ControlDashboardState } from "../builtins/extensions/pi-control-session/types";
 
@@ -1854,6 +1854,7 @@ export class StudioHost {
 
     this.guiSessions[MASTER_SESSION_ID] = runtime;
     await this.bindExtensions(session, MASTER_SESSION_ID);
+    this.ensurePiStudioActiveTools(session, true);
     runtime.unsubscribe = session.subscribe(() => {
       this.syncSessionState(MASTER_SESSION_ID);
       void this.refreshControlDashboardState(true);
@@ -1980,6 +1981,7 @@ export class StudioHost {
     }
 
     await this.bindExtensions(session, sessionId);
+    this.ensurePiStudioActiveTools(session, usePiStudioBuiltins);
 
     runtime.unsubscribe = session.subscribe(() => {
       this.syncSessionState(sessionId);
@@ -1996,6 +1998,18 @@ export class StudioHost {
     void this.refreshProjectThreads(project).catch(() => {
       // Non-blocking refresh for session switches.
     });
+  }
+
+  private ensurePiStudioActiveTools(session: any, usePiStudioBuiltins: boolean) {
+    const preferredToolNames = getPiStudioInitialActiveToolNames(usePiStudioBuiltins);
+    if (!preferredToolNames?.length || typeof session?.setActiveToolsByName !== "function") {
+      return;
+    }
+
+    const existingToolNames =
+      typeof session.getActiveToolNames === "function" ? session.getActiveToolNames() : [];
+
+    session.setActiveToolsByName([...new Set([...existingToolNames, ...preferredToolNames])]);
   }
 
   private async bindExtensions(session: any, sessionId: string) {

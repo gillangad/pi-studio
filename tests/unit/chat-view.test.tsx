@@ -130,6 +130,64 @@ describe("ChatView", () => {
     expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
   });
 
+  it("keeps inline artifact cards visible when the artifact was created inside a collapsed work trace", () => {
+    const onOpenArtifact = vi.fn();
+
+    render(
+      <ChatView
+        gui={createGuiState([
+          { id: "u1", role: "user", content: ["Build me an artifact"], timestamp: 1000 },
+          {
+            id: "a1",
+            role: "assistant",
+            content: ["Built the first draft."],
+            artifactRefs: [{ artifactId: "report", title: "Quarterly Report", kind: "react-tsx" }],
+            timestamp: 2000,
+          },
+          { id: "t1", role: "toolResult", toolName: "read", content: ["read notes.md"], timestamp: 3000 },
+          { id: "a2", role: "assistant", content: ["Done."], timestamp: 4000 },
+        ])}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
+        artifactById={{
+          report: {
+            artifactId: "report",
+            title: "Quarterly Report",
+            summary: "Latest revision",
+            kind: "react-tsx",
+            tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
+            html: null,
+            css: "",
+            js: "",
+            data: null,
+            createdInMessageId: "a1",
+            updatedInMessageId: "a1",
+            revisionCount: 1,
+            updatedSequence: 1,
+          },
+        }}
+        onOpenArtifact={onOpenArtifact}
+      />,
+    );
+
+    expect(screen.getByText("Worked for 2s")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Worked for 2s/i }));
+
+    const artifactButton = screen.getByRole("button", { name: /Open artifact Quarterly Report/i });
+    expect(artifactButton).toBeInTheDocument();
+
+    fireEvent.click(artifactButton);
+    expect(onOpenArtifact).toHaveBeenCalledWith("report");
+  });
+
   it("opens the GUI tree flow for /tree instead of sending a prompt", async () => {
     const onSendPrompt = vi.fn();
     const onGetSessionTree = vi.fn().mockResolvedValue(emptyTree);
@@ -169,7 +227,9 @@ describe("ChatView", () => {
 
     expect(onSendPrompt).not.toHaveBeenCalled();
 
-    fireEvent.doubleClick(screen.getByRole("button", { name: /Original question/i }));
+    const originalQuestionButton = screen.getByRole("button", { name: /Original question/i });
+    fireEvent.click(originalQuestionButton);
+    fireEvent.doubleClick(originalQuestionButton);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "No summary" })).toBeInTheDocument();

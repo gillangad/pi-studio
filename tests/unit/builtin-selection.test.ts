@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldUsePiStudioBuiltins } from "../../src/pi-host/builtin-selection";
+import { getPiStudioInitialActiveToolNames, shouldUsePiStudioBuiltins } from "../../src/pi-host/builtin-selection";
 
 describe("shouldUsePiStudioBuiltins", () => {
   it("enables builtins for newly created project threads", () => {
@@ -40,5 +40,17 @@ describe("shouldUsePiStudioBuiltins", () => {
     });
 
     expect(result).toBe(true);
+  });
+
+  it("seeds the browser and control tools into the initial active tool list", () => {
+    expect(getPiStudioInitialActiveToolNames(true)).toEqual([
+      "read",
+      "bash",
+      "edit",
+      "write",
+      "browser",
+      "control",
+    ]);
+    expect(getPiStudioInitialActiveToolNames(false)).toBeUndefined();
   });
 });

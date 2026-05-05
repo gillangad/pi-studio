@@ -3,11 +3,15 @@ import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { UiMessage } from "../../shared/types";
+import type { SessionArtifact } from "../lib/artifacts";
+import { MessageCard } from "./MessageCard";
 import { ToolCallsCard } from "./ToolCallsCard";
 
 type WorkTraceCardProps = {
   messages: UiMessage[];
   endTimestamp?: string | number;
+  artifactById?: Record<string, SessionArtifact>;
+  onOpenArtifact?: (artifactId: string) => void;
 };
 
 function renderMarkdown(content: string[]) {
@@ -60,7 +64,7 @@ function buildSummaryLabel(messages: UiMessage[], endTimestamp?: string | number
   return "Worked";
 }
 
-export function WorkTraceCard({ messages, endTimestamp }: WorkTraceCardProps) {
+export function WorkTraceCard({ messages, endTimestamp, artifactById, onOpenArtifact }: WorkTraceCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   const summaryLabel = useMemo(() => buildSummaryLabel(messages, endTimestamp), [endTimestamp, messages]);
@@ -120,7 +124,15 @@ export function WorkTraceCard({ messages, endTimestamp }: WorkTraceCardProps) {
               <ToolCallsCard key={item.id} messages={item.messages} initialExpanded={false} hideGroupLabel={true} />
             ) : (
               <div key={item.id} className="pl-5">
-                {renderMarkdown(item.message.content)}
+                {item.message.artifactRefs?.length ? (
+                  <MessageCard
+                    message={item.message}
+                    artifactById={artifactById}
+                    onOpenArtifact={onOpenArtifact}
+                  />
+                ) : (
+                  renderMarkdown(item.message.content)
+                )}
               </div>
             ),
           )}

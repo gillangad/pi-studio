@@ -211,7 +211,14 @@ export function ChatView({
                   <MessageCard message={item.message} artifactById={artifactById} onOpenArtifact={onOpenArtifact} />
                 ) : null}
                 {item.kind === "tool-group" ? <ToolCallsCard messages={item.messages} /> : null}
-                {item.kind === "work-trace" ? <WorkTraceCard messages={item.messages} endTimestamp={item.endTimestamp} /> : null}
+                {item.kind === "work-trace" ? (
+                  <WorkTraceCard
+                    messages={item.messages}
+                    endTimestamp={item.endTimestamp}
+                    artifactById={artifactById}
+                    onOpenArtifact={onOpenArtifact}
+                  />
+                ) : null}
               </div>
             ))
           ) : (

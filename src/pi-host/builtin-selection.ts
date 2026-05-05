@@ -22,3 +22,9 @@ export function shouldUsePiStudioBuiltins({
   void metadataBySessionFile;
   return true;
 }
+
+const PI_STUDIO_ACTIVE_TOOL_NAMES = ["read", "bash", "edit", "write", "browser", "control"] as const;
+
+export function getPiStudioInitialActiveToolNames(usePiStudioBuiltins: boolean) {
+  return usePiStudioBuiltins ? [...PI_STUDIO_ACTIVE_TOOL_NAMES] : undefined;
+}
