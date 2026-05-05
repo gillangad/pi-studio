@@ -22,6 +22,7 @@ type ParsedToolContent = {
 type ActivitySummary = {
   verb: string;
   target: string;
+  detailTarget: string;
   added: number;
   removed: number;
 };
@@ -53,6 +54,39 @@ function firstMeaningfulLine(content: string[]) {
   );
 }
 
+function basename(path: string) {
+  const trimmed = path.trim().replace(/[\\/]+$/, "");
+  if (!trimmed) return path;
+  const segments = trimmed.split(/[\\/]/);
+  return segments[segments.length - 1] ?? trimmed;
+}
+
+function inferToolPath(kind: ToolKind, raw: string) {
+  const firstLine = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+
+  if (!firstLine) return "";
+
+  if (kind === "edit") {
+    const successMatch = firstLine.match(/^Successfully replaced \d+ block\(s\) in (.+?)(?:\.)?$/i);
+    if (successMatch?.[1]) return successMatch[1].trim();
+  }
+
+  if (kind === "write") {
+    const successMatch = firstLine.match(/^Successfully wrote \d+ bytes to (.+)$/i);
+    if (successMatch?.[1]) return successMatch[1].trim();
+  }
+
+  if (kind === "read") {
+    const successMatch = firstLine.match(/^(?:Read|Reading)\s+(.+)$/i);
+    if (successMatch?.[1]) return successMatch[1].trim();
+  }
+
+  return "";
+}
+
 function detectToolKind(message: ToolCallMessage): ToolKind {
   if (message.role === "bashExecution") return "bash";
 
@@ -66,6 +100,8 @@ function detectToolKind(message: ToolCallMessage): ToolKind {
   if (line.startsWith("read ")) return "read";
   if (line.startsWith("edit ")) return "edit";
   if (line.startsWith("write ")) return "write";
+  if (line.startsWith("successfully replaced")) return "edit";
+  if (line.startsWith("successfully wrote")) return "write";
   if (line.startsWith("$ ") || line.startsWith("bash ")) return "bash";
 
   return "other";
@@ -142,9 +178,24 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
     }
   }
 
+  if (!header) {
+    header = inferToolPath(kind, raw);
+    if (header) {
+      startIndex = firstNonEmpty + 1;
+      while (startIndex < lines.length && lines[startIndex]!.trim() === "") {
+        startIndex += 1;
+      }
+    }
+  }
+
+  let body = trimTrailingBlank(lines.slice(startIndex)).join("\n");
+  if (!body && (kind === "edit" || kind === "write")) {
+    body = message.toolDetails?.diff ? normalize(message.toolDetails.diff) : "";
+  }
+
   return {
     header,
-    body: trimTrailingBlank(lines.slice(startIndex)).join("\n"),
+    body,
     exitCodeFromText: null,
   };
 }
@@ -180,15 +231,20 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
     return {
       verb: "Ran",
       target: parsed.header || message.command || firstMeaningfulLine(message.content).replace(/^\$\s*/, "") || "bash",
+      detailTarget: parsed.header || message.command || "bash",
       added: 0,
       removed: 0,
     };
   }
 
+  const detailTarget = parsed.header || "file";
+  const target = basename(detailTarget);
+
   if (kind === "read") {
     return {
       verb: "Read",
-      target: parsed.header || "file",
+      target,
+      detailTarget,
       added: 0,
       removed: 0,
     };
@@ -198,7 +254,8 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
     const counts = countDiff(parsed.body);
     return {
       verb: "Edited",
-      target: parsed.header || "file",
+      target,
+      detailTarget,
       added: counts.added,
       removed: counts.removed,
     };
@@ -208,7 +265,8 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
     const counts = countDiff(parsed.body);
     return {
       verb: "Edited",
-      target: parsed.header || "file",
+      target,
+      detailTarget,
       added: counts.added || parsed.body.split("\n").filter(Boolean).length,
       removed: counts.removed,
     };
@@ -217,6 +275,7 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
   return {
     verb: "Used",
     target: firstMeaningfulLine(message.content) || String(message.toolName ?? "tool"),
+    detailTarget: firstMeaningfulLine(message.content) || String(message.toolName ?? "tool"),
     added: 0,
     removed: 0,
   };
@@ -338,7 +397,7 @@ function renderDetail(
       <div className="tool-detail-card">
         <div className="tool-detail-header">
           <div className="tool-detail-title-row">
-            <span className="tool-detail-filename">{summary.target}</span>
+            <span className="tool-detail-filename">{summary.detailTarget}</span>
             {(summary.added > 0 || summary.removed > 0) ? (
               <span className="tool-detail-diff-counts">
                 {summary.added > 0 ? <span className="text-success">+{summary.added}</span> : null}
@@ -358,7 +417,7 @@ function renderDetail(
     return (
       <div className="tool-detail-card">
         <div className="tool-detail-header">
-          <span className="tool-detail-filename">{summary.target}</span>
+          <span className="tool-detail-filename">{summary.detailTarget}</span>
           <CopyButton value={parsed.body} />
         </div>
         <pre className="tool-detail-pre">{output}</pre>

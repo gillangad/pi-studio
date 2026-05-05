@@ -17,6 +17,11 @@ export type UiArtifactReference = {
   kind?: string;
 };
 
+export type UiToolDetails = {
+  diff?: string;
+  firstChangedLine?: number | null;
+};
+
 export type UiMessage = {
   id: string;
   role: UiMessageRole;
@@ -34,6 +39,7 @@ export type UiMessage = {
   thinkingHeaders?: string[];
   thinkingRedacted?: boolean;
   artifactRefs?: UiArtifactReference[];
+  toolDetails?: UiToolDetails;
 };
 
 export type ProjectRecord = {

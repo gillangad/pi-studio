@@ -38,14 +38,16 @@ describe("ToolCallsCard", () => {
 
     expect(screen.queryByText("src/surfaces/app/styles.css:500-559")).not.toBeInTheDocument();
     expect(screen.getByText("Edited 2 files, ran 1 command")).toBeInTheDocument();
-    expect(screen.queryByText(/^Edited src\/surfaces\/components\/ToolCallsCard\.tsx$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Edited ToolCallsCard\.tsx$/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { expanded: false }));
 
-    expect(screen.getByRole("button", { name: /Read\s+src\/surfaces\/app\/styles\.css:500-559/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Edited\s+src\/surfaces\/components\/ToolCallsCard\.tsx/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Edited\s+tests\/unit\/tool-calls-card\.test\.tsx/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Read\s+styles\.css:500-559/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+ToolCallsCard\.tsx/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+tool-calls-card\.test\.tsx/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck \(timeout 240s\)/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Read\s+styles\.css:500-559/ }));
+
     expect(screen.getByText("src/surfaces/app/styles.css:500-559")).toBeInTheDocument();
   });
 
@@ -63,11 +65,11 @@ describe("ToolCallsCard", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Read\s+src\/file\.ts:1-5/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Read\s+file\.ts:1-5/ })).toBeInTheDocument();
     expect(screen.queryByText("Tool calls (1)")).not.toBeInTheDocument();
     expect(screen.queryByText("const a = 1;")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Read\s+src\/file\.ts:1-5/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Read\s+file\.ts:1-5/ }));
 
     expect(screen.getByText("const a = 1;")).toBeInTheDocument();
   });
@@ -88,9 +90,9 @@ describe("ToolCallsCard", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Edited\s+src\/file\.ts/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+file\.ts/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Edited\s+src\/file\.ts/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Edited\s+file\.ts/ }));
 
     expect(screen.getByText("line 1")).toBeInTheDocument();
     expect(screen.getByText("line 30")).toBeInTheDocument();
@@ -116,6 +118,53 @@ describe("ToolCallsCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ }));
 
     expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
+  });
+
+  it("recognizes successful edit results from tool details instead of showing generic usage", () => {
+    render(
+      <ToolCallsCard
+        messages={[
+          {
+            id: "tool-edit-success",
+            role: "toolResult",
+            toolName: "edit",
+            content: ["Successfully replaced 1 block(s) in C:/Users/Angad/projects/pi-studio/src/surfaces/components/ChatView.tsx."],
+            toolDetails: {
+              diff: "  10 keep\n- 11 old line\n+ 11 new line\n+ 12 another line",
+              firstChangedLine: 11,
+            },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Edited\s+ChatView\.tsx/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Used/i })).not.toBeInTheDocument();
+    expect(screen.getByText((_content, node) => node?.textContent === "+2")).toBeInTheDocument();
+    expect(screen.getByText((_content, node) => node?.textContent === "-1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Edited\s+ChatView\.tsx/ }));
+
+    expect(screen.getByText("C:/Users/Angad/projects/pi-studio/src/surfaces/components/ChatView.tsx")).toBeInTheDocument();
+    expect(screen.getByText("+ 11 new line")).toBeInTheDocument();
+  });
+
+  it("recognizes successful write results from the success text path", () => {
+    render(
+      <ToolCallsCard
+        messages={[
+          {
+            id: "tool-write-success",
+            role: "toolResult",
+            toolName: "write",
+            content: ["Successfully wrote 664 bytes to C:/Users/Angad/projects/pi-studio/tests/unit/chat-view.test.tsx"],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Edited\s+chat-view\.test\.tsx/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Used/i })).not.toBeInTheDocument();
   });
 
   it("keeps failed items collapsed inside a collapsed group until opened", () => {

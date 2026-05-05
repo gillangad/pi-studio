@@ -1,4 +1,4 @@
-import type { ResourceEntrySummary, ResourceOrigin, ResourceSummary, UiMessage } from "../shared/types";
+import type { ResourceEntrySummary, ResourceOrigin, ResourceSummary, UiMessage, UiToolDetails } from "../shared/types";
 
 type RuntimeMessage = {
   role?: string;
@@ -14,7 +14,25 @@ type RuntimeMessage = {
   truncated?: boolean;
   customType?: string;
   summary?: string;
+  details?: {
+    diff?: string;
+    firstChangedLine?: number | null;
+  };
 };
+
+function mapToolDetails(details: RuntimeMessage["details"]): UiToolDetails | undefined {
+  if (!details || typeof details !== "object") return undefined;
+
+  const diff = typeof details.diff === "string" && details.diff.trim() ? details.diff : undefined;
+  const firstChangedLine = typeof details.firstChangedLine === "number" ? details.firstChangedLine : null;
+
+  if (!diff && firstChangedLine === null) return undefined;
+
+  return {
+    diff,
+    firstChangedLine,
+  };
+}
 
 function normalizeTextBlock(text: string) {
   return text.replace(/\r\n/g, "\n").replace(/^\n+|\n+$/g, "");
@@ -142,6 +160,7 @@ function mapAgentMessage(message: RuntimeMessage, index: number): UiMessage | nu
         toolName: message.toolName ?? "tool",
         content: content.length > 0 ? content : [message.isError ? "Tool failed." : "Tool finished."],
         isError: Boolean(message.isError),
+        toolDetails: mapToolDetails(message.details),
       };
     }
 

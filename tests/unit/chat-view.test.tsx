@@ -99,13 +99,13 @@ describe("ChatView", () => {
     expect(screen.getByText("Worked for 9s")).toBeInTheDocument();
     expect(screen.getByText("Done.")).toBeInTheDocument();
     expect(screen.queryByText("Looking around")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Edited src\/file\.ts/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Edited file\.ts/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Worked for 9s/i }));
 
     expect(screen.getByText("Looking around")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Read\s+src\/file\.ts/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Edited\s+src\/file\.ts/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Read\s+file\.ts/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+file\.ts/ })).toBeInTheDocument();
   });
 
   it("keeps the in-progress turn expanded while streaming", () => {
@@ -130,7 +130,7 @@ describe("ChatView", () => {
     );
 
     expect(screen.getByText("Looking around")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Read\s+src\/file\.ts/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Read\s+file\.ts/ })).toBeInTheDocument();
     expect(screen.queryByText(/Worked/)).not.toBeInTheDocument();
   });
 

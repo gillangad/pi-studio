@@ -62,6 +62,30 @@ describe("mapAgentMessages", () => {
     });
   });
 
+  it("preserves tool details for edit-style results", () => {
+    const messages = mapAgentMessages([
+      {
+        role: "toolResult",
+        timestamp: 3,
+        toolName: "edit",
+        content: [{ type: "text", text: "Successfully replaced 1 block(s) in src/file.ts." }],
+        details: {
+          diff: "-old\n+new",
+          firstChangedLine: 12,
+        },
+      },
+    ]);
+
+    expect(messages[0]).toMatchObject({
+      role: "toolResult",
+      toolName: "edit",
+      toolDetails: {
+        diff: "-old\n+new",
+        firstChangedLine: 12,
+      },
+    });
+  });
+
   it("classifies bundled and user-installed resources for settings", () => {
     const summary = mapResourceSummary({
       extensions: [
