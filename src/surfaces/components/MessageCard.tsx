@@ -79,7 +79,7 @@ function ArtifactInlineCards({
 export function MessageCard({ message, artifactById, onOpenArtifact }: MessageCardProps) {
   if (message.role === "user") {
     return (
-      <article className="ml-auto w-fit max-w-[680px] rounded-[18px] bg-muted/72 px-4 py-3">
+      <article className="message-user-bubble ml-auto w-fit max-w-[680px] rounded-[18px] px-4 py-3">
         {renderMarkdown(message.content, "text-foreground")}
       </article>
     );

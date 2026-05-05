@@ -18,6 +18,7 @@ describe("MessageCard", () => {
     expect(screen.getByText("hello there")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveClass("ml-auto");
     expect(container.firstElementChild).toHaveClass("w-fit");
+    expect(container.firstElementChild).toHaveClass("message-user-bubble");
     expect(container.firstElementChild).not.toHaveClass("w-full");
   });
 

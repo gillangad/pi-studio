@@ -184,6 +184,18 @@
     border-color: hsl(var(--border) / 0.55);
   }
 
+  .message-user-bubble {
+    border: 1px solid hsl(var(--border) / 0.58);
+    background: hsl(var(--secondary) / 0.94);
+    box-shadow: 0 1px 0 hsl(0 0% 100% / 0.02) inset;
+  }
+
+  :root[data-theme="light"] .message-user-bubble {
+    border-color: hsl(var(--border) / 0.82);
+    background: hsl(var(--secondary) / 0.98);
+    box-shadow: 0 1px 0 hsl(0 0% 100% / 0.72) inset;
+  }
+
   .markdown-content > :first-child {
     margin-top: 0;
   }
