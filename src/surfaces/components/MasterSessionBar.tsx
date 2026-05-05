@@ -156,7 +156,7 @@ export function MasterSessionBar({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="truncate text-[14px] font-semibold text-foreground">Master</h3>
+            <h3 className="truncate text-[14px] font-semibold text-foreground">Control</h3>
             <span className="truncate text-[12px] text-muted-foreground">
               {master.summary.totalTargets} linked
             </span>
@@ -176,7 +176,7 @@ export function MasterSessionBar({
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full text-muted-foreground"
-            aria-label="Close master session"
+            aria-label="Close control panel"
             onClick={onClose}
           >
             <X size={15} />
@@ -214,7 +214,7 @@ export function MasterSessionBar({
               <span className="line-clamp-4">{latestAssistantText}</span>
             </article>
           ) : (
-            <div className="px-1 py-2 text-[13px] text-muted-foreground">No master messages yet.</div>
+            <div className="px-1 py-2 text-[13px] text-muted-foreground">No control messages yet.</div>
           )}
         </div>
       </div>
@@ -250,7 +250,7 @@ export function MasterSessionBar({
               value={value}
               rows={1}
               className="min-h-[42px] resize-none border-transparent bg-transparent px-0 py-1.5 text-[14px] shadow-none focus-visible:ring-0"
-              placeholder="Ask Master Pi"
+              placeholder="Ask Pi"
               onChange={(event) => setValue(event.target.value)}
               onKeyDown={(event) => {
                 if (slashSuggestions.length > 0 && event.key === "ArrowDown") {
@@ -288,7 +288,7 @@ export function MasterSessionBar({
               size="icon"
               className="h-9 w-9 shrink-0 rounded-full"
               onClick={() => void onAbort("master")}
-              aria-label="Stop master session"
+              aria-label="Stop control response"
             >
               <Square size={15} className="fill-current" />
             </Button>
@@ -299,7 +299,7 @@ export function MasterSessionBar({
               className="h-9 w-9 shrink-0 rounded-full"
               onClick={submit}
               disabled={!value.trim()}
-              aria-label="Send to master session"
+              aria-label="Send control prompt"
             >
               <Send size={15} />
             </Button>
@@ -310,7 +310,7 @@ export function MasterSessionBar({
           <div
             className="absolute inset-x-3 bottom-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-lg"
             role="listbox"
-            aria-label="Master slash commands"
+            aria-label="Control slash commands"
           >
             {slashSuggestions.map((entry, index) => {
               const active = index === slashIndex;

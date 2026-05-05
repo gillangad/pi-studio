@@ -155,7 +155,7 @@ export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewPro
 
         <div className="grid min-h-0 gap-4 xl:grid-cols-2">
           <ResourceGroupCard title="Active GUI session" resources={snapshot.gui.resources} />
-          <ResourceGroupCard title="Master session" resources={snapshot.master.resources} />
+          <ResourceGroupCard title="Control surface resources" resources={snapshot.master.resources} />
         </div>
       </CardContent>
     </Card>

@@ -8,12 +8,11 @@ description: Operating guidance for the built-in `control` tool, which inspects 
 This skill describes the built-in `control` tool.
 
 - If the current session has the `control` tool, you may use it.
-- The tool is especially useful from a master/controller session, but it can still be available in other Pi Studio sessions.
 - When the user asks what tools are available, include `control` if this session has it.
 
 ## Purpose
 
-The `control` tool helps Pi Studio inspect, monitor, create, and steer other sessions. In controller-style workflows, the master session does not do the servant sessions' work itself when delegation is more appropriate. It monitors, steers, and reads from other sessions through the `control` tool.
+The `control` tool helps Pi Studio inspect, monitor, create, and steer other sessions. Use it when the user wants to work across sessions instead of only inside the current one.
 
 ## Tool map
 
@@ -27,8 +26,8 @@ The single `control` tool exposes multiple actions:
   - Create or attach a target when a session is not already under control.
 
 - `action: "send"`
-  - Delegate work into a servant session.
-  - This writes a real `user` message into the servant session, so phrase prompts as if speaking directly to that session.
+  - Delegate work into another session.
+  - This writes a real `user` message into that session, so phrase prompts as if speaking directly to it.
 
 - `action: "status"`
   - Check whether a servant run is idle, queued, running, done, errored, cancelled, or timed out.
@@ -38,7 +37,7 @@ The single `control` tool exposes multiple actions:
   - Stop a servant run that is stuck, obsolete, or explicitly cancelled by the user.
 
 - `action: "latest"`
-  - Use for the fast path when the user wants a quick update on what a servant session just did.
+  - Use for the fast path when the user wants a quick update on what another session just did.
   - Prefer this before `action: "read"`.
 
 - `action: "read"`
@@ -51,12 +50,12 @@ The single `control` tool exposes multiple actions:
 - Prefer the smallest useful tool:
   - `latest` before `read`
   - `status` before a speculative reread
-  - `list` before guessing which servant session exists
-- Keep answers grounded in the servant sessions' actual state.
-- Be explicit about which servant session you inspected or steered.
+  - `list` before guessing which session exists
+- Keep answers grounded in the target sessions' actual state.
+- Be explicit about which session you inspected or steered.
 
 ## Avoid
 
-- Do not pretend to know which servant sessions exist without checking `action: "list"`.
-- Do not summarize a servant session's internal state from memory when the control tool can verify it.
+- Do not pretend to know which sessions exist without checking `action: "list"`.
+- Do not summarize another session's internal state from memory when the control tool can verify it.
 - Do not use `action: "read"` by default when a lighter action answers the question.
