@@ -126,6 +126,121 @@ function parseArtifactPayload(
   }
 }
 
+type JsonObjectSpan = {
+  start: number;
+  end: number;
+  rawJson: string;
+};
+
+function extractTopLevelJsonObjects(text: string) {
+  const results: JsonObjectSpan[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === undefined) continue;
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (character === "\\") {
+        escaped = true;
+        continue;
+      }
+
+      if (character === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (character === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (character === "{") {
+      if (depth === 0) {
+        start = index;
+      }
+      depth += 1;
+      continue;
+    }
+
+    if (character === "}") {
+      if (depth === 0) {
+        continue;
+      }
+
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        results.push({
+          start,
+          end: index + 1,
+          rawJson: text.slice(start, index + 1),
+        });
+        start = -1;
+      }
+    }
+  }
+
+  return results;
+}
+
+function extractLooseArtifacts(rawContent: string, messageId: string) {
+  const artifactRefs: UiArtifactReference[] = [];
+  const artifacts: ParsedArtifactBlock[] = [];
+  const cleanedParts: string[] = [];
+  const matches: Array<JsonObjectSpan & { artifact: ParsedArtifactBlock }> = [];
+
+  for (const candidate of extractTopLevelJsonObjects(rawContent)) {
+    const artifact = parseArtifactPayload(candidate.rawJson, messageId, matches.length);
+    if (!artifact) {
+      continue;
+    }
+
+    matches.push({
+      ...candidate,
+      artifact,
+    });
+  }
+
+  if (matches.length === 0) {
+    return {
+      artifactRefs,
+      displayContent: normalizeDisplayContent(rawContent),
+      artifacts,
+    };
+  }
+
+  let lastIndex = 0;
+  for (const match of matches) {
+    cleanedParts.push(rawContent.slice(lastIndex, match.start));
+    lastIndex = match.end;
+    artifacts.push(match.artifact);
+    artifactRefs.push({
+      artifactId: match.artifact.artifactId,
+      title: match.artifact.title,
+      summary: match.artifact.summary,
+      kind: match.artifact.kind,
+    });
+  }
+
+  cleanedParts.push(rawContent.slice(lastIndex));
+
+  return {
+    artifactRefs,
+    displayContent: normalizeDisplayContent(cleanedParts.join("").replace(/\n{3,}/g, "\n\n")),
+    artifacts,
+  };
+}
+
 function extractArtifactsFromMessage(message: UiMessage) {
   if (message.content.length === 0) {
     return {
@@ -164,11 +279,7 @@ function extractArtifactsFromMessage(message: UiMessage) {
   }
 
   if (artifacts.length === 0) {
-    return {
-      artifactRefs,
-      displayContent: message.content,
-      artifacts,
-    };
+    return extractLooseArtifacts(rawContent, message.id);
   }
 
   cleanedParts.push(rawContent.slice(lastIndex));

@@ -18,6 +18,8 @@ Use this skill when the user wants a visualization, dashboard, report explorer, 
 
 Emit a fenced code block whose info string starts with `pi-artifact`, and make the body valid JSON.
 
+The final assistant message must include that fenced `pi-artifact` block directly. A bare JSON object without the fence will not reliably render as an artifact.
+
 When the user explicitly asks for an artifact in Pi Studio, fulfill that request with a `pi-artifact` block in the assistant response. Do not satisfy an artifact request by only writing a standalone HTML, TSX, or other file unless the user explicitly asks for a file as the deliverable.
 
 Required fields:
@@ -74,6 +76,7 @@ React artifact rules:
 - Emit the artifact block directly in the assistant message that creates or revises it.
 - When an artifact is the main deliverable, keep surrounding prose short so the artifact block itself has room to complete.
 - If you also create supporting files, the artifact block is still the primary deliverable for artifact requests in Pi Studio.
+- Do not stop after writing temporary files or printing only the JSON body. The fenced artifact block in the assistant response is the thing Pi Studio renders.
 
 ## Example
 

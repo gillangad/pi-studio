@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xterm/xterm", () => ({
@@ -239,6 +239,8 @@ const projectTree: FileTreeNode[] = [
 ];
 
 describe("App", () => {
+  let snapshotListener: ((snapshot: StudioSnapshot) => void) | null = null;
+
   beforeEach(() => {
     window.localStorage.clear();
     const bridge: DesktopBridge = {
@@ -293,7 +295,12 @@ describe("App", () => {
       getBrowserCdpTarget: vi.fn().mockResolvedValue(null),
       bindBrowserSurface: vi.fn().mockResolvedValue(undefined),
       clearBrowserSurfaceBinding: vi.fn().mockResolvedValue(undefined),
-      onSnapshot: vi.fn().mockReturnValue(() => {}),
+      onSnapshot: vi.fn().mockImplementation((callback) => {
+        snapshotListener = callback;
+        return () => {
+          snapshotListener = null;
+        };
+      }),
       onTuiData: vi.fn().mockReturnValue(() => {}),
       onTerminalData: vi.fn().mockReturnValue(() => {}),
     };
@@ -303,6 +310,7 @@ describe("App", () => {
 
   afterEach(() => {
     delete (window as { piStudio?: DesktopBridge }).piStudio;
+    snapshotListener = null;
     vi.restoreAllMocks();
   });
 
@@ -558,6 +566,83 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
       expect(screen.getAllByText("Latest revision").length).toBeGreaterThan(0);
+    });
+  });
+
+  it("does not keep showing a previous thread artifact after switching to a thread with none", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
+    if (!bridge) {
+      throw new Error("desktop bridge missing");
+    }
+
+    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
+      ...snapshot,
+      gui: {
+        ...snapshot.gui,
+        messages: [
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: [
+              [
+                "Built a report.",
+                "",
+                "```pi-artifact",
+                JSON.stringify(
+                  {
+                    id: "report",
+                    title: "Quarterly Report",
+                    summary: "Latest revision",
+                    kind: "react-tsx",
+                    tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
+                  },
+                  null,
+                  2,
+                ),
+                "```",
+              ].join("\n"),
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Open artifact Quarterly Report" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Open artifact Quarterly Report" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
+      expect(screen.getAllByText("Quarterly Report").length).toBeGreaterThan(0);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: "Thread Alpha latest in alpha" }));
+
+    expect(screen.queryByText("Quarterly Report")).not.toBeInTheDocument();
+
+    await act(async () => {
+      snapshotListener?.({
+        ...snapshot,
+        activeProjectId: "p2",
+        gui: {
+          ...snapshot.gui,
+          projectId: "p2",
+          sessionFile: "/tmp/alpha/session.jsonl",
+          sessionTitle: "Alpha latest",
+          cwd: "/tmp/alpha",
+          messages: [],
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Quarterly Report")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Open artifact Quarterly Report" })).not.toBeInTheDocument();
     });
   });
 

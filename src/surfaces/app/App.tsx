@@ -178,6 +178,8 @@ export function App() {
       if (cached) {
         return cached;
       }
+
+      return null;
     }
 
     return snapshot.gui;
