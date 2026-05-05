@@ -4,16 +4,25 @@ import { describe, expect, it } from "vitest";
 import controlSessionExtension from "../../src/builtins/extensions/pi-control-session/index";
 
 describe("pi-control-session extension", () => {
-  it("registers one control tool and keeps prompt hooks empty", () => {
+  it("registers one control tool, hooks session startup, and keeps control active", async () => {
     const tools: Array<{ name: string; description?: string }> = [];
     const events: string[] = [];
+    const handlers = new Map<string, (...args: any[]) => unknown>();
+    const activeTools: string[] = ["read", "bash", "edit", "write"];
 
     controlSessionExtension({
       registerTool(tool: { name: string; description?: string }) {
         tools.push(tool);
       },
-      on(event: string) {
+      on(event: string, handler: (...args: any[]) => unknown) {
         events.push(event);
+        handlers.set(event, handler);
+      },
+      getActiveTools() {
+        return [...activeTools];
+      },
+      setActiveTools(next: string[]) {
+        activeTools.splice(0, activeTools.length, ...next);
       },
     } as any);
 
@@ -21,6 +30,10 @@ describe("pi-control-session extension", () => {
     expect(tools[0].name).toBe("control");
     expect(tools[0].description).toBe("Control and inspect other Pi Studio sessions.");
     expect(events).toEqual(["session_start"]);
+    expect(activeTools).not.toContain("control");
+
+    await handlers.get("session_start")?.({}, {});
+    expect(activeTools.filter((tool) => tool === "control")).toHaveLength(1);
   });
 
   it("can be imported from its raw entrypoint file URL", async () => {

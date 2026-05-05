@@ -71,8 +71,18 @@ function formatTargetLines(targets: Array<{
     .join("\n");
 }
 
+function ensureToolActive(pi: ExtensionAPI, toolName: string) {
+  const active = pi.getActiveTools();
+  if (active.includes(toolName)) {
+    return;
+  }
+
+  pi.setActiveTools([...active, toolName]);
+}
+
 export default function controlSessionExtension(pi: ExtensionAPI) {
   pi.on("session_start", async () => {
+    ensureToolActive(pi, "control");
     await ensureStorage();
   });
 

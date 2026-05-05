@@ -62,6 +62,15 @@ type BrowserRuntime = {
   }): Promise<any>;
 };
 
+function ensureToolActive(pi: ExtensionAPI, toolName: string) {
+  const active = pi.getActiveTools();
+  if (active.includes(toolName)) {
+    return;
+  }
+
+  pi.setActiveTools([...active, toolName]);
+}
+
 function getBrowserRuntime() {
   const runtime = (globalThis as Record<string, unknown>)[BROWSER_RUNTIME_KEY];
   if (runtime && typeof runtime === "object") {
@@ -204,6 +213,10 @@ function assertActionSucceeded(result: any) {
 }
 
 export default function browserExtension(pi: ExtensionAPI) {
+  pi.on("session_start", async () => {
+    ensureToolActive(pi, "browser");
+  });
+
   pi.registerTool({
     name: "browser",
     label: "Browser",
