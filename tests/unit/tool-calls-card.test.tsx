@@ -37,15 +37,15 @@ describe("ToolCallsCard", () => {
     );
 
     expect(screen.queryByText("src/surfaces/app/styles.css:500-559")).not.toBeInTheDocument();
-    expect(screen.getByText("Ran 4 tool calls")).toBeInTheDocument();
-    expect(screen.queryByText(/^Edited /)).not.toBeInTheDocument();
+    expect(screen.getByText("Edited 2 files, ran 1 command")).toBeInTheDocument();
+    expect(screen.queryByText(/^Edited src\/surfaces\/components\/ToolCallsCard\.tsx$/)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { expanded: false }));
 
     expect(screen.getByRole("button", { name: /Read\s+src\/surfaces\/app\/styles\.css:500-559/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Edited\s+src\/surfaces\/components\/ToolCallsCard\.tsx/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Created\s+tests\/unit\/tool-calls-card\.test\.tsx/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Bash\s+npm run typecheck \(timeout 240s\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+tests\/unit\/tool-calls-card\.test\.tsx/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck \(timeout 240s\)/ })).toBeInTheDocument();
     expect(screen.getByText("src/surfaces/app/styles.css:500-559")).toBeInTheDocument();
   });
 
@@ -88,11 +88,12 @@ describe("ToolCallsCard", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Created\s+src\/file\.ts/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edited\s+src\/file\.ts/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Created\s+src\/file\.ts/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Edited\s+src\/file\.ts/ }));
 
-    expect(screen.getByText(/line 1[\s\S]*line 30/)).toBeInTheDocument();
+    expect(screen.getByText("line 1")).toBeInTheDocument();
+    expect(screen.getByText("line 30")).toBeInTheDocument();
   });
 
   it("shows failed bash tool calls with a red pill and output", () => {
@@ -109,7 +110,7 @@ describe("ToolCallsCard", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: /Bash\s+npm run typecheck/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ })).toBeInTheDocument();
     expect(screen.getAllByText("src/file.ts:1:1 error")).toHaveLength(1);
     expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
   });
@@ -137,7 +138,7 @@ describe("ToolCallsCard", () => {
     fireEvent.click(screen.getByRole("button", { expanded: false }));
 
     expect(screen.getByText("Ran 2 commands")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Bash\s+npm run typecheck/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ })).toBeInTheDocument();
     expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
     expect(screen.queryByText(/^ok$/)).not.toBeInTheDocument();
   });

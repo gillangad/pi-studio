@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clipboard, FileCode2, PencilLine, SquareTerminal } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { UiMessage } from "../../shared/types";
 import { cn } from "../lib/utils";
@@ -26,13 +26,19 @@ type ActivitySummary = {
   removed: number;
 };
 
+type GroupSummary = {
+  label: string;
+  commandCount: number;
+  editCount: number;
+};
+
 function normalize(text: string) {
   return text.replace(/\r\n/g, "\n");
 }
 
 function trimTrailingBlank(lines: string[]) {
   const next = [...lines];
-  while (next.length > 0 && next[next.length - 1].trim() === "") {
+  while (next.length > 0 && next[next.length - 1]!.trim() === "") {
     next.pop();
   }
   return next;
@@ -79,7 +85,7 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
   }
 
   if (kind === "bash") {
-    const firstLine = lines[firstNonEmpty].trim();
+    const firstLine = lines[firstNonEmpty]!.trim();
     const dollarMatch = firstLine.match(/^\$\s+(.+)$/);
     const bashMatch = firstLine.match(/^bash\s+(.+)$/i);
 
@@ -97,7 +103,7 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
       startIndex = firstNonEmpty + 1;
     }
 
-    while (startIndex < lines.length && lines[startIndex].trim() === "") {
+    while (startIndex < lines.length && lines[startIndex]!.trim() === "") {
       startIndex += 1;
     }
 
@@ -105,7 +111,7 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
     let exitCodeFromText: number | null = null;
 
     for (let index = tail.length - 1; index >= 0; index -= 1) {
-      const line = tail[index].trim();
+      const line = tail[index]!.trim();
       const exitMatch = line.match(/^Command exited with code\s+(-?\d+)$/i);
       if (exitMatch?.[1]) {
         exitCodeFromText = Number(exitMatch[1]);
@@ -121,7 +127,7 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
     };
   }
 
-  const firstLine = lines[firstNonEmpty].trim();
+  const firstLine = lines[firstNonEmpty]!.trim();
   let header = "";
   let startIndex = firstNonEmpty;
 
@@ -130,7 +136,7 @@ function parseToolContent(message: ToolCallMessage, kind: ToolKind): ParsedToolC
     if (match?.[1]) {
       header = match[1].trim();
       startIndex = firstNonEmpty + 1;
-      while (startIndex < lines.length && lines[startIndex].trim() === "") {
+      while (startIndex < lines.length && lines[startIndex]!.trim() === "") {
         startIndex += 1;
       }
     }
@@ -157,13 +163,6 @@ function isFailure(message: ToolCallMessage, kind: ToolKind, parsed: ParsedToolC
   return Boolean(message.isError);
 }
 
-function summarizeGroup(messages: ToolCallMessage[]) {
-  const bashCount = messages.filter((message) => detectToolKind(message) === "bash").length;
-  return bashCount === messages.length
-    ? `Ran ${messages.length} ${messages.length === 1 ? "command" : "commands"}`
-    : `Ran ${messages.length} ${messages.length === 1 ? "tool call" : "tool calls"}`;
-}
-
 function countDiff(body: string) {
   return body.split("\n").reduce(
     (counts, line) => {
@@ -179,7 +178,7 @@ function countDiff(body: string) {
 function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: ParsedToolContent): ActivitySummary {
   if (kind === "bash") {
     return {
-      verb: "Bash",
+      verb: "Ran",
       target: parsed.header || message.command || firstMeaningfulLine(message.content).replace(/^\$\s*/, "") || "bash",
       added: 0,
       removed: 0,
@@ -208,7 +207,7 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
   if (kind === "write") {
     const counts = countDiff(parsed.body);
     return {
-      verb: "Created",
+      verb: "Edited",
       target: parsed.header || "file",
       added: counts.added || parsed.body.split("\n").filter(Boolean).length,
       removed: counts.removed,
@@ -231,7 +230,102 @@ function hasDetail(message: ToolCallMessage, parsed: ParsedToolContent) {
   return Boolean(parsed.body.trim()) || typeof parsed.exitCodeFromText === "number";
 }
 
-function renderDetail(message: ToolCallMessage, parsed: ParsedToolContent, failed: boolean) {
+function buildGroupSummary(messages: ToolCallMessage[]) {
+  const counts = messages.reduce(
+    (summary, message) => {
+      const kind = detectToolKind(message);
+      if (kind === "bash") summary.commandCount += 1;
+      if (kind === "edit" || kind === "write") summary.editCount += 1;
+      return summary;
+    },
+    { commandCount: 0, editCount: 0 },
+  );
+
+  let label = "";
+  if (counts.editCount > 0 && counts.commandCount > 0) {
+    label = `Edited ${counts.editCount} ${counts.editCount === 1 ? "file" : "files"}, ran ${counts.commandCount} ${counts.commandCount === 1 ? "command" : "commands"}`;
+  } else if (counts.editCount > 0) {
+    label = `Edited ${counts.editCount} ${counts.editCount === 1 ? "file" : "files"}`;
+  } else if (counts.commandCount > 0) {
+    label = `Ran ${counts.commandCount} ${counts.commandCount === 1 ? "command" : "commands"}`;
+  } else {
+    label = `Ran ${messages.length} ${messages.length === 1 ? "tool call" : "tool calls"}`;
+  }
+
+  return {
+    label,
+    ...counts,
+  } satisfies GroupSummary;
+}
+
+function groupIcon(summary: GroupSummary) {
+  return summary.editCount > 0 ? PencilLine : SquareTerminal;
+}
+
+function expandedRowLabel(kind: ToolKind) {
+  if (kind === "bash") return "Ran command";
+  if (kind === "read") return "Read file";
+  return "Edited file";
+}
+
+function renderDiffBody(body: string) {
+  const lines = body.split("\n");
+  return (
+    <pre className="tool-detail-pre">
+      {lines.map((line, index) => {
+        const trimmed = line.trimStart();
+        const lineClass = trimmed.startsWith("+") && !trimmed.startsWith("+++")
+          ? "tool-detail-line-add"
+          : trimmed.startsWith("-") && !trimmed.startsWith("---")
+            ? "tool-detail-line-remove"
+            : "";
+
+        return (
+          <div key={`${line}-${index}`} className={cn("tool-detail-line", lineClass)}>
+            {line || " "}
+          </div>
+        );
+      })}
+    </pre>
+  );
+}
+
+function detailLabel(kind: ToolKind) {
+  if (kind === "bash") return "Shell";
+  if (kind === "read") return "Read file";
+  return "Edited file";
+}
+
+function itemIcon(kind: ToolKind) {
+  if (kind === "bash") return SquareTerminal;
+  if (kind === "read") return FileCode2;
+  return PencilLine;
+}
+
+function CopyButton({ value }: { value: string }) {
+  return (
+    <button
+      type="button"
+      className="tool-detail-copy"
+      aria-label="Copy tool output"
+      title="Copy"
+      onClick={() => {
+        if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+        void navigator.clipboard.writeText(value);
+      }}
+    >
+      <Clipboard size={14} />
+    </button>
+  );
+}
+
+function renderDetail(
+  message: ToolCallMessage,
+  kind: ToolKind,
+  parsed: ParsedToolContent,
+  failed: boolean,
+  summary: ActivitySummary,
+) {
   const exitCode = message.role === "bashExecution" ? message.exitCode : parsed.exitCodeFromText;
   const output = parsed.body.trim();
 
@@ -239,17 +333,64 @@ function renderDetail(message: ToolCallMessage, parsed: ParsedToolContent, faile
     return null;
   }
 
-  return (
-    <div className="ml-4 mt-1.5 border-l border-border/60 pl-3">
-      {output ? (
-        <pre className="overflow-auto whitespace-pre-wrap font-mono text-xs text-muted-foreground">{output}</pre>
-      ) : null}
-      {typeof exitCode === "number" ? (
-        <div className={cn("mt-1 text-[11px] text-muted-foreground", failed && "text-destructive")}>
-          exit {exitCode}
-          {message.cancelled ? "  cancelled" : ""}
+  if (kind === "edit" || kind === "write") {
+    return (
+      <div className="tool-detail-card">
+        <div className="tool-detail-header">
+          <div className="tool-detail-title-row">
+            <span className="tool-detail-filename">{summary.target}</span>
+            {(summary.added > 0 || summary.removed > 0) ? (
+              <span className="tool-detail-diff-counts">
+                {summary.added > 0 ? <span className="text-success">+{summary.added}</span> : null}
+                {summary.removed > 0 ? <span className="text-destructive">-{summary.removed}</span> : null}
+              </span>
+            ) : null}
+          </div>
+          <CopyButton value={parsed.body} />
         </div>
+
+        {renderDiffBody(parsed.body)}
+      </div>
+    );
+  }
+
+  if (kind === "read") {
+    return (
+      <div className="tool-detail-card">
+        <div className="tool-detail-header">
+          <span className="tool-detail-filename">{summary.target}</span>
+          <CopyButton value={parsed.body} />
+        </div>
+        <pre className="tool-detail-pre">{output}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tool-detail-card">
+      <div className="tool-detail-header">
+        <span className="tool-detail-label">{detailLabel(kind)}</span>
+        <CopyButton value={parsed.body} />
+      </div>
+
+      {kind === "bash" ? (
+        <div className="tool-detail-shell-command">$ {parsed.header || message.command || "bash"}</div>
       ) : null}
+
+      {output ? <pre className="tool-detail-pre">{output}</pre> : null}
+
+      <div className="tool-detail-footer">
+        {typeof exitCode === "number" ? (
+          <div className={cn("tool-detail-exit", failed && "tool-detail-exit-failed")}>
+            exit {exitCode}
+            {message.cancelled ? "  cancelled" : ""}
+          </div>
+        ) : <span />}
+        <span className={cn("tool-detail-status", failed ? "tool-detail-status-failed" : "tool-detail-status-success")}>
+          {!failed ? <Check size={12} /> : null}
+          {failed ? "Failed" : "Success"}
+        </span>
+      </div>
     </div>
   );
 }
@@ -263,76 +404,98 @@ export function ToolCallsCard({
   const [expanded, setExpanded] = useState(initialExpanded ?? false);
   const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({});
 
-  const parsedByKey = useMemo(
+  const parsedItems = useMemo(
     () =>
-      Object.fromEntries(
-        messages.map((message, index) => {
-          const key = `${message.id}:${index}`;
-          const kind = detectToolKind(message);
-          return [key, parseToolContent(message, kind)] as const;
-        }),
-      ),
+      messages.map((message, index) => {
+        const key = `${message.id}:${index}`;
+        const kind = detectToolKind(message);
+        const parsed = parseToolContent(message, kind);
+        const failed = isFailure(message, kind, parsed);
+        const summary = buildActivitySummary(message, kind, parsed);
+        return {
+          key,
+          kind,
+          parsed,
+          failed,
+          summary,
+          hasDetail: hasDetail(message, parsed),
+          message,
+        };
+      }),
     [messages],
   );
 
-  const groupLabel = useMemo(() => summarizeGroup(messages), [messages]);
+  const groupSummary = useMemo(() => buildGroupSummary(messages), [messages]);
   const showGroupLabel = !hideGroupLabel && !isSingleCall;
   const showItems = showGroupLabel ? expanded : true;
+  const GroupIcon = groupIcon(groupSummary);
 
   return (
     <article className="w-full max-w-[760px]">
       {showGroupLabel ? (
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground"
+          className="tool-summary-row"
           onClick={() => setExpanded((current) => !current)}
           aria-expanded={expanded}
         >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <span>{groupLabel}</span>
+          <span className="tool-summary-chevron">
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <GroupIcon size={14} className="text-muted-foreground/80" />
+          <span>{groupSummary.label}</span>
         </button>
       ) : null}
 
       {showItems ? (
-        <div className={cn("space-y-1", showGroupLabel && "mt-1")}>
-          {messages.map((message, index) => {
-            const key = `${message.id}:${index}`;
-            const kind = detectToolKind(message);
-            const parsed = parsedByKey[key] ?? parseToolContent(message, kind);
-            const failed = isFailure(message, kind, parsed);
-            const summary = buildActivitySummary(message, kind, parsed);
-            const itemHasDetail = hasDetail(message, parsed);
+        <div className={cn("space-y-2", showGroupLabel && "mt-2")}>
+          {parsedItems.map(({ key, kind, parsed, failed, summary, hasDetail, message }) => {
+            const Icon = itemIcon(kind);
             const itemExpanded = expandedItemIds[key] ?? failed;
+            const primaryLabel = itemExpanded ? expandedRowLabel(kind) : `${summary.verb} ${summary.target}`;
 
             return (
-              <div key={key}>
+              <div key={key} className="space-y-1">
                 <button
                   type="button"
                   className={cn(
-                    "flex w-full items-start gap-2 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground",
-                    !itemHasDetail && "cursor-default",
-                    failed && "text-destructive",
+                    "tool-item-row",
+                    failed && "tool-item-row-failed",
+                    !hasDetail && "cursor-default",
                   )}
+                  aria-label={`${summary.verb} ${summary.target}`}
                   onClick={() => {
-                    if (!itemHasDetail) return;
+                    if (!hasDetail) return;
                     setExpandedItemIds((current) => ({
                       ...current,
                       [key]: !itemExpanded,
                     }));
                   }}
-                  aria-expanded={itemHasDetail ? itemExpanded : undefined}
+                  aria-expanded={hasDetail ? itemExpanded : undefined}
                 >
-                  <span className="mt-0.5 shrink-0 text-muted-foreground/75">
-                    {itemHasDetail ? (itemExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
+                  <span className="tool-item-chevron">
+                    {hasDetail ? (itemExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
                   </span>
-                  <span className="min-w-0">
-                    <span className={cn("mr-1 text-foreground", failed && "text-destructive")}>{summary.verb}</span>
-                    <span className="break-all">{summary.target}</span>
-                    {summary.added > 0 ? <span className="ml-2 text-success">+{summary.added}</span> : null}
-                    {summary.removed > 0 ? <span className="ml-1 text-destructive">-{summary.removed}</span> : null}
+                  <Icon size={14} className="mt-0.5 shrink-0 text-muted-foreground/80" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {itemExpanded ? (
+                      <span className={cn("truncate text-muted-foreground", failed && "text-destructive")}>{primaryLabel}</span>
+                    ) : (
+                      <>
+                        <span className={cn("mr-1 text-muted-foreground", failed && "text-destructive")}>{summary.verb}</span>
+                        <span className="truncate text-muted-foreground">{summary.target}</span>
+                      </>
+                    )}
                   </span>
+                  {(summary.added > 0 || summary.removed > 0) ? (
+                    <span className="shrink-0 text-[12px]">
+                      {summary.added > 0 ? <span className="text-success">+{summary.added}</span> : null}
+                      {summary.removed > 0 ? <span className="ml-1 text-destructive">-{summary.removed}</span> : null}
+                    </span>
+                  ) : null}
                 </button>
-                {itemExpanded ? renderDetail(message, parsed, failed) : null}
+
+                {itemExpanded ? renderDetail(message, kind, parsed, failed, summary) : null}
               </div>
             );
           })}

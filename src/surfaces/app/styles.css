@@ -196,6 +196,101 @@
     box-shadow: 0 1px 0 hsl(0 0% 100% / 0.72) inset;
   }
 
+  .tool-summary-row {
+    @apply inline-flex items-center gap-2 py-1 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground;
+  }
+
+  .tool-summary-chevron,
+  .tool-item-chevron {
+    @apply inline-flex h-4 w-4 items-center justify-center text-muted-foreground/80;
+  }
+
+  .tool-item-row {
+    @apply flex w-full items-start gap-2 rounded-md py-0.5 text-left text-[14px] text-muted-foreground transition-colors hover:text-foreground;
+  }
+
+  .tool-item-row-failed {
+    @apply text-destructive;
+  }
+
+  .tool-detail-card {
+    border: 1px solid hsl(var(--border) / 0.9);
+    background: hsl(var(--card) / 0.92);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-left: 22px;
+  }
+
+  .tool-detail-header {
+    @apply mb-2 flex items-center justify-between gap-3;
+  }
+
+  .tool-detail-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  .tool-detail-title-row {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .tool-detail-filename {
+    @apply truncate font-mono text-[14px] text-foreground;
+  }
+
+  .tool-detail-diff-counts {
+    @apply shrink-0 font-mono text-[12px];
+  }
+
+  .tool-detail-status {
+    @apply inline-flex items-center gap-1 text-[12px] text-muted-foreground;
+  }
+
+  .tool-detail-status-success {
+    @apply text-muted-foreground;
+  }
+
+  .tool-detail-status-failed {
+    @apply text-destructive;
+  }
+
+  .tool-detail-shell-command {
+    @apply mb-3 font-mono text-[13px] text-foreground;
+  }
+
+  .tool-detail-copy {
+    @apply inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+  }
+
+  .tool-detail-pre {
+    @apply overflow-auto whitespace-pre-wrap rounded-xl bg-background/70 p-3 font-mono text-xs leading-6 text-foreground;
+  }
+
+  .tool-detail-line {
+    @apply -mx-3 px-3;
+  }
+
+  .tool-detail-line-add {
+    background: hsl(var(--success) / 0.1);
+    color: hsl(var(--success));
+  }
+
+  .tool-detail-line-remove {
+    background: hsl(var(--destructive) / 0.1);
+    color: hsl(var(--destructive));
+  }
+
+  .tool-detail-exit {
+    @apply mt-2 text-[11px] text-muted-foreground;
+  }
+
+  .tool-detail-exit-failed {
+    @apply text-destructive;
+  }
+
+  .tool-detail-footer {
+    @apply mt-2 flex items-center justify-between gap-3;
+  }
+
   .markdown-content > :first-child {
     margin-top: 0;
   }

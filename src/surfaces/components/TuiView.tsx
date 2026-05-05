@@ -16,6 +16,8 @@ type TuiViewProps = {
   subscribeToData: (callback: (payload: { data: string; sessionId?: string }) => void) => () => void;
 };
 
+type ScheduledHandle = number | ReturnType<typeof globalThis.setTimeout>;
+
 function terminalThemeFromCss(): ITheme {
   const styles = getComputedStyle(document.documentElement);
   const readToken = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
@@ -51,18 +53,18 @@ function terminalThemeFromCss(): ITheme {
   };
 }
 
-function scheduleFrame(callback: () => void) {
+function scheduleFrame(callback: () => void): ScheduledHandle {
   if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
     return window.requestAnimationFrame(callback);
   }
 
-  return window.setTimeout(callback, 16);
+  return globalThis.setTimeout(callback, 16);
 }
 
-function cancelScheduledFrame(handle: number | null) {
+function cancelScheduledFrame(handle: ScheduledHandle | null) {
   if (handle === null) return;
 
-  if (typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+  if (typeof handle === "number" && typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
     window.cancelAnimationFrame(handle);
     return;
   }
@@ -72,7 +74,7 @@ function cancelScheduledFrame(handle: number | null) {
 
 function wheelDeltaInPixels(event: WheelEvent) {
   const lineHeightPx = 16;
-  const pageHeightPx = window.innerHeight || 800;
+  const pageHeightPx = typeof window !== "undefined" ? (window.innerHeight || 800) : 800;
 
   switch (event.deltaMode) {
     case WheelEvent.DOM_DELTA_LINE:
@@ -97,9 +99,9 @@ export function TuiView({
   const viewportShellRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
-  const fitFrameRef = useRef<number | null>(null);
-  const scrollSyncFrameRef = useRef<number | null>(null);
-  const startupTimerRef = useRef<number | null>(null);
+  const fitFrameRef = useRef<ScheduledHandle | null>(null);
+  const scrollSyncFrameRef = useRef<ScheduledHandle | null>(null);
+  const startupTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const scrollToBottom = useCallback(() => {
@@ -222,7 +224,7 @@ export function TuiView({
 
     void Promise.resolve(onStart(sessionId)).then(() => {
       scheduleFit();
-      startupTimerRef.current = window.setTimeout(() => {
+      startupTimerRef.current = globalThis.setTimeout(() => {
         startupTimerRef.current = null;
         scheduleFit();
       }, 24);
