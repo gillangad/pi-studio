@@ -85,6 +85,36 @@ describe("resolveTuiLaunchCommand", () => {
     });
   });
 
+  it("launches pi inside WSL for WSL-backed projects on windows", () => {
+    const command = resolveTuiLaunchCommand({
+      platform: "win32",
+      cwd: "\\\\wsl.localhost\\Ubuntu\\home\\angad\\projects\\pi-studio",
+      sessionFile: "C:\\Users\\Angad\\.pi\\agent\\sessions\\demo.jsonl",
+      extensionPaths: ["C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\extensions\\pi-browser\\index.ts"],
+      skillPaths: ["C:\\Users\\Angad\\projects\\pi-studio\\out\\main\\builtins\\skills"],
+      env: { PATH: "C:\\Tools" },
+      findExecutable: () => null,
+    });
+
+    expect(command).toEqual({
+      file: "wsl.exe",
+      args: [
+        "-d",
+        "Ubuntu",
+        "--cd",
+        "/home/angad/projects/pi-studio",
+        "pi",
+        "--session",
+        "/mnt/c/Users/Angad/.pi/agent/sessions/demo.jsonl",
+        "-e",
+        "/mnt/c/Users/Angad/projects/pi-studio/out/main/builtins/extensions/pi-browser/index.ts",
+        "--skill",
+        "/mnt/c/Users/Angad/projects/pi-studio/out/main/builtins/skills",
+      ],
+      source: "pi-wsl",
+    });
+  });
+
   it("falls back to COMSPEC on windows when pi is unavailable", () => {
     const command = resolveTuiLaunchCommand({
       platform: "win32",

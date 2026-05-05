@@ -39,7 +39,7 @@ export class TuiTerminal {
   }
 
   start(cwd: string, cols = 120, rows = 32, sessionFile?: string | null) {
-    const command = resolveTuiLaunchCommand({ sessionFile });
+    const command = resolveTuiLaunchCommand({ cwd, sessionFile });
     const prefixNotice =
       command.source === "fallback-shell"
         ? "\r\n[pi-studio] `pi` is not on PATH, launched your default shell instead.\r\n"
@@ -55,6 +55,7 @@ export class TuiTerminal {
     options?: { sessionFile?: string | null; extensionPaths?: string[]; skillPaths?: string[] },
   ) {
     const command = resolveTuiLaunchCommand({
+      cwd,
       sessionFile: options?.sessionFile,
       extensionPaths: options?.extensionPaths,
       skillPaths: options?.skillPaths,

@@ -64,11 +64,15 @@ React artifact rules:
 - Make it look intentional: good spacing, strong information hierarchy, sensible defaults, readable charts/tables, and useful empty states when needed.
 - Keep the UI tightly scoped to the task.
 - Prefer embedding the relevant data in `data` instead of hardcoding display text all over the component.
+- Keep the first shipped version compact. Prefer a small, complete artifact over a sprawling one that risks truncation.
+- For test/status/checklist artifacts, use a minimal dashboard or summary card layout rather than a large custom app.
+- Keep `tsx` concise. Avoid giant inline style blobs, repeated markup, or writing the artifact JSON out to a side file before emitting the real artifact block.
 
 ## Delivery guidance
 
 - You may write brief explanatory text before or after the artifact block.
 - Emit the artifact block directly in the assistant message that creates or revises it.
+- When an artifact is the main deliverable, keep surrounding prose short so the artifact block itself has room to complete.
 - If you also create supporting files, the artifact block is still the primary deliverable for artifact requests in Pi Studio.
 
 ## Example
