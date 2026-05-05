@@ -317,7 +317,7 @@ describe("App", () => {
       expect(screen.queryByText("Master")).not.toBeInTheDocument();
       expect(screen.queryByText("I can steer the other sessions from here.")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle master session" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Toggle master session" })).not.toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
@@ -330,18 +330,12 @@ describe("App", () => {
     });
   });
 
-  it("shows the master bar only when the settings toggle is enabled", async () => {
+  it("keeps the master bar hidden in the main workspace header", async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(screen.queryByText("Master")).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle master session" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("Master")).toBeInTheDocument();
-      expect(screen.getByText("I can steer the other sessions from here.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Toggle master session" })).not.toBeInTheDocument();
     });
   });
 

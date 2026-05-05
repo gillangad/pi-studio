@@ -1,4 +1,4 @@
-import { Bot, Boxes, FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { Boxes, FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
@@ -67,10 +67,6 @@ function readInitialSidebarWidth() {
   return clampSidebarWidth(parsed);
 }
 
-function readInitialMasterSessionVisible() {
-  return window.localStorage.getItem("pi-studio-master-session-open") === "true";
-}
-
 function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
   const raw = window.localStorage.getItem(key);
   if (!raw) return {} as T;
@@ -92,7 +88,7 @@ export function App() {
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
-  const [masterSessionVisible, setMasterSessionVisible] = useState(readInitialMasterSessionVisible);
+  const [masterSessionVisible, setMasterSessionVisible] = useState(false);
 
   const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
   const [pendingGuiThreadKey, setPendingGuiThreadKey] = useState<string | null>(null);
@@ -125,10 +121,6 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-sidebar-width", String(sidebarWidth));
   }, [sidebarWidth]);
-
-  useEffect(() => {
-    window.localStorage.setItem("pi-studio-master-session-open", String(masterSessionVisible));
-  }, [masterSessionVisible]);
 
   useEffect(() => {
     window.localStorage.setItem("pi-studio-utility-panel-by-thread", JSON.stringify(utilityPanelByThread));
@@ -513,16 +505,6 @@ export function App() {
                       {derivedArtifacts.artifacts.length}
                     </span>
                   ) : null}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={masterSessionVisible ? "secondary" : "ghost"}
-                  onClick={() => setMasterSessionVisible((current) => !current)}
-                  aria-label="Toggle master session"
-                  title="Master session"
-                >
-                  <Bot size={16} />
                 </Button>
                 <Button
                   type="button"
