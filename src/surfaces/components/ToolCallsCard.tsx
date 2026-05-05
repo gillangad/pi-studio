@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Clipboard, FileCode2, PencilLine, SquareTerminal } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clipboard, FileCode2, Globe, PencilLine, SquareTerminal } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { UiMessage } from "../../shared/types";
 import { cn } from "../lib/utils";
@@ -11,7 +11,7 @@ type ToolCallsCardProps = {
   hideGroupLabel?: boolean;
 };
 
-type ToolKind = "read" | "edit" | "write" | "bash" | "other";
+type ToolKind = "read" | "edit" | "write" | "bash" | "browser" | "control" | "other";
 
 type ParsedToolContent = {
   header: string;
@@ -91,6 +91,8 @@ function detectToolKind(message: ToolCallMessage): ToolKind {
   if (message.role === "bashExecution") return "bash";
 
   const byName = String(message.toolName ?? "").toLowerCase();
+  if (byName.includes("browser")) return "browser";
+  if (byName.includes("control")) return "control";
   if (byName.includes("read")) return "read";
   if (byName.includes("edit")) return "edit";
   if (byName.includes("write")) return "write";
@@ -272,6 +274,26 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
     };
   }
 
+  if (kind === "browser") {
+    return {
+      verb: "Used",
+      target: "browser",
+      detailTarget: "browser",
+      added: 0,
+      removed: 0,
+    };
+  }
+
+  if (kind === "control") {
+    return {
+      verb: "Used",
+      target: "session control",
+      detailTarget: "session control",
+      added: 0,
+      removed: 0,
+    };
+  }
+
   return {
     verb: "Used",
     target: firstMeaningfulLine(message.content) || String(message.toolName ?? "tool"),
@@ -324,6 +346,9 @@ function groupIcon(summary: GroupSummary) {
 function expandedRowLabel(kind: ToolKind) {
   if (kind === "bash") return "Ran command";
   if (kind === "read") return "Read file";
+  if (kind === "browser") return "Used browser";
+  if (kind === "control") return "Used session control";
+  if (kind === "other") return "Used tool";
   return "Edited file";
 }
 
@@ -352,12 +377,16 @@ function renderDiffBody(body: string) {
 function detailLabel(kind: ToolKind) {
   if (kind === "bash") return "Shell";
   if (kind === "read") return "Read file";
+  if (kind === "browser") return "Browser";
+  if (kind === "control") return "Session control";
+  if (kind === "other") return "Tool output";
   return "Edited file";
 }
 
 function itemIcon(kind: ToolKind) {
   if (kind === "bash") return SquareTerminal;
   if (kind === "read") return FileCode2;
+  if (kind === "browser") return Globe;
   return PencilLine;
 }
 

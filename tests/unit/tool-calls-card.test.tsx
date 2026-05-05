@@ -198,4 +198,30 @@ describe("ToolCallsCard", () => {
 
     expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
   });
+
+  it("keeps browser tool output labeled consistently between collapsed and expanded views", () => {
+    render(
+      <ToolCallsCard
+        messages={[
+          {
+            id: "browser-state",
+            role: "toolResult",
+            toolName: "browser",
+            content: [
+              "Session: C:/Users/Angad/.pi/agent/sessions/example.jsonl\n\nTitle: Example Domain\nURL: https://example.com/",
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Used\s+browser/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edited file/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Used\s+browser/ }));
+
+    expect(screen.getByText("Browser")).toBeInTheDocument();
+    expect(screen.getByText(/Title: Example Domain/)).toBeInTheDocument();
+    expect(screen.queryByText("Edited file")).not.toBeInTheDocument();
+  });
 });
