@@ -189,36 +189,6 @@ export type GuiState = GuiSessionState & {
   sessions?: Record<string, GuiSessionState>;
 };
 
-export type ControlTargetState = {
-  targetId: string;
-  name: string;
-  projectId: string | null;
-  projectName: string;
-  projectPath: string;
-  sessionPath: string;
-  sessionTitle: string;
-  status: "idle" | "queued" | "running" | "done" | "error" | "cancelled" | "timeout";
-  statusLabel: string;
-  lastRunId: string | null;
-  lastError: string | null;
-  latestPrompt: string | null;
-  latestResponse: string | null;
-  latestTimestampMs: number | null;
-  latestTimestamp: string | null;
-  lastActivityLabel: string;
-};
-
-export type MasterState = GuiSessionState & {
-  targets: ControlTargetState[];
-  summary: {
-    totalTargets: number;
-    activeTargets: number;
-    errorTargets: number;
-    pendingTargets: number;
-  };
-  updatedAt: number;
-};
-
 export type TuiState = {
   active: boolean;
   projectId: string | null;
@@ -297,7 +267,6 @@ export type StudioSnapshot = {
   activeProjectId: string | null;
   activeMode: StudioMode;
   gui: GuiState;
-  master: MasterState;
   tui: TuiState;
   terminal: TerminalState;
   git: GitState;

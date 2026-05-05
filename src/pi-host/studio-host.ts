@@ -1,5 +1,4 @@
 import { execFile } from "node:child_process";
-import { mkdir } from "node:fs/promises";
 import { rm } from "node:fs/promises";
 import { stat } from "node:fs/promises";
 import { readdir } from "node:fs/promises";
@@ -17,12 +16,10 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import type {
   AttachmentSummary,
-  ControlTargetState,
   GitComment,
   GitDiffBaseline,
   GitState,
   FileTreeNode,
-  MasterState,
   ModelSummary,
   NavigateTreeOptions,
   NavigateTreeResult,
@@ -57,8 +54,6 @@ import {
 import { WorkspaceStore } from "./workspace-store";
 import { getPiStudioBuiltinResources } from "./builtin-resources";
 import { getPiStudioInitialActiveToolNames, shouldUsePiStudioBuiltins } from "./builtin-selection";
-import { getDashboardState, syncStudioTargets } from "../builtins/extensions/pi-control-session/sync";
-import type { ControlDashboardState } from "../builtins/extensions/pi-control-session/types";
 
 type StudioHostOptions = {
   storePath: string;
@@ -155,9 +150,6 @@ const RESOURCE_LOADER_RELOAD_INTERVAL_MS = 15_000;
 const FILE_TREE_DEPTH_LIMIT = 4;
 const FILE_TREE_IGNORES = new Set([".git", "node_modules", "out", "dist", ".next"]);
 const SEARCH_RESULT_LIMIT = 50;
-const MASTER_SESSION_ID = "master";
-const MASTER_WORKSPACE_DIR = path.join(process.env.HOME ?? process.cwd(), ".pi-studio", "master-session");
-const CONTROL_STATE_POLL_INTERVAL_MS = 2_000;
 const BUILTIN_SLASH_COMMANDS = [
   { name: "settings", description: "Open settings menu" },
   { name: "model", description: "Select model (opens selector UI)" },
@@ -211,19 +203,6 @@ export class StudioHost {
   private projectGitInfo: Record<string, ProjectGitInfo> = {};
   private guiSessions: Record<string, GuiSessionRuntime> = {};
   private activeGuiSessionId = "default";
-  private masterResourceLoader: any = null;
-  private masterResourceLoaderLastReloadMs = 0;
-  private controlDashboardState: ControlDashboardState = {
-    targets: [],
-    summary: {
-      totalTargets: 0,
-      activeTargets: 0,
-      errorTargets: 0,
-      pendingTargets: 0,
-    },
-    updatedAt: 0,
-  };
-  private controlDashboardPollHandle: ReturnType<typeof setInterval> | null = null;
   private currentSession: any = null;
   private currentResourceLoader: any = null;
   private resourceLoadersByProject: Record<string, Partial<Record<ResourceLoaderProfile, any>>> = {};
@@ -403,10 +382,6 @@ export class StudioHost {
     this.availableModels = this.modelRegistry.getAvailable().map(this.modelToSummary);
 
     await this.refreshAllThreads();
-    await this.syncControlTargetsFromWorkspace();
-    await this.refreshControlDashboardState();
-    await this.openMasterSession();
-    this.startControlDashboardPolling();
 
     const activeProject = this.getActiveProject();
     if (activeProject) {
@@ -530,17 +505,6 @@ export class StudioHost {
             ]),
           ),
         };
-      })(),
-      master: (() => {
-        const runtime = this.getGuiRuntime(MASTER_SESSION_ID);
-        return {
-          ...runtimeToGuiState(runtime),
-          sessionId: MASTER_SESSION_ID,
-          sessionTitle: runtime?.sessionTitle ?? "Master",
-          targets: this.controlDashboardState.targets as ControlTargetState[],
-          summary: this.controlDashboardState.summary,
-          updatedAt: this.controlDashboardState.updatedAt,
-        } satisfies MasterState;
       })(),
       tui: (() => {
         const sessionEntries = Object.entries(this.tuiSessions);
@@ -1792,95 +1756,6 @@ export class StudioHost {
     return { profile, resourceLoader };
   }
 
-  private async getMasterResourceLoader() {
-    if (!this.masterResourceLoader) {
-      const builtins = await getPiStudioBuiltinResources();
-      this.masterResourceLoader = new DefaultResourceLoader({
-        cwd: MASTER_WORKSPACE_DIR,
-        extensionFactories: builtins.extensionFactories,
-        additionalExtensionPaths: builtins.additionalExtensionPaths,
-        additionalSkillPaths: builtins.additionalSkillPaths,
-      });
-    }
-
-    if (Date.now() - this.masterResourceLoaderLastReloadMs >= RESOURCE_LOADER_RELOAD_INTERVAL_MS) {
-      await this.masterResourceLoader.reload();
-      this.masterResourceLoaderLastReloadMs = Date.now();
-    }
-
-    return this.masterResourceLoader;
-  }
-
-  private async openMasterSession() {
-    const existing = this.guiSessions[MASTER_SESSION_ID];
-    if (existing) {
-      existing.unsubscribe?.();
-      existing.unsubscribe = null;
-      existing.session?.dispose?.();
-    }
-
-    await mkdir(MASTER_WORKSPACE_DIR, { recursive: true });
-    const resourceLoader = await this.getMasterResourceLoader();
-    const sessionManager = SessionManager.continueRecent(MASTER_WORKSPACE_DIR);
-    const { session } = await createAgentSession({
-      cwd: MASTER_WORKSPACE_DIR,
-      authStorage: this.authStorage,
-      modelRegistry: this.modelRegistry,
-      resourceLoader,
-      sessionManager,
-    });
-
-    const runtime: GuiSessionRuntime = {
-      id: MASTER_SESSION_ID,
-      session,
-      unsubscribe: null,
-      projectId: "",
-      projectPath: MASTER_WORKSPACE_DIR,
-      sessionFile: session.sessionFile ?? null,
-      sessionTitle: normalizeThreadTitle(session.sessionName ?? "Master"),
-      messages: [],
-      isStreaming: false,
-      statusText: null,
-      errorText: null,
-      resourceSummary: this.readResourceSummary(resourceLoader),
-      model: session.model ? this.modelToSummary(session.model) : null,
-      thinkingLevel: String(session.thinkingLevel ?? this.thinkingLevel),
-      availableThinkingLevels: this.safeThinkingLevels(session),
-      attachments: [],
-      slashCommands: BUILTIN_SLASH_COMMAND_SUMMARIES,
-      resourceLoader,
-      usePiStudioBuiltins: true,
-    };
-
-    this.guiSessions[MASTER_SESSION_ID] = runtime;
-    await this.bindExtensions(session, MASTER_SESSION_ID);
-    this.ensurePiStudioActiveTools(session, true);
-    runtime.unsubscribe = session.subscribe(() => {
-      this.syncSessionState(MASTER_SESSION_ID);
-      void this.refreshControlDashboardState(true);
-    });
-    this.syncSessionState(MASTER_SESSION_ID);
-    await this.refreshSlashCommands(MASTER_SESSION_ID);
-  }
-
-  private async refreshControlDashboardState(emit = false) {
-    this.controlDashboardState = await getDashboardState();
-    if (emit) this.emitSnapshot();
-  }
-
-  private async syncControlTargetsFromWorkspace() {
-    await syncStudioTargets(this.workspaceState.projects, this.threadCache);
-  }
-
-  private startControlDashboardPolling() {
-    if (this.controlDashboardPollHandle) return;
-    this.controlDashboardPollHandle = setInterval(() => {
-      void this.refreshControlDashboardState(true).catch(() => {
-        // keep polling
-      });
-    }, CONTROL_STATE_POLL_INTERVAL_MS);
-  }
-
   private modelToSummary = (model: any): ModelSummary => ({
     provider: String(model?.provider ?? "unknown"),
     id: String(model?.id ?? "unknown"),
@@ -2095,8 +1970,6 @@ export class StudioHost {
     for (const project of this.workspaceState.projects) {
       await this.refreshProjectThreads(project);
     }
-    await this.syncControlTargetsFromWorkspace();
-    await this.refreshControlDashboardState();
   }
 
   private async searchSessionFile(sessionFile: string, query: string) {
@@ -2300,8 +2173,6 @@ export class StudioHost {
     this.threadCache[project.id] = mapped;
     this.projectGitInfo[project.id] = await this.inspectProjectGitInfo(project.path);
     this.refreshActiveThreadFlags();
-    await this.syncControlTargetsFromWorkspace();
-    await this.refreshControlDashboardState();
     this.emitSnapshot();
   }
 

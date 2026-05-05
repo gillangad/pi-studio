@@ -11,7 +11,7 @@ type ToolCallsCardProps = {
   hideGroupLabel?: boolean;
 };
 
-type ToolKind = "read" | "edit" | "write" | "bash" | "browser" | "control" | "other";
+type ToolKind = "read" | "edit" | "write" | "bash" | "browser" | "other";
 
 type ParsedToolContent = {
   header: string;
@@ -92,7 +92,6 @@ function detectToolKind(message: ToolCallMessage): ToolKind {
 
   const byName = String(message.toolName ?? "").toLowerCase();
   if (byName.includes("browser")) return "browser";
-  if (byName.includes("control")) return "control";
   if (byName.includes("read")) return "read";
   if (byName.includes("edit")) return "edit";
   if (byName.includes("write")) return "write";
@@ -284,16 +283,6 @@ function buildActivitySummary(message: ToolCallMessage, kind: ToolKind, parsed: 
     };
   }
 
-  if (kind === "control") {
-    return {
-      verb: "Used",
-      target: "session control",
-      detailTarget: "session control",
-      added: 0,
-      removed: 0,
-    };
-  }
-
   return {
     verb: "Used",
     target: firstMeaningfulLine(message.content) || String(message.toolName ?? "tool"),
@@ -347,7 +336,6 @@ function expandedRowLabel(kind: ToolKind) {
   if (kind === "bash") return "Ran command";
   if (kind === "read") return "Read file";
   if (kind === "browser") return "Used browser";
-  if (kind === "control") return "Used session control";
   if (kind === "other") return "Used tool";
   return "Edited file";
 }
@@ -378,7 +366,6 @@ function detailLabel(kind: ToolKind) {
   if (kind === "bash") return "Shell";
   if (kind === "read") return "Read file";
   if (kind === "browser") return "Browser";
-  if (kind === "control") return "Session control";
   if (kind === "other") return "Tool output";
   return "Edited file";
 }

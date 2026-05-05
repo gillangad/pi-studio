@@ -23,7 +23,7 @@ export function shouldUsePiStudioBuiltins({
   return true;
 }
 
-const PI_STUDIO_ACTIVE_TOOL_NAMES = ["read", "bash", "edit", "write", "browser", "control", "artifact"] as const;
+const PI_STUDIO_ACTIVE_TOOL_NAMES = ["read", "bash", "edit", "write", "browser"] as const;
 
 export function getPiStudioInitialActiveToolNames(usePiStudioBuiltins: boolean) {
   return usePiStudioBuiltins ? [...PI_STUDIO_ACTIVE_TOOL_NAMES] : undefined;

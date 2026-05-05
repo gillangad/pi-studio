@@ -127,74 +127,6 @@ const snapshot: StudioSnapshot = {
       { command: "/model", description: "Open the model picker", source: "builtin" },
     ],
   },
-  master: {
-    sessionId: "master",
-    projectId: null,
-    sessionFile: "/home/test/.pi-studio/master-session/session.jsonl",
-    sessionTitle: "Master",
-    cwd: "/home/test/.pi-studio/master-session",
-    isStreaming: false,
-    messages: [
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: ["I can steer the other sessions from here."],
-      },
-    ],
-    resources: {
-      extensions: 1,
-      skills: 1,
-      prompts: 0,
-      themes: 0,
-      agentsFiles: 0,
-      extensionEntries: [{ name: "pi-control-session", path: null, origin: "bundled" }],
-      extensionNames: ["pi-control-session"],
-      skillEntries: [{ name: "pi-control-session", path: null, origin: "bundled" }],
-      skillNames: ["pi-control-session"],
-      promptNames: [],
-      themeNames: [],
-      agentsFilePaths: [],
-    },
-    statusText: null,
-    errorText: null,
-    model: null,
-    availableModels: [],
-    thinkingLevel: "medium",
-    availableThinkingLevels: ["off", "medium", "high"],
-    streamingBehaviorPreference: "followUp",
-    attachments: [],
-    slashCommands: [
-      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
-      { command: "/model", description: "Open the model picker", source: "builtin" },
-    ],
-    targets: [
-      {
-        targetId: "studio-demo",
-        name: "Thread one",
-        projectId: "p1",
-        projectName: "demo",
-        projectPath: "/tmp/demo",
-        sessionPath: "/tmp/demo/session.jsonl",
-        sessionTitle: "Thread one",
-        status: "idle",
-        statusLabel: "ready",
-        lastRunId: null,
-        lastError: null,
-        latestPrompt: "Review the last change",
-        latestResponse: "The last change looks fine.",
-        latestTimestampMs: Date.now(),
-        latestTimestamp: new Date().toISOString(),
-        lastActivityLabel: "now",
-      },
-    ],
-    summary: {
-      totalTargets: 1,
-      activeTargets: 0,
-      errorTargets: 0,
-      pendingTargets: 0,
-    },
-    updatedAt: Date.now(),
-  },
   tui: {
     active: false,
     projectId: "p1",
@@ -322,29 +254,15 @@ describe("App", () => {
       expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
-      expect(screen.queryByText("Master")).not.toBeInTheDocument();
-      expect(screen.queryByText("I can steer the other sessions from here.")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Toggle master session" })).not.toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeDisabled();
       expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
-    });
-  });
-
-  it("keeps the master bar hidden in the main workspace header", async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.queryByText("Master")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Toggle master session" })).not.toBeInTheDocument();
     });
   });
 
@@ -563,122 +481,6 @@ describe("App", () => {
     expect(Number.parseInt(handle.style.right, 10)).toBeGreaterThanOrEqual(416);
   });
 
-  it("opens the artifacts side panel and shows the latest artifact revision for the active chat", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
-      ...snapshot,
-      gui: {
-        ...snapshot.gui,
-        messages: [
-          {
-            id: "tool-1",
-            role: "toolResult",
-            toolName: "artifact",
-            content: ['Saved artifact "Quarterly Report" (report) for this chat.'],
-            details: {
-              artifact: {
-                id: "report",
-                title: "Quarterly Report",
-                summary: "Latest revision",
-                kind: "react-tsx",
-                tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).not.toBeDisabled();
-      expect(screen.queryByRole("button", { name: "Open artifact Quarterly Report" })).not.toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle artifacts panel" }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
-      expect(screen.getByText("Artifacts in this chat")).toBeInTheDocument();
-      expect(screen.getAllByText("Latest revision").length).toBeGreaterThan(0);
-    });
-  });
-
-  it("does not keep showing a previous thread artifact after switching to a thread with none", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
-      ...snapshot,
-      gui: {
-        ...snapshot.gui,
-        messages: [
-          {
-            id: "tool-1",
-            role: "toolResult",
-            toolName: "artifact",
-            content: ['Saved artifact "Quarterly Report" (report) for this chat.'],
-            details: {
-              artifact: {
-                id: "report",
-                title: "Quarterly Report",
-                summary: "Latest revision",
-                kind: "react-tsx",
-                tsx: "export default function ArtifactApp() { return <main>Hello</main>; }",
-              },
-            },
-          },
-        ],
-      },
-    });
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).not.toBeDisabled();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle artifacts panel" }));
-
-    await waitFor(() => {
-      expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
-      expect(screen.getAllByText("Quarterly Report").length).toBeGreaterThan(0);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Expand alpha" }));
-    fireEvent.click(screen.getByRole("button", { name: "Thread Alpha latest in alpha" }));
-
-    expect(screen.queryByText("Quarterly Report")).not.toBeInTheDocument();
-
-    await act(async () => {
-      snapshotListener?.({
-        ...snapshot,
-        activeProjectId: "p2",
-        gui: {
-          ...snapshot.gui,
-          projectId: "p2",
-          sessionFile: "/tmp/alpha/session.jsonl",
-          sessionTitle: "Alpha latest",
-          cwd: "/tmp/alpha",
-          messages: [],
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByText("Quarterly Report")).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeDisabled();
-    });
-  });
-
   it("loads the file tree in the workspace utility pane", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
     if (!bridge) {
@@ -700,7 +502,7 @@ describe("App", () => {
     expect(bridge.getProjectFileTree).toHaveBeenCalledWith({ projectId: "p1" });
   });
 
-  it("shows theme and master-session controls in the settings menu", async () => {
+  it("shows theme controls in the settings menu", async () => {
     render(<App />);
 
     await waitFor(() => {

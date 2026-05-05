@@ -1,26 +1,21 @@
-import { Boxes, FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
-import { ArtifactPanel } from "../components/ArtifactPanel";
 import { BrowserPanel } from "../components/BrowserPanel";
 import { ChatView } from "../components/ChatView";
-import { MasterSessionBar } from "../components/MasterSessionBar";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { TuiView } from "../components/TuiView";
 import { SettingsView } from "../components/SettingsView";
 import { GitView } from "../components/GitView";
 import { FileTreePanel } from "../components/FileTreePanel";
 import { Button } from "../components/ui/button";
-import { deriveArtifactsFromMessages } from "../lib/artifacts";
-import { cn } from "../lib/utils";
 import { useStudioState } from "../hooks/useStudioState";
 
 type StudioTheme = "dark" | "light";
 
 type BrowserUrlByThread = Record<string, string>;
-type ArtifactSelectionByThread = Record<string, string | null>;
-type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff" | "artifacts";
+type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff";
 type UtilityPanelByThread = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
   projectId: string | null;
@@ -114,7 +109,6 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
   const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
-  const [masterSessionVisible, setMasterSessionVisible] = useState(false);
 
   const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
   const [pendingGuiThreadKey, setPendingGuiThreadKey] = useState<string | null>(null);
@@ -124,9 +118,6 @@ export function App() {
   );
   const [browserUrlByThread, setBrowserUrlByThread] = useState<BrowserUrlByThread>(() =>
     readJsonRecord<BrowserUrlByThread>("pi-studio-browser-url-by-thread"),
-  );
-  const [artifactSelectionByThread, setArtifactSelectionByThread] = useState<ArtifactSelectionByThread>(() =>
-    readJsonRecord<ArtifactSelectionByThread>("pi-studio-artifact-selection-by-thread"),
   );
   const [fileTree, setFileTree] = useState<FileTreeState>({
     projectId: null,
@@ -159,13 +150,6 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-browser-url-by-thread", JSON.stringify(browserUrlByThread));
   }, [browserUrlByThread]);
-
-  useEffect(() => {
-    window.localStorage.setItem(
-      "pi-studio-artifact-selection-by-thread",
-      JSON.stringify(artifactSelectionByThread),
-    );
-  }, [artifactSelectionByThread]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -218,52 +202,12 @@ export function App() {
   const selectedThreadKey = activeGuiThreadKey ?? pendingGuiThreadKey;
   const selectedUtilityPanel = selectedThreadKey ? utilityPanelByThread[selectedThreadKey] ?? null : null;
   const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
-  const selectedArtifactId = selectedThreadKey ? artifactSelectionByThread[selectedThreadKey] ?? null : null;
   const showingCachedThread = Boolean(pendingGuiThreadKey && pendingGuiThreadKey !== activeGuiThreadKey);
   const activeProjectId = selectedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
   const activeProject = useMemo(
     () => snapshot?.projects.find((project) => project.id === activeProjectId) ?? null,
     [activeProjectId, snapshot],
   );
-  const derivedArtifacts = useMemo(
-    () => deriveArtifactsFromMessages(selectedGuiState?.messages ?? []),
-    [selectedGuiState?.messages],
-  );
-  const selectedArtifact =
-    (selectedArtifactId ? derivedArtifacts.artifactById[selectedArtifactId] : null) ??
-    derivedArtifacts.artifacts[0] ??
-    null;
-  const renderedGuiState = useMemo(
-    () =>
-      selectedGuiState
-        ? {
-            ...selectedGuiState,
-            messages: derivedArtifacts.messages,
-          }
-        : null,
-    [derivedArtifacts.messages, selectedGuiState],
-  );
-
-  useEffect(() => {
-    if (!selectedThreadKey) return;
-
-    const currentSelection = artifactSelectionByThread[selectedThreadKey] ?? null;
-    const availableIds = new Set(derivedArtifacts.artifacts.map((artifact) => artifact.artifactId));
-
-    if (currentSelection && availableIds.has(currentSelection)) {
-      return;
-    }
-
-    const fallbackArtifactId = derivedArtifacts.artifacts[0]?.artifactId ?? null;
-    if (currentSelection === fallbackArtifactId) {
-      return;
-    }
-
-    setArtifactSelectionByThread((current) => ({
-      ...current,
-      [selectedThreadKey]: fallbackArtifactId,
-    }));
-  }, [artifactSelectionByThread, derivedArtifacts.artifacts, selectedThreadKey]);
 
   const loadProjectFileTree = useCallback(
     async (projectId?: string | null) => {
@@ -345,30 +289,12 @@ export function App() {
 
   const utilityPanelLabel = selectedUtilityPanel
     ? {
-        artifacts: "Artifacts",
         browser: "Browser",
         terminal: "Terminal",
         files: "Files",
         diff: "Diff",
       }[selectedUtilityPanel]
     : null;
-
-  const openArtifactPanel = useCallback(
-    (artifactId?: string | null) => {
-      if (!selectedThreadKey) return;
-
-      const nextArtifactId = artifactId ?? derivedArtifacts.artifacts[0]?.artifactId ?? null;
-      setArtifactSelectionByThread((current) => ({
-        ...current,
-        [selectedThreadKey]: nextArtifactId,
-      }));
-      setUtilityPanelByThread((current) => ({
-        ...current,
-        [selectedThreadKey]: "artifacts",
-      }));
-    },
-    [derivedArtifacts.artifacts, selectedThreadKey],
-  );
 
   const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
   const hasSideUtilityPanel = Boolean(
@@ -544,38 +470,6 @@ export function App() {
                 <Button
                   type="button"
                   size="icon"
-                  variant={selectedUtilityPanel === "artifacts" ? "secondary" : "ghost"}
-                  onClick={() => {
-                    if (!selectedThreadKey) return;
-                    if (selectedUtilityPanel === "artifacts") {
-                      setUtilityPanelByThread((current) => ({
-                        ...current,
-                        [selectedThreadKey]: null,
-                      }));
-                      return;
-                    }
-
-                    openArtifactPanel(selectedArtifact?.artifactId ?? null);
-                  }}
-                  disabled={!selectedThreadKey || derivedArtifacts.artifacts.length === 0}
-                  aria-label="Toggle artifacts panel"
-                  title={
-                    derivedArtifacts.artifacts.length > 0
-                      ? `Artifacts (${derivedArtifacts.artifacts.length})`
-                      : "Artifacts"
-                  }
-                  className="relative"
-                >
-                  <Boxes size={16} />
-                  {derivedArtifacts.artifacts.length > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-                      {derivedArtifacts.artifacts.length}
-                    </span>
-                  ) : null}
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
                   variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
                   onClick={() => toggleUtilityPanel("terminal")}
                   disabled={!selectedThreadKey}
@@ -610,19 +504,6 @@ export function App() {
             </header>
 
             <div className="relative min-h-0 flex-1">
-              {masterSessionVisible ? (
-                <MasterSessionBar
-                  master={snapshot.master}
-                  onClose={() => setMasterSessionVisible(false)}
-                  onSendPrompt={actions.sendPrompt}
-                  onAbort={actions.abortPrompt}
-                  onPickAttachments={actions.pickAttachments}
-                  onOpenTarget={(projectId, sessionPath) => {
-                    openGuiThread(projectId, sessionPath);
-                  }}
-                />
-              ) : null}
-
               <div
                 className="grid h-full min-h-0 px-3 pb-3"
                 style={
@@ -641,9 +522,9 @@ export function App() {
                 }
               >
               <div className="min-h-0 min-w-0">
-                {renderedGuiState ? (
+                {selectedGuiState ? (
                   <ChatView
-                    gui={renderedGuiState}
+                    gui={selectedGuiState}
                     onSendPrompt={actions.sendPrompt}
                     onAbort={actions.abortPrompt}
                     onSetModel={actions.setModel}
@@ -705,20 +586,6 @@ export function App() {
                     }}
                   />
                 </div>
-              ) : null}
-
-              {selectedUtilityPanel === "artifacts" ? (
-                <ArtifactPanel
-                  artifacts={derivedArtifacts.artifacts}
-                  selectedArtifactId={selectedArtifact?.artifactId ?? null}
-                  onSelectArtifact={(artifactId) => {
-                    if (!selectedThreadKey) return;
-                    setArtifactSelectionByThread((current) => ({
-                      ...current,
-                      [selectedThreadKey]: artifactId,
-                    }));
-                  }}
-                />
               ) : null}
 
               {selectedUtilityPanel === "terminal" ? (

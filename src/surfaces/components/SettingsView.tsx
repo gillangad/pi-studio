@@ -137,7 +137,7 @@ export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewPro
           <StatCard label="Projects" value={String(snapshot.projects.length)} />
           <StatCard
             label="Resources"
-            value={`${snapshot.gui.resources.extensions + snapshot.master.resources.extensions} extensions · ${snapshot.gui.resources.skills + snapshot.master.resources.skills} skills`}
+            value={`${snapshot.gui.resources.extensions} extensions · ${snapshot.gui.resources.skills} skills`}
           />
         </div>
 
@@ -153,9 +153,8 @@ export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewPro
           </Button>
         </div>
 
-        <div className="grid min-h-0 gap-4 xl:grid-cols-2">
+        <div className="grid min-h-0 gap-4">
           <ResourceGroupCard title="Active GUI session" resources={snapshot.gui.resources} />
-          <ResourceGroupCard title="Control surface resources" resources={snapshot.master.resources} />
         </div>
       </CardContent>
     </Card>

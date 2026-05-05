@@ -89,19 +89,19 @@ describe("mapAgentMessages", () => {
   it("classifies bundled and user-installed resources for settings", () => {
     const summary = mapResourceSummary({
       extensions: [
-        { name: "pi-control-session", path: "/home/test/.pi-studio/builtins/extensions/pi-control-session" },
+        { name: "pi-browser", path: "/home/test/.pi-studio/builtins/extensions/pi-browser" },
         { name: "user-helper", path: "/home/test/.pi/agent/extensions/user-helper" },
       ],
       skills: [
-        { name: "pi-control-session", path: "/home/test/.pi-studio/builtins/skills/pi-control-session/SKILL.md" },
+        { name: "pi-browser", path: "/home/test/.pi-studio/builtins/skills/pi-browser/SKILL.md" },
         { name: "custom-writer", path: "/home/test/.pi/agent/skills/custom-writer/SKILL.md" },
       ],
     });
 
     expect(summary.extensionEntries).toEqual([
       {
-        name: "pi-control-session",
-        path: "/home/test/.pi-studio/builtins/extensions/pi-control-session",
+        name: "pi-browser",
+        path: "/home/test/.pi-studio/builtins/extensions/pi-browser",
         origin: "bundled",
       },
       {
@@ -112,8 +112,8 @@ describe("mapAgentMessages", () => {
     ]);
     expect(summary.skillEntries).toEqual([
       {
-        name: "pi-control-session",
-        path: "/home/test/.pi-studio/builtins/skills/pi-control-session/SKILL.md",
+        name: "pi-browser",
+        path: "/home/test/.pi-studio/builtins/skills/pi-browser/SKILL.md",
         origin: "bundled",
       },
       {

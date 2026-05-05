@@ -35,7 +35,7 @@ describe("resolveTuiLaunchCommand", () => {
     const command = resolveTuiLaunchCommand({
       platform: "linux",
       env: { PATH: "/usr/bin" },
-      extensionPaths: ["/tmp/ext/browser.ts", "/tmp/ext/control.ts"],
+      extensionPaths: ["/tmp/ext/browser.ts", "/tmp/ext/helper.ts"],
       skillPaths: ["/tmp/skills", "/tmp/inline-skills"],
       findExecutable: (candidates) => (candidates.includes("pi") ? "/usr/bin/pi" : null),
     });
@@ -47,7 +47,7 @@ describe("resolveTuiLaunchCommand", () => {
         "-e",
         "/tmp/ext/browser.ts",
         "-e",
-        "/tmp/ext/control.ts",
+        "/tmp/ext/helper.ts",
         "--skill",
         "/tmp/skills",
         "--skill",

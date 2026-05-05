@@ -42,15 +42,13 @@ describe("shouldUsePiStudioBuiltins", () => {
     expect(result).toBe(true);
   });
 
-  it("seeds the browser and control tools into the initial active tool list", () => {
+  it("seeds the browser tool into the initial active tool list", () => {
     expect(getPiStudioInitialActiveToolNames(true)).toEqual([
       "read",
       "bash",
       "edit",
       "write",
       "browser",
-      "control",
-      "artifact",
     ]);
     expect(getPiStudioInitialActiveToolNames(false)).toBeUndefined();
   });
