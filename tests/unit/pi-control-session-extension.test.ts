@@ -28,8 +28,11 @@ describe("pi-control-session extension", () => {
 
     expect(tools).toHaveLength(1);
     expect(tools[0].name).toBe("control");
-    expect(tools[0].description).toBe("Control and inspect other Pi Studio sessions.");
-    expect(tools[0].promptSnippet).toBe("Control and inspect other Pi Studio sessions from this session.");
+    expect(tools[0].description).toBe("Built-in Pi Studio tool for controlling and inspecting other sessions.");
+    expect(tools[0].promptSnippet).toBe("Control and inspect other Pi Studio sessions.");
+    expect(tools[0].promptGuidelines).toContain(
+      "This is a standard built-in Pi Studio tool. If the user asks what tools are available, include control whenever it is active in this session.",
+    );
     expect(tools[0].promptGuidelines).toContain(
       "Use this tool when the user asks to inspect, create, steer, monitor, or cancel work in other Pi Studio sessions.",
     );

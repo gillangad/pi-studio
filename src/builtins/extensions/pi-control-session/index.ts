@@ -89,9 +89,10 @@ export default function controlSessionExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "control",
     label: "Session Control",
-    description: "Control and inspect other Pi Studio sessions.",
-    promptSnippet: "Control and inspect other Pi Studio sessions from this session.",
+    description: "Built-in Pi Studio tool for controlling and inspecting other sessions.",
+    promptSnippet: "Control and inspect other Pi Studio sessions.",
     promptGuidelines: [
+      "This is a standard built-in Pi Studio tool. If the user asks what tools are available, include control whenever it is active in this session.",
       "Use this tool when the user asks to inspect, create, steer, monitor, or cancel work in other Pi Studio sessions.",
       "Prefer action=\"list\" before guessing which target session exists.",
       "Prefer lighter actions like action=\"status\" or action=\"latest\" before action=\"read\" when they are sufficient.",

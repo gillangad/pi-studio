@@ -59,7 +59,6 @@ import { getPiStudioBuiltinResources } from "./builtin-resources";
 import { getPiStudioInitialActiveToolNames, shouldUsePiStudioBuiltins } from "./builtin-selection";
 import { getDashboardState, syncStudioTargets } from "../builtins/extensions/pi-control-session/sync";
 import type { ControlDashboardState } from "../builtins/extensions/pi-control-session/types";
-import { buildToolInventoryAnswer, isToolInventoryPrompt } from "./tool-inventory";
 
 type StudioHostOptions = {
   storePath: string;
@@ -1130,11 +1129,6 @@ export class StudioHost {
       return this.runSlashCommand(message, sessionId).then(() => this.getSnapshot());
     }
 
-    if (isToolInventoryPrompt(message)) {
-      this.answerToolInventoryPrompt(runtime, message, sessionId);
-      return this.getSnapshot();
-    }
-
     const attachments = runtime.attachments.map((entry) => entry.path);
     const composedMessage =
       attachments.length > 0
@@ -1161,21 +1155,6 @@ export class StudioHost {
 
     this.emitSnapshot();
     return this.getSnapshot();
-  }
-
-  private answerToolInventoryPrompt(runtime: GuiSessionRuntime, message: string, sessionId: string) {
-    const answer = buildToolInventoryAnswer(runtime.session, runtime.resourceSummary);
-    runtime.session.sessionManager.appendMessage({
-      role: "user",
-      content: [{ type: "text", text: message }],
-    } as any);
-    runtime.session.sessionManager.appendMessage({
-      role: "assistant",
-      content: [{ type: "text", text: answer }],
-    } as any);
-    runtime.attachments = [];
-    runtime.errorText = null;
-    this.syncSessionState(sessionId);
   }
 
   async abortPrompt(sessionId = this.activeGuiSessionId) {

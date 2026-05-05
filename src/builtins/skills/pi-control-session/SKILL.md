@@ -8,6 +8,7 @@ description: Operating guidance for the built-in `control` tool, which inspects 
 This skill describes the built-in `control` tool.
 
 - If the current session has the `control` tool, you may use it.
+- Treat `control` as a normal built-in Pi Studio tool in this session, alongside the other active tools.
 - When the user asks what tools are available, include `control` if this session has it.
 
 ## Purpose
@@ -30,7 +31,7 @@ The single `control` tool exposes multiple actions:
   - This writes a real `user` message into that session, so phrase prompts as if speaking directly to it.
 
 - `action: "status"`
-  - Check whether a servant run is idle, queued, running, done, errored, cancelled, or timed out.
+  - Check whether a target run is idle, queued, running, done, errored, cancelled, or timed out.
   - Prefer this when the user asks whether something is still running.
 
 - `action: "cancel"`
@@ -42,7 +43,7 @@ The single `control` tool exposes multiple actions:
 
 - `action: "read"`
   - Use for deeper catch-up when the latest pair is not enough.
-  - Prefer targeted reads over dumping the full servant transcript unless the user truly needs complete history.
+  - Prefer targeted reads over dumping the full target transcript unless the user truly needs complete history.
 
 ## Operating style
 
