@@ -111,11 +111,14 @@ describe("ToolCallsCard", () => {
     );
 
     expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ })).toBeInTheDocument();
-    expect(screen.getAllByText("src/file.ts:1:1 error")).toHaveLength(1);
+    expect(screen.queryByText("src/file.ts:1:1 error")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ }));
+
     expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
   });
 
-  it("keeps failed items expanded inside a collapsed group", () => {
+  it("keeps failed items collapsed inside a collapsed group until opened", () => {
     render(
       <ToolCallsCard
         messages={[
@@ -139,7 +142,11 @@ describe("ToolCallsCard", () => {
 
     expect(screen.getByText("Ran 2 commands")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ })).toBeInTheDocument();
-    expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
+    expect(screen.queryByText("src/file.ts:1:1 error")).not.toBeInTheDocument();
     expect(screen.queryByText(/^ok$/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ran\s+npm run typecheck/ }));
+
+    expect(screen.getByText("src/file.ts:1:1 error")).toBeInTheDocument();
   });
 });

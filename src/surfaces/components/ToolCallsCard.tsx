@@ -401,7 +401,8 @@ export function ToolCallsCard({
   hideGroupLabel = false,
 }: ToolCallsCardProps) {
   const isSingleCall = messages.length === 1;
-  const [expanded, setExpanded] = useState(initialExpanded ?? false);
+  void initialExpanded;
+  const [expanded, setExpanded] = useState(false);
   const [expandedItemIds, setExpandedItemIds] = useState<Record<string, boolean>>({});
 
   const parsedItems = useMemo(
@@ -451,7 +452,7 @@ export function ToolCallsCard({
         <div className={cn("space-y-2", showGroupLabel && "mt-2")}>
           {parsedItems.map(({ key, kind, parsed, failed, summary, hasDetail, message }) => {
             const Icon = itemIcon(kind);
-            const itemExpanded = expandedItemIds[key] ?? failed;
+            const itemExpanded = expandedItemIds[key] ?? false;
             const primaryLabel = itemExpanded ? expandedRowLabel(kind) : `${summary.verb} ${summary.target}`;
 
             return (
