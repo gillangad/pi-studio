@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { UiArtifactReference, UiMessage } from "../../shared/types";
+import type { UiMessage } from "../../shared/types";
 
 const ARTIFACT_BLOCK_PATTERN = /```pi-artifact(?:-[\w-]+)?\s*\n([\s\S]*?)```/g;
 const REACT_IMPORT_SPECIFIER = "https://esm.sh/react@19.1.0";
@@ -194,7 +194,6 @@ function extractTopLevelJsonObjects(text: string) {
 }
 
 function extractLooseArtifacts(rawContent: string, messageId: string) {
-  const artifactRefs: UiArtifactReference[] = [];
   const artifacts: ParsedArtifactBlock[] = [];
   const cleanedParts: string[] = [];
   const matches: Array<JsonObjectSpan & { artifact: ParsedArtifactBlock }> = [];
@@ -213,7 +212,6 @@ function extractLooseArtifacts(rawContent: string, messageId: string) {
 
   if (matches.length === 0) {
     return {
-      artifactRefs,
       displayContent: normalizeDisplayContent(rawContent),
       artifacts,
     };
@@ -224,18 +222,11 @@ function extractLooseArtifacts(rawContent: string, messageId: string) {
     cleanedParts.push(rawContent.slice(lastIndex, match.start));
     lastIndex = match.end;
     artifacts.push(match.artifact);
-    artifactRefs.push({
-      artifactId: match.artifact.artifactId,
-      title: match.artifact.title,
-      summary: match.artifact.summary,
-      kind: match.artifact.kind,
-    });
   }
 
   cleanedParts.push(rawContent.slice(lastIndex));
 
   return {
-    artifactRefs,
     displayContent: normalizeDisplayContent(cleanedParts.join("").replace(/\n{3,}/g, "\n\n")),
     artifacts,
   };
@@ -244,14 +235,12 @@ function extractLooseArtifacts(rawContent: string, messageId: string) {
 function extractArtifactsFromMessage(message: UiMessage) {
   if (message.content.length === 0) {
     return {
-      artifactRefs: [] as UiArtifactReference[],
       displayContent: message.content,
       artifacts: [] as ParsedArtifactBlock[],
     };
   }
 
   const rawContent = message.content.join("\n\n");
-  const artifactRefs: UiArtifactReference[] = [];
   const artifacts: ParsedArtifactBlock[] = [];
   const cleanedParts: string[] = [];
   let lastIndex = 0;
@@ -270,12 +259,6 @@ function extractArtifactsFromMessage(message: UiMessage) {
     cleanedParts.push(rawContent.slice(lastIndex, match.index));
     lastIndex = match.index + match[0].length;
     artifacts.push(artifact);
-    artifactRefs.push({
-      artifactId: artifact.artifactId,
-      title: artifact.title,
-      summary: artifact.summary,
-      kind: artifact.kind,
-    });
   }
 
   if (artifacts.length === 0) {
@@ -286,7 +269,6 @@ function extractArtifactsFromMessage(message: UiMessage) {
   const displayContent = normalizeDisplayContent(cleanedParts.join("").replace(/\n{3,}/g, "\n\n"));
 
   return {
-    artifactRefs,
     displayContent,
     artifacts,
   };
@@ -510,7 +492,6 @@ export function deriveArtifactsFromMessages(messages: UiMessage[]): DerivedArtif
     return {
       ...message,
       content: extracted.displayContent,
-      artifactRefs: extracted.artifactRefs,
     };
   });
 

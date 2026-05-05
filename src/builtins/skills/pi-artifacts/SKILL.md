@@ -10,9 +10,8 @@ Use this skill when the user wants a visualization, dashboard, report explorer, 
 ## What an artifact is
 
 - An artifact is a session-scoped mini app.
-- It appears as an inline card in the chat at the message where it was created or updated.
-- Clicking that card opens the full artifact in the right sidebar.
-- Reusing the same artifact id updates the existing artifact, and the chat card always resolves to the latest revision for that id.
+- It appears in the current session's artifact sidebar.
+- Reusing the same artifact id updates the existing artifact, and the sidebar always resolves to the latest revision for that id in the current session.
 
 ## How to create one
 
@@ -25,7 +24,7 @@ When the user explicitly asks for an artifact in Pi Studio, fulfill that request
 Required fields:
 
 - `id`: stable slug, for example `q2-report-explorer`
-- `title`: short label shown in the UI
+- `title`: short label shown in the sidebar
 - `summary`: one-line description
 - `kind`: `"react-tsx"` or `"html"`
 

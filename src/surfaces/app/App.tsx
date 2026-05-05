@@ -32,6 +32,8 @@ type FileTreeState = {
 const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
 const SIDEBAR_EXPANDED_MAX_WIDTH = 420;
 const SIDEBAR_COLLAPSED_WIDTH = 74;
+const UTILITY_PANEL_MIN_WIDTH = 320;
+const UTILITY_PANEL_MAX_WIDTH = 920;
 
 function threadKey(projectId: string, sessionFile: string) {
   return `${projectId}::${sessionFile}`;
@@ -67,6 +69,20 @@ function readInitialSidebarWidth() {
   return clampSidebarWidth(parsed);
 }
 
+function clampUtilityPanelWidth(width: number) {
+  return Math.min(UTILITY_PANEL_MAX_WIDTH, Math.max(UTILITY_PANEL_MIN_WIDTH, width));
+}
+
+function readInitialUtilityPanelWidth() {
+  const raw = window.localStorage.getItem("pi-studio-utility-panel-width");
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return 420;
+  }
+
+  return clampUtilityPanelWidth(parsed);
+}
+
 function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
   const raw = window.localStorage.getItem(key);
   if (!raw) return {} as T;
@@ -88,6 +104,7 @@ export function App() {
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
+  const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
   const [masterSessionVisible, setMasterSessionVisible] = useState(false);
 
   const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
@@ -121,6 +138,10 @@ export function App() {
   useEffect(() => {
     window.localStorage.setItem("pi-studio-sidebar-width", String(sidebarWidth));
   }, [sidebarWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem("pi-studio-utility-panel-width", String(utilityPanelWidth));
+  }, [utilityPanelWidth]);
 
   useEffect(() => {
     window.localStorage.setItem("pi-studio-utility-panel-by-thread", JSON.stringify(utilityPanelByThread));
@@ -337,6 +358,9 @@ export function App() {
   );
 
   const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
+  const hasSideUtilityPanel = Boolean(
+    selectedUtilityPanel && selectedUtilityPanel !== "terminal",
+  );
 
   const startSidebarResize = useCallback(
     (pointerStartX: number) => {
@@ -358,6 +382,28 @@ export function App() {
       window.addEventListener("pointerup", handleEnd);
     },
     [sidebarCollapsed, sidebarWidth],
+  );
+
+  const startUtilityPanelResize = useCallback(
+    (pointerStartX: number) => {
+      if (!hasSideUtilityPanel) return;
+
+      const widthAtStart = utilityPanelWidth;
+
+      const handleMove = (event: PointerEvent) => {
+        const nextWidth = clampUtilityPanelWidth(widthAtStart + pointerStartX - event.clientX);
+        setUtilityPanelWidth(nextWidth);
+      };
+
+      const handleEnd = () => {
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleEnd);
+      };
+
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleEnd);
+    },
+    [hasSideUtilityPanel, utilityPanelWidth],
   );
 
   if (!snapshot) {
@@ -559,16 +605,21 @@ export function App() {
               ) : null}
 
               <div
-                className={cn(
-                  "grid h-full min-h-0 px-3 pb-3",
+                className="grid h-full min-h-0 px-3 pb-3"
+                style={
                   selectedUtilityPanel === "terminal"
-                    ? "grid-cols-1 grid-rows-[minmax(0,1fr)_260px]"
-                    : selectedUtilityPanel === "artifacts"
-                      ? "grid-cols-[minmax(0,1fr)_minmax(380px,520px)]"
-                    : selectedUtilityPanel
-                      ? "grid-cols-[minmax(0,1fr)_420px]"
-                      : "grid-cols-1",
-                )}
+                    ? {
+                        gridTemplateColumns: "minmax(0,1fr)",
+                        gridTemplateRows: "minmax(0,1fr) 260px",
+                      }
+                    : hasSideUtilityPanel
+                      ? {
+                          gridTemplateColumns: `minmax(0,1fr) ${utilityPanelWidth}px`,
+                        }
+                      : {
+                          gridTemplateColumns: "minmax(0,1fr)",
+                        }
+                }
               >
               <div className="min-h-0 min-w-0">
                 {renderedGuiState ? (
@@ -584,8 +635,6 @@ export function App() {
                     onGetSessionTree={actions.getSessionTree}
                     onNavigateTree={actions.navigateTree}
                     onRunSlashCommand={actions.runSlashCommand}
-                    artifactById={derivedArtifacts.artifactById}
-                    onOpenArtifact={(artifactId) => openArtifactPanel(artifactId)}
                   />
                 ) : (
                   <div className="flex h-full min-h-0 items-center justify-center text-center">
@@ -597,15 +646,33 @@ export function App() {
                 )}
               </div>
 
-              {selectedThreadKey ? (
+              {hasSideUtilityPanel ? (
                 <div
-                  aria-hidden={selectedUtilityPanel !== "browser"}
-                  className={cn(
-                    selectedUtilityPanel === "browser"
-                      ? "relative min-h-0 min-w-0"
-                      : "pointer-events-none absolute inset-y-0 right-0 w-[420px] overflow-hidden opacity-0",
-                  )}
-                >
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize utility panel"
+                  tabIndex={0}
+                  className="absolute bottom-3 right-0 top-0 z-20 w-2 cursor-col-resize touch-none"
+                  style={{ right: `${utilityPanelWidth - 4}px` }}
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    startUtilityPanelResize(event.clientX);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowLeft") {
+                      event.preventDefault();
+                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current + 16));
+                    }
+                    if (event.key === "ArrowRight") {
+                      event.preventDefault();
+                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current - 16));
+                    }
+                  }}
+                />
+              ) : null}
+
+              {selectedUtilityPanel === "browser" && selectedThreadKey ? (
+                <div className="relative min-h-0 min-w-0">
                   <BrowserPanel
                     threadKey={selectedThreadKey}
                     sessionFile={selectedGuiState?.sessionFile ?? null}

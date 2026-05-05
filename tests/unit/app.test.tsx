@@ -332,6 +332,7 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeDisabled();
       expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
       expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
       expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
@@ -505,18 +506,39 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
     });
 
-    const hiddenBrowserSurface = screen.getByLabelText("Agent browser surface", { selector: "aside" });
-    expect(hiddenBrowserSurface.closest("[aria-hidden='true']")).not.toBeNull();
+    expect(screen.queryByLabelText("Agent browser surface", { selector: "aside" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
 
     await waitFor(() => {
       const visibleBrowserSurface = screen.getByLabelText("Agent browser surface", { selector: "aside" });
       expect(visibleBrowserSurface.closest("[aria-hidden='true']")).toBeNull();
+      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
     });
   });
 
-  it("opens the artifacts side panel and shows the latest artifact revision", async () => {
+  it("resizes the right-side utility panel when the browser is open", async () => {
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
+    });
+
+    const handle = screen.getByRole("separator", { name: "Resize utility panel" });
+    const startingWidth = Number.parseInt(handle.style.right, 10);
+    expect(startingWidth).toBeGreaterThanOrEqual(316);
+
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(handle).toHaveStyle({ right: `${startingWidth + 16}px` });
+  });
+
+  it("opens the artifacts side panel and shows the latest artifact revision for the active chat", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
     if (!bridge) {
       throw new Error("desktop bridge missing");
@@ -558,13 +580,15 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Open artifact Quarterly Report" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).not.toBeDisabled();
+      expect(screen.queryByRole("button", { name: "Open artifact Quarterly Report" })).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open artifact Quarterly Report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle artifacts panel" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
+      expect(screen.getByText("Artifacts in this chat")).toBeInTheDocument();
       expect(screen.getAllByText("Latest revision").length).toBeGreaterThan(0);
     });
   });
@@ -610,10 +634,10 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Open artifact Quarterly Report" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).not.toBeDisabled();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Open artifact Quarterly Report" }));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle artifacts panel" }));
 
     await waitFor(() => {
       expect(screen.getByLabelText("Session artifacts surface")).toBeInTheDocument();
@@ -642,7 +666,7 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(screen.queryByText("Quarterly Report")).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Open artifact Quarterly Report" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle artifacts panel" })).toBeDisabled();
     });
   });
 

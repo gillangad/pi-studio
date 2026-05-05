@@ -28,13 +28,13 @@ The project terminal utility remains a separate raw shell surface for terminal w
 
 ## Experimental Artifacts
 
-Pi Studio can surface session artifacts directly inside the chat timeline.
+Pi Studio can surface session artifacts directly inside the active session workspace.
 
 - Artifacts are session-scoped.
-- Each artifact appears inline at the message where Pi created or updated it.
-- Clicking an inline artifact card opens the latest revision in the right sidebar.
+- Each thread keeps its own artifact list.
+- Artifacts open in the right sidebar for the current session.
 - The workspace header includes an `Artifacts` button for browsing every artifact created in the current session.
 
-Pi Studio ships a built-in `pi-artifacts` extension and skill that teach Pi how to emit fenced `pi-artifact` blocks in assistant markdown. The inline card always resolves to the latest artifact revision with the same artifact id.
+Pi Studio ships a built-in `pi-artifacts` skill that teaches Pi how to emit fenced `pi-artifact` blocks in assistant markdown. The sidebar always resolves to the latest artifact revision with the same artifact id inside the active thread.
 
 When a user asks Pi Studio to make an artifact, the intended deliverable is a `pi-artifact` block in the assistant response, not just a standalone HTML or source file on disk.

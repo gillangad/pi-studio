@@ -10,13 +10,6 @@ export type UiMessageRole =
   | "compactionSummary"
   | "system";
 
-export type UiArtifactReference = {
-  artifactId: string;
-  title: string;
-  summary?: string;
-  kind?: string;
-};
-
 export type UiToolDetails = {
   diff?: string;
   firstChangedLine?: number | null;
@@ -38,7 +31,6 @@ export type UiMessage = {
   thinkingContent?: string[];
   thinkingHeaders?: string[];
   thinkingRedacted?: boolean;
-  artifactRefs?: UiArtifactReference[];
   toolDetails?: UiToolDetails;
 };
 

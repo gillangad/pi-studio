@@ -57,7 +57,6 @@ describe("deriveArtifactsFromMessages", () => {
 
     expect(derived.messages[0]?.content.join("\n")).toContain("Here is the first artifact.");
     expect(derived.messages[0]?.content.join("\n")).not.toContain("```pi-artifact");
-    expect(derived.messages[0]?.artifactRefs?.[0]?.artifactId).toBe("report");
     expect(derived.artifacts).toHaveLength(1);
     expect(derived.artifactById.report?.summary).toBe("Second draft");
     expect(derived.artifactById.report?.updatedInMessageId).toBe("a2");
@@ -129,7 +128,6 @@ describe("deriveArtifactsFromMessages", () => {
 
     expect(derived.artifacts).toHaveLength(1);
     expect(derived.artifactById["artifact-capability-check"]?.title).toBe("Artifact Capability Check");
-    expect(derived.messages[0]?.artifactRefs?.[0]?.artifactId).toBe("artifact-capability-check");
     expect(derived.messages[0]?.content.join("\n")).not.toContain("\"kind\": \"react-tsx\"");
     expect(derived.messages[0]?.content.join("\n")).toContain("The artifact has been created.");
   });

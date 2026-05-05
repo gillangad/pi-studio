@@ -67,45 +67,18 @@ describe("MessageCard", () => {
     expect(screen.getByText("This is the full thinking text with more detail than the compact preview should show at once.")).toBeInTheDocument();
   });
 
-  it("renders inline artifact cards that open the latest revision", () => {
-    const onOpenArtifact = vi.fn();
-
+  it("does not render inline artifact buttons inside assistant messages", () => {
     render(
       <MessageCard
         message={{
           id: "m3",
           role: "assistant",
           content: ["I built the report view."],
-          artifactRefs: [{ artifactId: "report", title: "Quarterly Report", kind: "react-tsx" }],
         }}
-        artifactById={{
-          report: {
-            artifactId: "report",
-            title: "Quarterly Report",
-            summary: "Revenue and margin explorer",
-            kind: "react-tsx",
-            tsx: "export default function ArtifactApp() { return <main />; }",
-            html: null,
-            css: "",
-            js: "",
-            data: null,
-            createdInMessageId: "m1",
-            updatedInMessageId: "m4",
-            createdAt: 1,
-            updatedAt: 4,
-            revisionCount: 3,
-            updatedSequence: 3,
-          },
-        }}
-        onOpenArtifact={onOpenArtifact}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open artifact Quarterly Report" }));
-
-    expect(screen.getByText("Revenue and margin explorer")).toBeInTheDocument();
-    expect(screen.getByText("Opens latest update")).toBeInTheDocument();
-    expect(onOpenArtifact).toHaveBeenCalledWith("report");
+    expect(screen.queryByRole("button", { name: /Open artifact/i })).not.toBeInTheDocument();
   });
 
   it("copies assistant message text from the hover footer action", async () => {

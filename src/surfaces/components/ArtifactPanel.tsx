@@ -31,10 +31,10 @@ export function ArtifactPanel({ artifacts, selectedArtifactId, onSelectArtifact 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Boxes size={16} className="text-foreground" />
-              <h3 className="truncate text-sm font-semibold text-foreground">Artifacts</h3>
+              <h3 className="truncate text-sm font-semibold text-foreground">Artifacts in this chat</h3>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Inline cards always open the latest revision in this session.
+              Each thread keeps its own artifact list and latest revisions.
             </p>
           </div>
           <Badge variant="outline">{artifacts.length}</Badge>
@@ -122,7 +122,7 @@ export function ArtifactPanel({ artifacts, selectedArtifactId, onSelectArtifact 
             <div>
               <h4 className="text-sm font-semibold text-foreground">No artifacts yet</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                When Pi emits a `pi-artifact` block, it will show up here and inline in the chat.
+                When Pi emits a `pi-artifact` block, it will show up here for this chat.
               </p>
             </div>
           </div>
