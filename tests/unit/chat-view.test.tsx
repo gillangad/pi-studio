@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GuiState, SessionTreeSnapshot } from "../../src/shared/types";
 import { ChatView } from "../../src/surfaces/components/ChatView";
 
@@ -68,6 +68,10 @@ const emptyTree: SessionTreeSnapshot = {
 };
 
 describe("ChatView", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("collapses work trace items before the final assistant answer", () => {
     render(
       <ChatView
@@ -309,5 +313,60 @@ describe("ChatView", () => {
     expect(screen.getByRole("button", { name: /Start here/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Answer here active/i })).toBeInTheDocument();
     expect(screen.queryByText(/\[thinking\] high/i)).not.toBeInTheDocument();
+  });
+
+  it("does not yank the transcript back to bottom after the user scrolls up", () => {
+    const initialMessages = [
+      { id: "u1", role: "user" as const, content: ["Start"], timestamp: 1000 },
+      { id: "a1", role: "assistant" as const, content: ["First reply"], timestamp: 2000 },
+    ];
+
+    const { rerender } = render(
+      <ChatView
+        gui={createGuiState(initialMessages, true)}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
+      />,
+    );
+
+    const transcript = screen.getByLabelText("Session transcript");
+    Object.defineProperty(transcript, "scrollHeight", { configurable: true, value: 1200 });
+    Object.defineProperty(transcript, "clientHeight", { configurable: true, value: 400 });
+    Object.defineProperty(transcript, "scrollTop", { configurable: true, writable: true, value: 300 });
+
+    fireEvent.scroll(transcript);
+
+    rerender(
+      <ChatView
+        gui={createGuiState(
+          [
+            ...initialMessages,
+            { id: "a2", role: "assistant" as const, content: ["Second reply"], timestamp: 3000 },
+          ],
+          true,
+        )}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Scroll chat to bottom" })).toBeInTheDocument();
+    expect((transcript as HTMLDivElement).scrollTop).toBe(300);
   });
 });

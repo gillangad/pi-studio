@@ -8,6 +8,7 @@ import { MessageCard } from "./MessageCard";
 import { SessionTreeDialog } from "./SessionTreeDialog";
 import { ToolCallsCard } from "./ToolCallsCard";
 import { WorkTraceCard } from "./WorkTraceCard";
+import { Button } from "./ui/button";
 
 type ChatViewProps = {
   gui: GuiState;
@@ -51,6 +52,7 @@ export function ChatView({
   onOpenArtifact,
 }: ChatViewProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [internalComposerValue, setInternalComposerValue] = useState("");
   const [treeDialogOpen, setTreeDialogOpen] = useState(false);
   const [treeLoading, setTreeLoading] = useState(false);
@@ -59,6 +61,16 @@ export function ChatView({
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const resolvedComposerValue = composerValue ?? internalComposerValue;
   const setComposerValue = onComposerValueChange ?? setInternalComposerValue;
+
+  const syncScrollState = () => {
+    const container = scrollRef.current;
+    if (!container) return true;
+
+    const distanceFromBottom = container.scrollHeight - container.clientHeight - container.scrollTop;
+    const nearBottom = distanceFromBottom <= 24;
+    setShowScrollToBottom(!nearBottom);
+    return nearBottom;
+  };
 
   const timelineItems = useMemo(() => {
     type ToolCallMessage = UiMessage & { role: "toolResult" | "bashExecution" };
@@ -153,8 +165,18 @@ export function ChatView({
     const container = scrollRef.current;
     if (!container) return;
 
-    container.scrollTop = container.scrollHeight;
+    if (syncScrollState()) {
+      container.scrollTop = container.scrollHeight;
+      setShowScrollToBottom(false);
+    }
   }, [timelineItems, gui.isStreaming]);
+
+  const scrollToBottom = () => {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+    setShowScrollToBottom(false);
+  };
 
   const openTreeDialog = async () => {
     setTreeDialogOpen(true);
@@ -202,7 +224,15 @@ export function ChatView({
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="chat-scroll-region min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
+      <div className="relative min-h-0 flex-1">
+      <div
+        className="chat-scroll-region min-h-0 h-full overflow-y-auto"
+        ref={scrollRef}
+        aria-label="Session transcript"
+        onScroll={() => {
+          syncScrollState();
+        }}
+      >
         <div className="chat-width-shell mx-auto flex min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5">
           {timelineItems.length > 0 ? (
             timelineItems.map((item) => (
@@ -228,6 +258,20 @@ export function ChatView({
             </div>
           )}
         </div>
+      </div>
+      {showScrollToBottom ? (
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          className="absolute bottom-4 right-5 h-9 w-9 rounded-full shadow-glass"
+          onClick={scrollToBottom}
+          aria-label="Scroll chat to bottom"
+          title="Scroll to bottom"
+        >
+          ↓
+        </Button>
+      ) : null}
       </div>
 
       {gui.errorText ? (
