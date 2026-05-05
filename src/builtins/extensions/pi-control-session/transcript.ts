@@ -8,8 +8,8 @@ import {
   type SessionPair,
   type SessionPairScan,
   toIso,
-} from "./types";
-import { loadTarget } from "./storage";
+} from "./types.ts";
+import { loadTarget } from "./storage.ts";
 
 function parseJson<T>(text: string): T | undefined {
   try {

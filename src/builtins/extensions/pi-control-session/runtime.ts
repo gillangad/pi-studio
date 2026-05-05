@@ -14,8 +14,8 @@ import {
   now,
   PI_BINARY,
   type ControlRunState,
-} from "./types";
-import { latestRunsByTarget, listRuns, loadRun, saveRun, saveTarget } from "./storage";
+} from "./types.ts";
+import { latestRunsByTarget, listRuns, loadRun, saveRun, saveTarget } from "./storage.ts";
 
 const activeRuns = new Map<string, ControlRunRecord>();
 const runPromises = new Map<string, Promise<void>>();

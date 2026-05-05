@@ -177,6 +177,24 @@ describe("BrowserRuntime", () => {
     runtime.dispose();
   });
 
+  it("falls back to the only live binding when the requested session is not bound yet", async () => {
+    const runtime = new BrowserRuntime();
+    const contents = new FakeWebContents(10, "https://example.com", "Example");
+    webContentsById.set(10, contents);
+
+    runtime.bindSurface("/tmp/thread.jsonl", 10);
+
+    const result = await runtime.performAction({
+      action: "state",
+      sessionFile: "/tmp/other-thread.jsonl",
+    });
+
+    expect(result.sessionFile).toBe("/tmp/thread.jsonl");
+    expect(result.url).toBe("https://example.com");
+
+    runtime.dispose();
+  });
+
   it("reads and writes the browser clipboard", async () => {
     const runtime = new BrowserRuntime();
     const contents = new FakeWebContents(11, "https://example.com", "Example");

@@ -611,11 +611,16 @@ export class BrowserRuntime {
   private resolveBinding(sessionFile?: string) {
     if (typeof sessionFile === "string" && sessionFile.trim()) {
       const direct = this.bindings.get(sessionFile.trim());
-      if (!direct) {
-        throw new Error(`No live browser is bound to ${sessionFile.trim()}. Open the browser panel for that thread first.`);
+      if (direct) {
+        return direct;
       }
 
-      return direct;
+      const liveBindings = Array.from(this.bindings.values()).sort((left, right) => right.updatedAt - left.updatedAt);
+      if (liveBindings.length === 1) {
+        return liveBindings[0];
+      }
+
+      throw new Error(`No live browser is bound to ${sessionFile.trim()}. Open the browser panel for that thread first.`);
     }
 
     const latest = Array.from(this.bindings.values()).sort((left, right) => right.updatedAt - left.updatedAt)[0];

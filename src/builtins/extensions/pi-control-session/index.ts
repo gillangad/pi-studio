@@ -1,9 +1,9 @@
 import { Type } from "@sinclair/typebox";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { cancelRuns, getStatusRuns, startSendRun } from "./runtime";
-import { createManualTarget, ensureStorage, linkExistingTarget, loadTarget, listTargets } from "./storage";
-import { formatPairBlock, readLatestPair, readTargetTranscript } from "./transcript";
-import { DEFAULT_TIMEOUT_SECONDS } from "./types";
+import { cancelRuns, getStatusRuns, startSendRun } from "./runtime.ts";
+import { createManualTarget, ensureStorage, linkExistingTarget, loadTarget, listTargets } from "./storage.ts";
+import { formatPairBlock, readLatestPair, readTargetTranscript } from "./transcript.ts";
+import { DEFAULT_TIMEOUT_SECONDS } from "./types.ts";
 
 const ControlParams = Type.Object({
   action: Type.Union([

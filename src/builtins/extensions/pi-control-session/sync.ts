@@ -1,9 +1,9 @@
 import { basename, resolve } from "node:path";
 import type { ProjectRecord, ProjectThreadsMap } from "../../../shared/types";
-import { readLatestPair } from "./transcript";
-import { getStatusRuns, latestRunsMap } from "./runtime";
-import { deleteTarget, listTargets, upsertStudioTarget } from "./storage";
-import { type ControlDashboardState, type ControlDashboardTarget, formatAgeLabel, type ControlTargetRecord, now, statusIcon } from "./types";
+import { readLatestPair } from "./transcript.ts";
+import { getStatusRuns, latestRunsMap } from "./runtime.ts";
+import { deleteTarget, listTargets, upsertStudioTarget } from "./storage.ts";
+import { type ControlDashboardState, type ControlDashboardTarget, formatAgeLabel, type ControlTargetRecord, now, statusIcon } from "./types.ts";
 
 function formatStatusLabel(target: ControlTargetRecord, state: string) {
   if (state === "error" && target.lastError) return `${statusIcon("error")} error`;

@@ -13,7 +13,7 @@ import {
   TARGETS_DIR,
   targetFilePath,
   runFilePath,
-} from "./types";
+} from "./types.ts";
 
 let storageInitPromise: Promise<void> | null = null;
 

@@ -613,18 +613,27 @@ export function App() {
                 )}
               </div>
 
-              {selectedUtilityPanel === "browser" && selectedThreadKey ? (
-                <BrowserPanel
-                  threadKey={selectedThreadKey}
-                  sessionFile={selectedGuiState?.sessionFile ?? null}
-                  initialUrl={browserUrl}
-                  onUrlChange={(url) => {
-                    setBrowserUrlByThread((current) => ({
-                      ...current,
-                      [selectedThreadKey]: url,
-                    }));
-                  }}
-                />
+              {selectedThreadKey ? (
+                <div
+                  aria-hidden={selectedUtilityPanel !== "browser"}
+                  className={cn(
+                    selectedUtilityPanel === "browser"
+                      ? "relative min-h-0 min-w-0"
+                      : "pointer-events-none absolute inset-y-0 right-0 w-[420px] overflow-hidden opacity-0",
+                  )}
+                >
+                  <BrowserPanel
+                    threadKey={selectedThreadKey}
+                    sessionFile={selectedGuiState?.sessionFile ?? null}
+                    initialUrl={browserUrl}
+                    onUrlChange={(url) => {
+                      setBrowserUrlByThread((current) => ({
+                        ...current,
+                        [selectedThreadKey]: url,
+                      }));
+                    }}
+                  />
+                </div>
               ) : null}
 
               {selectedUtilityPanel === "artifacts" ? (

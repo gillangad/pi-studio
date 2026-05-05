@@ -493,10 +493,14 @@ describe("App", () => {
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
     });
 
+    const hiddenBrowserSurface = screen.getByLabelText("Agent browser surface", { selector: "aside" });
+    expect(hiddenBrowserSurface.closest("[aria-hidden='true']")).not.toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
 
     await waitFor(() => {
-      expect(screen.getByLabelText("Agent browser surface")).toBeInTheDocument();
+      const visibleBrowserSurface = screen.getByLabelText("Agent browser surface", { selector: "aside" });
+      expect(visibleBrowserSurface.closest("[aria-hidden='true']")).toBeNull();
     });
   });
 

@@ -42,6 +42,7 @@ Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practi
 * Do not rely on manual testing when automated verification is practical.
 * After finishing a change set, run automated checks (`npm run typecheck`, `npm run test`, and `npm run build`) before handoff when practical.
 * Treat the WSL repo at `/home/angad/projects/pi-studio` as the source of truth for edits, verification, git history, and pushes.
+* When a Pi Studio session is hosted by the Windows desktop app, file tools may need to use the actual workspace path reported by the session (for example `\\wsl.localhost\Ubuntu\home\angad\projects\pi-studio` or `C:\Users\Angad\projects\pi-studio`). Do not invent bare `C:\home\...` paths.
 * After each change set, sync the updated project to the Windows workspace and rebuild/relink there (`C:\\Users\\Angad\\projects\\pi-studio`; run `npm run build` then `npm link`) so `pistudio` launched from Windows uses the latest code.
 * Before ending a turn, push the latest committed WSL state to the configured remote when git is available and the user has not asked to avoid pushing.
 

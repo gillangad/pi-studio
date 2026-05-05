@@ -1,11 +1,13 @@
 import { ArrowLeft, ArrowRight, Globe, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BrowserCdpTarget } from "../../shared/ipc";
+import { cn } from "../lib/utils";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 
 type BrowserPanelProps = {
+  className?: string;
   threadKey: string;
   sessionFile: string | null;
   initialUrl: string;
@@ -35,7 +37,7 @@ function normalizeUrl(input: string) {
   return `https://${trimmed}`;
 }
 
-export function BrowserPanel({ threadKey, sessionFile, initialUrl, onUrlChange }: BrowserPanelProps) {
+export function BrowserPanel({ className, threadKey, sessionFile, initialUrl, onUrlChange }: BrowserPanelProps) {
   const webviewRef = useRef<WebviewElement | null>(null);
   const [address, setAddress] = useState(() => normalizeUrl(initialUrl));
   const [canGoBack, setCanGoBack] = useState(false);
@@ -129,7 +131,13 @@ export function BrowserPanel({ threadKey, sessionFile, initialUrl, onUrlChange }
   };
 
   return (
-    <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border/55 bg-background/60" aria-label="Agent browser surface">
+    <aside
+      className={cn(
+        "flex min-h-0 min-w-0 flex-col overflow-hidden border-l border-border/55 bg-background/60",
+        className,
+      )}
+      aria-label="Agent browser surface"
+    >
       <header className="space-y-2 border-b border-border/55 px-3 py-2">
         <div className="flex items-center gap-1.5">
           <Button type="button" size="icon" variant="ghost" onClick={() => webviewRef.current?.goBack?.()} disabled={!canGoBack}>
