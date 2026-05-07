@@ -1,4 +1,4 @@
-import { FolderTree, Globe, MessageSquare, TerminalSquare } from "lucide-react";
+import { FolderTree, Globe, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState, StudioSessionSummary } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
@@ -15,7 +15,7 @@ import { useStudioState } from "../hooks/useStudioState";
 
 type StudioTheme = "dark" | "light";
 type BrowserUrlByProject = Record<string, string>;
-type WorkspaceUtilityPanel = "session" | "browser" | "terminal" | "files" | "diff";
+type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff";
 type UtilityPanelByProject = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
   projectId: string | null;
@@ -190,9 +190,7 @@ export function App() {
   const selectedProjectKey = activeProjectId ? projectKey(activeProjectId) : null;
   const hasWorkerSessions = workerSessions.length > 0;
 
-  const selectedUtilityPanel = selectedProjectKey
-    ? (utilityPanelByProject[selectedProjectKey] ?? "session")
-    : "session";
+  const selectedUtilityPanel = selectedProjectKey ? (utilityPanelByProject[selectedProjectKey] ?? null) : null;
   const browserUrl = selectedProjectKey ? browserUrlByProject[selectedProjectKey] ?? "https://example.com" : "https://example.com";
 
   const loadProjectFileTree = useCallback(
@@ -440,17 +438,6 @@ export function App() {
                   <Button
                     type="button"
                     size="icon"
-                    variant={selectedUtilityPanel === "session" ? "secondary" : "ghost"}
-                    onClick={() => toggleUtilityPanel("session")}
-                    disabled={!selectedProjectKey}
-                    aria-label="Toggle session panel"
-                    title="Session"
-                  >
-                    <MessageSquare size={16} />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
                     variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("terminal")}
                     disabled={!selectedProjectKey}
@@ -628,52 +615,6 @@ export function App() {
                         }
                       }}
                     />
-                  ) : null}
-
-                  {selectedUtilityPanel === "session" ? (
-                    <div className="min-h-0 min-w-0 overflow-hidden rounded-[28px] border border-border/60 bg-background/70">
-                      <div className="border-b border-border/55 px-4 py-3">
-                        <div className="text-sm font-semibold">Session overview</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          Worker sessions stay equal on the canvas. Use cards directly or steer them from the master composer.
-                        </div>
-                      </div>
-                      <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto px-4 py-4">
-                        {workerSessions.length > 0 ? (
-                          workerSessions.map(({ summary }) => (
-                            <div key={summary.sessionId} className="rounded-2xl border border-border/60 bg-card/70 px-4 py-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-semibold">{summary.sessionTitle}</div>
-                                  <div className="mt-1 text-xs text-muted-foreground">{summary.cwd ?? "No working directory"}</div>
-                                  {summary.lastMessagePreview ? (
-                                    <div className="mt-2 text-xs text-muted-foreground">{summary.lastMessagePreview}</div>
-                                  ) : null}
-                                </div>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => void actions.closeSession(summary.sessionId)}
-                                  aria-label={`Close ${summary.sessionTitle} from overview`}
-                                >
-                                  Close
-                                </Button>
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="flex h-full min-h-[220px] items-center justify-center text-center">
-                            <div className="max-w-sm">
-                              <h3 className="text-sm font-semibold">No worker sessions open</h3>
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                Create a worker from the master composer or the `New session` button when you need one.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
                   ) : null}
 
                   {selectedUtilityPanel === "browser" && selectedProjectKey ? (

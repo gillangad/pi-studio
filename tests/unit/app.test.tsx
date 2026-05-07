@@ -298,7 +298,6 @@ describe("App", () => {
       expect(screen.getByText("Master session")).toBeInTheDocument();
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
-      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
     });
   });
@@ -313,7 +312,7 @@ describe("App", () => {
       expect(screen.getByText("Master session")).toBeInTheDocument();
       expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
       expect(screen.queryByText(/Focused:/i)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeEnabled();
     });
   });
 
@@ -352,13 +351,11 @@ describe("App", () => {
     });
   });
 
-  it("shows session overview and closes worker sessions", async () => {
+  it("closes worker sessions directly from the card chrome", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
     render(<App />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Toggle session panel" }));
-    expect(await screen.findByText("Session overview")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close Thread two from overview" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Close Thread two" }));
 
     await waitFor(() => {
       expect(bridge.closeSession).toHaveBeenCalledWith("worker-2");

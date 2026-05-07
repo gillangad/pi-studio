@@ -58,7 +58,6 @@ Examples:
 
 - worker session card surfaces
 - controller composer surface
-- session overview surface
 - hosted TUI surface
 - settings surface
 - designer surface

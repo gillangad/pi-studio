@@ -43,6 +43,12 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - [x] Add tests and docs
 - [x] Run checks, commit, and push
 
+## Current Follow-up
+
+- [x] Remove the temporary session overview utility surface from the GUI
+- [x] Reconcile docs and tests around the slimmer utility panel model
+- [x] Re-run Windows verification, rebuild, and relink
+
 ## Progress Log
 
 - 2026-05-08: Reviewed the current post-cleanup codebase. Confirmed that the host already supports multiple GUI session runtimes internally via `guiSessions`, optional `sessionId` parameters in the bridge methods, and per-session prompt handling. This will be extended into a host-owned controller/worker model instead of inventing a second orchestration path.
@@ -52,3 +58,6 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - 2026-05-08: Adjusted the session lifecycle to match the intended UX more closely. Pi Studio now starts with only the master session visible, no worker is auto-restored or auto-focused, and closing the focused worker clears focus instead of silently switching to another one.
 - 2026-05-08: Removed the focused-session concept from the runtime and UI. Worker sessions now stay equal on the canvas, the `session` tool no longer exposes a focus action, and the right-side session tab is now a session overview instead of a focused-thread inspector.
 - 2026-05-08: Verified the no-focus architecture end to end in the Windows workspace. `npm run typecheck`, `npm run test`, `npm run build`, and `npm link` all pass after the runtime, IPC, UI, and docs cleanup.
+- 2026-05-08: Started the next refinement pass to remove the temporary session overview surface entirely. The canvas will stay peer-to-peer, and the utility panel will slim back down to browser, files, terminal, and diff until a better session-management surface is designed.
+- 2026-05-08: Removed the session overview utility surface from the GUI. The right-side utility area now only hosts browser, files, terminal, and diff surfaces, and worker management is back to happening directly on the canvas plus through the master composer.
+- 2026-05-08: Verified this refinement in the Windows workspace because local npm commands cannot execute reliably from the UNC-mounted WSL path in PowerShell. `npm run typecheck`, `npm run test`, `npm run build`, and `npm link` all pass in `C:\Users\Angad\Projects\pi-studio`.

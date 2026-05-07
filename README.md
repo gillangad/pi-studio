@@ -34,4 +34,4 @@ The current GUI is centered on:
 
 - a multi-session canvas of live worker session cards
 - a bottom master composer backed by a dedicated controller session
-- a right-side utility panel for session overview, browser, files, and terminal surfaces
+- a right-side utility panel for browser, files, and terminal surfaces
