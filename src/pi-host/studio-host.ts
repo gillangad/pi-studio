@@ -352,7 +352,6 @@ export class StudioHost {
 
   private createDefaultStudioProjectState(): StudioProjectState {
     return {
-      focusedSessionId: null,
       workerSessionOrder: [],
       sessionFilesBySessionId: {},
       nextWorkerNumber: 1,
@@ -417,10 +416,6 @@ export class StudioHost {
     const studioState = this.getStudioProjectState(projectId);
     studioState.workerSessionOrder = studioState.workerSessionOrder.filter((entry) => entry !== sessionId);
     delete studioState.sessionFilesBySessionId[sessionId];
-
-    if (studioState.focusedSessionId === sessionId) {
-      studioState.focusedSessionId = null;
-    }
   }
 
   private clearLegacyGuiState(projectPath: string | null = null) {
@@ -464,16 +459,9 @@ export class StudioHost {
     }
 
     if (!this.activeGuiSessionId || !this.guiSessions[this.activeGuiSessionId]) {
-      const studioState = this.workspaceState.activeProjectId
-        ? this.getStudioProjectState(this.workspaceState.activeProjectId)
-        : null;
-      this.activeGuiSessionId = studioState?.focusedSessionId ?? null;
-      if (this.activeGuiSessionId) {
-        this.syncLegacyGuiStateFromRuntime(this.activeGuiSessionId);
-      } else {
-        const activeProject = this.getActiveProject();
-        this.clearLegacyGuiState(activeProject?.path ?? null);
-      }
+      this.activeGuiSessionId = null;
+      const activeProject = this.getActiveProject();
+      this.clearLegacyGuiState(activeProject?.path ?? null);
     }
   }
 
@@ -516,17 +504,6 @@ export class StudioHost {
     return preview ? preview.slice(0, 160) : null;
   }
 
-  private focusWorkerSession(projectId: string, sessionId: string) {
-    const runtime = this.guiSessions[sessionId];
-    if (!runtime || runtime.role !== "worker" || runtime.projectId !== projectId) {
-      return;
-    }
-
-    this.activeGuiSessionId = sessionId;
-    this.getStudioProjectState(projectId).focusedSessionId = sessionId;
-    this.syncLegacyGuiStateFromRuntime(sessionId);
-  }
-
   private async restoreProjectStudioSessions(project: ProjectRecord) {
     await this.disposeAllGuiRuntimes();
 
@@ -561,19 +538,8 @@ export class StudioHost {
         .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0),
     );
 
-    const focusedSessionId =
-      (studioState.focusedSessionId && restoredWorkerIds.includes(studioState.focusedSessionId))
-        ? studioState.focusedSessionId
-        : null;
-
-    studioState.focusedSessionId = focusedSessionId;
-    this.activeGuiSessionId = focusedSessionId;
-
-    if (focusedSessionId) {
-      this.syncLegacyGuiStateFromRuntime(focusedSessionId);
-    } else {
-      this.clearLegacyGuiState(project.path);
-    }
+    this.activeGuiSessionId = null;
+    this.clearLegacyGuiState(project.path);
 
     await this.persistWorkspace();
   }
@@ -589,7 +555,6 @@ export class StudioHost {
 
     this.workspaceState = state;
     for (const studioState of Object.values(this.workspaceState.studioSessionsByProject)) {
-      studioState.focusedSessionId = null;
       studioState.workerSessionOrder = [];
       studioState.sessionFilesBySessionId = {};
     }
@@ -661,10 +626,7 @@ export class StudioHost {
     const studioProjectState = activeProjectId ? this.getStudioProjectState(activeProjectId) : null;
     const workerSessionEntries = Object.entries(this.guiSessions).filter(([, runtime]) => runtime.role === "worker");
     const controllerRuntime = this.getControllerRuntime();
-    const activeRuntime =
-      this.getGuiRuntime(this.activeGuiSessionId) ??
-      (studioProjectState?.focusedSessionId ? this.getGuiRuntime(studioProjectState.focusedSessionId) : null) ??
-      null;
+    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? null;
 
     return {
       projects,
@@ -675,7 +637,6 @@ export class StudioHost {
       studio: {
         projectId: activeProjectId,
         controllerSessionId: controllerRuntime?.id ?? null,
-        focusedSessionId: activeRuntime?.id ?? null,
         workerSessionIds:
           studioProjectState?.workerSessionOrder.filter((sessionId) =>
             workerSessionEntries.some(([entrySessionId]) => entrySessionId === sessionId),
@@ -1014,7 +975,6 @@ export class StudioHost {
         role: "worker",
         options: { kind: "new" },
       });
-      this.focusWorkerSession(project.id, workerSessionId);
       await this.persistWorkspace();
       this.emitSnapshot();
       return this.getSnapshot();
@@ -1053,7 +1013,6 @@ export class StudioHost {
 
       const existingRuntime = this.getWorkerRuntimes(project.id).find((runtime) => runtime.sessionFile === sessionFile);
       if (existingRuntime) {
-        this.focusWorkerSession(project.id, existingRuntime.id);
         await this.persistWorkspace();
         this.emitSnapshot();
         return this.getSnapshot();
@@ -1065,7 +1024,6 @@ export class StudioHost {
         role: "worker",
         options: { kind: "open", sessionFile },
       });
-      this.focusWorkerSession(project.id, workerSessionId);
       await this.persistWorkspace();
       this.emitSnapshot();
       return this.getSnapshot();
@@ -1080,18 +1038,6 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async focusSession(sessionId: string) {
-    const runtime = this.guiSessions[sessionId];
-    if (!runtime || runtime.role !== "worker") {
-      return this.getSnapshot();
-    }
-
-    this.focusWorkerSession(runtime.projectId, sessionId);
-    await this.persistWorkspace();
-    this.emitSnapshot();
-    return this.getSnapshot();
-  }
-
   async closeSession(sessionId: string) {
     const runtime = this.guiSessions[sessionId];
     if (!runtime || runtime.role !== "worker") {
@@ -1099,19 +1045,13 @@ export class StudioHost {
     }
 
     const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
+    const wasActive = this.activeGuiSessionId === sessionId;
     this.forgetWorkerSession(runtime.projectId, sessionId);
     this.disposeGuiRuntime(sessionId);
 
-    if (project) {
-      const studioState = this.getStudioProjectState(project.id);
-      const nextFocusedId = studioState.focusedSessionId ?? studioState.workerSessionOrder[0] ?? null;
-
-      if (nextFocusedId && this.guiSessions[nextFocusedId]) {
-        this.focusWorkerSession(project.id, nextFocusedId);
-      } else {
-        this.activeGuiSessionId = null;
-        this.clearLegacyGuiState(project.path);
-      }
+    if (wasActive) {
+      this.activeGuiSessionId = null;
+      this.clearLegacyGuiState(project?.path ?? null);
     }
 
     await this.persistWorkspace();
@@ -1141,7 +1081,6 @@ export class StudioHost {
         title: runtime.sessionTitle,
         status: this.sessionStatusFromRuntime(runtime),
         sessionFile: runtime.sessionFile,
-        focused: runtime.id === this.activeGuiSessionId,
       }));
   }
 
@@ -1157,7 +1096,6 @@ export class StudioHost {
           ok: true,
           action: "list",
           message: "Visible worker sessions:",
-          focusedSessionId: this.activeGuiSessionId,
           sessions: this.listStudioWorkerSessions(),
         };
       case "status": {
@@ -1167,7 +1105,6 @@ export class StudioHost {
             ok: true,
             action: "status",
             message: "Current worker session status:",
-            focusedSessionId: this.activeGuiSessionId,
             sessions,
           };
         }
@@ -1181,7 +1118,6 @@ export class StudioHost {
           ok: true,
           action: "status",
           message: `${selected.sessionId} is ${selected.status}.`,
-          focusedSessionId: this.activeGuiSessionId,
           session: {
             sessionId: selected.sessionId,
             title: selected.title,
@@ -1203,42 +1139,17 @@ export class StudioHost {
           runtime.session.setSessionName?.(request.title);
           runtime.sessionTitle = normalizeThreadTitle(request.title);
         }
-        this.focusWorkerSession(activeProject.id, sessionId);
         await this.persistWorkspace();
         return {
           ok: true,
           action: "create",
           message: `Created worker session ${sessionId}${request.title ? ` (${request.title})` : ""}.`,
-          focusedSessionId: this.activeGuiSessionId,
           session: {
             sessionId,
             title: this.guiSessions[sessionId]?.sessionTitle ?? request.title ?? sessionId,
             status: this.sessionStatusFromRuntime(this.guiSessions[sessionId]!),
             sessionFile: this.guiSessions[sessionId]?.sessionFile ?? null,
           },
-          sessions: this.listStudioWorkerSessions(),
-        };
-      }
-      case "focus": {
-        if (!request.targetSessionId) {
-          throw new Error("A target session id is required to focus a session.");
-        }
-
-        await this.focusSession(request.targetSessionId);
-        const runtime = this.guiSessions[request.targetSessionId];
-        return {
-          ok: true,
-          action: "focus",
-          message: `Focused ${request.targetSessionId}.`,
-          focusedSessionId: this.activeGuiSessionId,
-          session: runtime
-            ? {
-                sessionId: runtime.id,
-                title: runtime.sessionTitle,
-                status: this.sessionStatusFromRuntime(runtime),
-                sessionFile: runtime.sessionFile,
-              }
-            : null,
           sessions: this.listStudioWorkerSessions(),
         };
       }
@@ -1256,7 +1167,6 @@ export class StudioHost {
           ok: true,
           action: "send",
           message: `Sent a prompt to ${request.targetSessionId}.`,
-          focusedSessionId: this.activeGuiSessionId,
           session: runtime
             ? {
                 sessionId: runtime.id,
@@ -1278,7 +1188,6 @@ export class StudioHost {
           ok: true,
           action: "close",
           message: `Closed ${request.targetSessionId}.`,
-          focusedSessionId: this.activeGuiSessionId,
           sessions: this.listStudioWorkerSessions(),
         };
       }
@@ -1318,14 +1227,8 @@ export class StudioHost {
     await this.refreshProjectThreads(project);
 
     if (deletingActiveThread) {
-      const studioState = this.getStudioProjectState(project.id);
-      const nextSessionId = studioState.focusedSessionId ?? studioState.workerSessionOrder[0] ?? null;
-      if (nextSessionId && this.guiSessions[nextSessionId]) {
-        this.focusWorkerSession(project.id, nextSessionId);
-      } else {
-        this.activeGuiSessionId = null;
-        this.clearLegacyGuiState(project.path);
-      }
+      this.activeGuiSessionId = null;
+      this.clearLegacyGuiState(project.path);
     }
 
     await this.persistWorkspace();

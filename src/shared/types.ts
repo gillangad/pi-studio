@@ -208,7 +208,6 @@ export type StudioSessionSummary = {
 export type StudioCanvasState = {
   projectId: string | null;
   controllerSessionId: string | null;
-  focusedSessionId: string | null;
   workerSessionIds: string[];
   sessions: Record<string, StudioSessionSummary>;
 };

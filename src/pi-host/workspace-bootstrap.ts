@@ -7,7 +7,6 @@ export type ThreadMetadata = {
 };
 
 export type StudioProjectState = {
-  focusedSessionId: string | null;
   workerSessionOrder: string[];
   sessionFilesBySessionId: Record<string, string>;
   nextWorkerNumber: number;

@@ -11,7 +11,6 @@ const SessionParams = Type.Object({
     Type.Literal("list"),
     Type.Literal("create"),
     Type.Literal("send"),
-    Type.Literal("focus"),
     Type.Literal("status"),
     Type.Literal("close"),
   ]),
@@ -61,10 +60,7 @@ function formatSessionList(result: Awaited<ReturnType<SessionRuntime["performAct
   return [
     result.message,
     "",
-    ...sessions.map((session) => {
-      const focusLabel = session.focused ? "focused" : "visible";
-      return `- ${session.sessionId}: ${session.title} [${session.status}, ${focusLabel}]`;
-    }),
+    ...sessions.map((session) => `- ${session.sessionId}: ${session.title} [${session.status}]`),
   ].join("\n");
 }
 
@@ -92,9 +88,9 @@ export default function sessionExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "session",
     label: "Session",
-    description: "Create, focus, inspect, message, and close Pi Studio worker sessions.",
+    description: "Create, inspect, message, and close Pi Studio worker sessions.",
     promptSnippet:
-      "Manage Pi Studio worker sessions. Use this when you need to create a worker, delegate a task, inspect session state, focus a worker, or close one.",
+      "Manage Pi Studio worker sessions. Use this when you need to create a worker, delegate a task, inspect session state, or close one.",
     parameters: SessionParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const runtime = getSessionRuntime();

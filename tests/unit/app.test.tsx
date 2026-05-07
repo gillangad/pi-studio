@@ -124,7 +124,6 @@ const snapshot: StudioSnapshot = {
   studio: {
     projectId: "p1",
     controllerSessionId: "controller",
-    focusedSessionId: "worker-1",
     workerSessionIds: ["worker-1", "worker-2"],
     sessions: {
       "worker-1": {
@@ -202,7 +201,6 @@ const blankSnapshot: StudioSnapshot = {
   studio: {
     projectId: "p1",
     controllerSessionId: "controller",
-    focusedSessionId: null,
     workerSessionIds: [],
     sessions: {},
   },
@@ -240,7 +238,6 @@ describe("App", () => {
       toggleProjectFavorite: vi.fn().mockResolvedValue(snapshot),
       createThread: vi.fn().mockResolvedValue(snapshot),
       openThread: vi.fn().mockResolvedValue(snapshot),
-      focusSession: vi.fn().mockResolvedValue(snapshot),
       closeSession: vi.fn().mockResolvedValue(snapshot),
       deleteThread: vi.fn().mockResolvedValue(snapshot),
       toggleThreadPinned: vi.fn().mockResolvedValue(snapshot),
@@ -316,7 +313,7 @@ describe("App", () => {
       expect(screen.getByText("Master session")).toBeInTheDocument();
       expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
       expect(screen.queryByText(/Focused:/i)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeEnabled();
     });
   });
 
@@ -355,16 +352,15 @@ describe("App", () => {
     });
   });
 
-  it("focuses and closes worker sessions from the canvas", async () => {
+  it("shows session overview and closes worker sessions", async () => {
     const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
     render(<App />);
 
-    const workerCard = await screen.findByLabelText("Thread two");
-    fireEvent.click(within(workerCard).getByRole("button", { name: "Focus Thread two" }));
-    fireEvent.click(within(workerCard).getByRole("button", { name: "Close Thread two" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Toggle session panel" }));
+    expect(await screen.findByText("Session overview")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Thread two from overview" }));
 
     await waitFor(() => {
-      expect(bridge.focusSession).toHaveBeenCalledWith("worker-2");
       expect(bridge.closeSession).toHaveBeenCalledWith("worker-2");
     });
   });

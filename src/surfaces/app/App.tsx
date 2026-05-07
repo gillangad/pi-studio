@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState, StudioSessionSummary } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
 import { BrowserPanel } from "../components/BrowserPanel";
-import { ChatView } from "../components/ChatView";
 import { Composer } from "../components/Composer";
 import { SessionCard } from "../components/SessionCard";
 import { TerminalPanel } from "../components/TerminalPanel";
@@ -15,9 +14,9 @@ import { Button } from "../components/ui/button";
 import { useStudioState } from "../hooks/useStudioState";
 
 type StudioTheme = "dark" | "light";
-type BrowserUrlByThread = Record<string, string>;
+type BrowserUrlByProject = Record<string, string>;
 type WorkspaceUtilityPanel = "session" | "browser" | "terminal" | "files" | "diff";
-type UtilityPanelByThread = Record<string, WorkspaceUtilityPanel | null>;
+type UtilityPanelByProject = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
   projectId: string | null;
   nodes: FileTreeNode[];
@@ -32,8 +31,8 @@ const UTILITY_PANEL_MIN_WIDTH = 340;
 const UTILITY_PANEL_MAX_WIDTH = 920;
 const BROWSER_PANEL_MIN_WIDTH = 420;
 
-function threadKey(projectId: string, sessionFile: string) {
-  return `${projectId}::${sessionFile}`;
+function projectKey(projectId: string) {
+  return `project::${projectId}`;
 }
 
 function readInitialTheme(): StudioTheme {
@@ -112,11 +111,11 @@ export function App() {
   const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
   const [controllerComposerValue, setControllerComposerValue] = useState("");
   const [controllerAgentMenuOpen, setControllerAgentMenuOpen] = useState(false);
-  const [utilityPanelByThread, setUtilityPanelByThread] = useState<UtilityPanelByThread>(() =>
-    readJsonRecord<UtilityPanelByThread>("pi-studio-utility-panel-by-thread"),
+  const [utilityPanelByProject, setUtilityPanelByProject] = useState<UtilityPanelByProject>(() =>
+    readJsonRecord<UtilityPanelByProject>("pi-studio-utility-panel-by-project"),
   );
-  const [browserUrlByThread, setBrowserUrlByThread] = useState<BrowserUrlByThread>(() =>
-    readJsonRecord<BrowserUrlByThread>("pi-studio-browser-url-by-thread"),
+  const [browserUrlByProject, setBrowserUrlByProject] = useState<BrowserUrlByProject>(() =>
+    readJsonRecord<BrowserUrlByProject>("pi-studio-browser-url-by-project"),
   );
   const [fileTree, setFileTree] = useState<FileTreeState>({
     projectId: null,
@@ -143,12 +142,12 @@ export function App() {
   }, [utilityPanelWidth]);
 
   useEffect(() => {
-    window.localStorage.setItem("pi-studio-utility-panel-by-thread", JSON.stringify(utilityPanelByThread));
-  }, [utilityPanelByThread]);
+    window.localStorage.setItem("pi-studio-utility-panel-by-project", JSON.stringify(utilityPanelByProject));
+  }, [utilityPanelByProject]);
 
   useEffect(() => {
-    window.localStorage.setItem("pi-studio-browser-url-by-thread", JSON.stringify(browserUrlByThread));
-  }, [browserUrlByThread]);
+    window.localStorage.setItem("pi-studio-browser-url-by-project", JSON.stringify(browserUrlByProject));
+  }, [browserUrlByProject]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -165,7 +164,6 @@ export function App() {
   const isWorkspaceMode = activeMode === "gui";
 
   const focusedGuiState = snapshot?.gui ?? null;
-  const focusedSessionId = snapshot?.studio.focusedSessionId ?? null;
   const controllerState = snapshot?.controller ?? null;
   const activeProjectId = focusedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
   const activeProject = useMemo(
@@ -189,16 +187,13 @@ export function App() {
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   }, [snapshot]);
 
-  const selectedThreadKey = useMemo(() => {
-    if (!focusedGuiState?.projectId || !focusedGuiState.sessionFile) return null;
-    return threadKey(focusedGuiState.projectId, focusedGuiState.sessionFile);
-  }, [focusedGuiState?.projectId, focusedGuiState?.sessionFile]);
+  const selectedProjectKey = activeProjectId ? projectKey(activeProjectId) : null;
   const hasWorkerSessions = workerSessions.length > 0;
 
-  const selectedUtilityPanel = selectedThreadKey
-    ? (utilityPanelByThread[selectedThreadKey] ?? "session")
+  const selectedUtilityPanel = selectedProjectKey
+    ? (utilityPanelByProject[selectedProjectKey] ?? "session")
     : "session";
-  const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
+  const browserUrl = selectedProjectKey ? browserUrlByProject[selectedProjectKey] ?? "https://example.com" : "https://example.com";
 
   const loadProjectFileTree = useCallback(
     async (projectId?: string | null) => {
@@ -252,16 +247,16 @@ export function App() {
   );
 
   const toggleUtilityPanel = (panel: WorkspaceUtilityPanel) => {
-    if (!selectedThreadKey) return;
+    if (!selectedProjectKey) return;
 
     const nextPanel = selectedUtilityPanel === panel ? null : panel;
     if (nextPanel) {
       setUtilityPanelWidth((current) => clampUtilityPanelWidth(current, nextPanel));
     }
 
-    setUtilityPanelByThread((current) => ({
+    setUtilityPanelByProject((current) => ({
       ...current,
-      [selectedThreadKey]: nextPanel,
+      [selectedProjectKey]: nextPanel,
     }));
 
     if (nextPanel === "files") {
@@ -428,9 +423,7 @@ export function App() {
               <header className="flex items-center justify-between gap-3 px-5 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="truncate text-[15px] font-semibold text-foreground">
-                      {focusedSessionId ? focusedGuiState?.sessionTitle ?? "Session canvas" : "Session canvas"}
-                    </h2>
+                    <h2 className="truncate text-[15px] font-semibold text-foreground">Session canvas</h2>
                     {activeProject ? (
                       <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
                     ) : null}
@@ -440,11 +433,6 @@ export function App() {
                     <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">
                       {workerSessions.length} sessions
                     </span>
-                    {focusedSessionId ? (
-                      <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[11px] text-primary">
-                        Focused: {focusedSessionId}
-                      </span>
-                    ) : null}
                   </div>
                 </div>
 
@@ -454,7 +442,7 @@ export function App() {
                     size="icon"
                     variant={selectedUtilityPanel === "session" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("session")}
-                    disabled={!selectedThreadKey}
+                    disabled={!selectedProjectKey}
                     aria-label="Toggle session panel"
                     title="Session"
                   >
@@ -465,7 +453,7 @@ export function App() {
                     size="icon"
                     variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("terminal")}
-                    disabled={!selectedThreadKey}
+                    disabled={!selectedProjectKey}
                     aria-label="Toggle terminal panel"
                     title="Terminal"
                   >
@@ -476,7 +464,7 @@ export function App() {
                     size="icon"
                     variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("files")}
-                    disabled={!selectedThreadKey}
+                    disabled={!selectedProjectKey}
                     aria-label="Toggle file tree panel"
                     title="Files"
                   >
@@ -487,7 +475,7 @@ export function App() {
                     size="icon"
                     variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
                     onClick={() => toggleUtilityPanel("browser")}
-                    disabled={!selectedThreadKey}
+                    disabled={!selectedProjectKey}
                     aria-label="Toggle browser panel"
                     title="Browser"
                   >
@@ -540,8 +528,6 @@ export function App() {
                                   key={summary.sessionId}
                                   summary={summary}
                                   gui={gui}
-                                  focused={summary.sessionId === focusedSessionId}
-                                  onFocus={() => void actions.focusSession(summary.sessionId)}
                                   onClose={() => void actions.closeSession(summary.sessionId)}
                                   onSendPrompt={actions.sendPrompt}
                                   onAbort={actions.abortPrompt}
@@ -644,43 +630,63 @@ export function App() {
                     />
                   ) : null}
 
-                  {selectedUtilityPanel === "session" && focusedSessionId && focusedGuiState && focusedGuiState.sessionFile ? (
+                  {selectedUtilityPanel === "session" ? (
                     <div className="min-h-0 min-w-0 overflow-hidden rounded-[28px] border border-border/60 bg-background/70">
                       <div className="border-b border-border/55 px-4 py-3">
-                        <div className="text-sm font-semibold">{focusedGuiState.sessionTitle}</div>
+                        <div className="text-sm font-semibold">Session overview</div>
                         <div className="mt-1 text-xs text-muted-foreground">
-                          Focused worker session
+                          Worker sessions stay equal on the canvas. Use cards directly or steer them from the master composer.
                         </div>
                       </div>
-                      <ChatView
-                        gui={focusedGuiState}
-                        sessionId={focusedGuiState.sessionId}
-                        composerPlaceholder={`Message ${focusedGuiState.sessionTitle}`}
-                        onSendPrompt={actions.sendPrompt}
-                        onAbort={actions.abortPrompt}
-                        onSetModel={actions.setModel}
-                        onSetThinkingLevel={actions.setThinkingLevel}
-                        onPickAttachments={actions.pickAttachments}
-                        onRemoveAttachment={actions.removeAttachment}
-                        onClearAttachments={actions.clearAttachments}
-                        onGetSessionTree={actions.getSessionTree}
-                        onNavigateTree={actions.navigateTree}
-                        onRunSlashCommand={actions.runSlashCommand}
-                      />
+                      <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto px-4 py-4">
+                        {workerSessions.length > 0 ? (
+                          workerSessions.map(({ summary }) => (
+                            <div key={summary.sessionId} className="rounded-2xl border border-border/60 bg-card/70 px-4 py-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="truncate text-sm font-semibold">{summary.sessionTitle}</div>
+                                  <div className="mt-1 text-xs text-muted-foreground">{summary.cwd ?? "No working directory"}</div>
+                                  {summary.lastMessagePreview ? (
+                                    <div className="mt-2 text-xs text-muted-foreground">{summary.lastMessagePreview}</div>
+                                  ) : null}
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => void actions.closeSession(summary.sessionId)}
+                                  aria-label={`Close ${summary.sessionTitle} from overview`}
+                                >
+                                  Close
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex h-full min-h-[220px] items-center justify-center text-center">
+                            <div className="max-w-sm">
+                              <h3 className="text-sm font-semibold">No worker sessions open</h3>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                Create a worker from the master composer or the `New session` button when you need one.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : null}
 
-                  {selectedUtilityPanel === "browser" && selectedThreadKey ? (
+                  {selectedUtilityPanel === "browser" && selectedProjectKey ? (
                     <div className="relative min-h-0 min-w-0">
                       <BrowserPanel
                         className="h-full w-full rounded-[28px]"
-                        threadKey={selectedThreadKey}
-                        sessionFile={focusedGuiState?.sessionFile ?? null}
+                        threadKey={selectedProjectKey}
+                        sessionFile={null}
                         initialUrl={browserUrl}
                         onUrlChange={(url) => {
-                          setBrowserUrlByThread((current) => ({
+                          setBrowserUrlByProject((current) => ({
                             ...current,
-                            [selectedThreadKey]: url,
+                            [selectedProjectKey]: url,
                           }));
                         }}
                       />

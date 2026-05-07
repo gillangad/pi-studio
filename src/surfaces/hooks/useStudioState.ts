@@ -62,7 +62,6 @@ export function useStudioState() {
         toggleProjectFavorite: unavailable,
         createThread: unavailable,
         openThread: unavailable,
-        focusSession: unavailable,
         closeSession: unavailable,
         deleteThread: unavailable,
         toggleThreadPinned: unavailable,
@@ -108,7 +107,6 @@ export function useStudioState() {
       createThread: (projectId: string, sessionId?: string) => bridge.createThread(projectId, sessionId),
       openThread: (projectId: string, sessionFile: string, sessionId?: string) =>
         bridge.openThread(projectId, sessionFile, sessionId),
-      focusSession: (sessionId: string) => bridge.focusSession(sessionId),
       closeSession: (sessionId: string) => bridge.closeSession(sessionId),
       deleteThread: (projectId: string, sessionFile: string) =>
         bridge.deleteThread({ projectId, sessionFile }),

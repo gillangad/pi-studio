@@ -4,7 +4,6 @@ export type SessionToolAction =
   | "list"
   | "create"
   | "send"
-  | "focus"
   | "status"
   | "close";
 
@@ -19,7 +18,6 @@ export type SessionToolResponse = {
   ok: boolean;
   action: SessionToolAction;
   message: string;
-  focusedSessionId?: string | null;
   session?: {
     sessionId: string;
     title: string;
@@ -31,7 +29,6 @@ export type SessionToolResponse = {
     title: string;
     status: "idle" | "running" | "error";
     sessionFile: string | null;
-    focused: boolean;
   }>;
 };
 

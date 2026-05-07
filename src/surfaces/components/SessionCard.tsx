@@ -8,8 +8,6 @@ import { Button } from "./ui/button";
 type SessionCardProps = {
   summary: StudioSessionSummary;
   gui: GuiState;
-  focused: boolean;
-  onFocus: () => void;
   onClose: () => void;
   onSendPrompt: (text: string, sessionId?: string) => Promise<unknown> | unknown;
   onAbort: (sessionId?: string) => Promise<unknown> | unknown;
@@ -36,8 +34,6 @@ function statusLabel(summary: StudioSessionSummary) {
 export function SessionCard({
   summary,
   gui,
-  focused,
-  onFocus,
   onClose,
   onSendPrompt,
   onAbort,
@@ -54,19 +50,11 @@ export function SessionCard({
 
   return (
     <article
-      className={cn(
-        "workspace-panel flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-border/70 shadow-sm transition-all duration-150",
-        focused && "ring-1 ring-primary/35 shadow-[0_18px_44px_rgba(0,0,0,0.16)]",
-      )}
+      className="workspace-panel flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-border/70 shadow-sm transition-all duration-150"
       aria-label={summary.sessionTitle}
     >
       <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
-        <button
-          type="button"
-          className="min-w-0 flex-1 rounded-lg text-left"
-          onClick={onFocus}
-          aria-label={`Focus ${summary.sessionTitle}`}
-        >
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-sm font-semibold text-foreground">{summary.sessionTitle}</h3>
             <span
@@ -84,21 +72,16 @@ export function SessionCard({
           {summary.lastMessagePreview ? (
             <div className="mt-1 max-h-10 overflow-hidden text-xs text-muted-foreground">{summary.lastMessagePreview}</div>
           ) : null}
-        </button>
+        </div>
 
         <div className="flex items-center gap-1">
-          {focused ? (
-            <span className="rounded-full bg-primary/12 px-2 py-0.5 text-[11px] font-medium text-primary">
-              focused
-            </span>
-          ) : null}
           <Button type="button" size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={onClose} aria-label={`Close ${summary.sessionTitle}`}>
             <X size={14} />
           </Button>
         </div>
       </header>
 
-      <div className="min-h-0 flex-1" onClick={onFocus}>
+      <div className="min-h-0 flex-1">
         <ChatView
           gui={gui}
           sessionId={summary.sessionId}

@@ -17,7 +17,7 @@ Pi Studio currently ships two built-in Pi-native packages:
 - the `pi-browser` skill teaches the agent how to use that tool
 - the visible browser panel binds to the current thread so Pi acts on the same live surface the user sees
 - the `pi-session` extension exposes a single `session` tool to the controller session
-- the `pi-session` skill teaches the controller session how to create, focus, inspect, message, and close worker sessions
+- the `pi-session` skill teaches the controller session how to create, inspect, message, and close worker sessions
 
 ## Modes
 
@@ -34,4 +34,4 @@ The current GUI is centered on:
 
 - a multi-session canvas of live worker session cards
 - a bottom master composer backed by a dedicated controller session
-- a right-side utility panel for the focused session, browser, files, and terminal surfaces
+- a right-side utility panel for session overview, browser, files, and terminal surfaces
