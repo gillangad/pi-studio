@@ -189,6 +189,30 @@ export type GuiState = GuiSessionState & {
   sessions?: Record<string, GuiSessionState>;
 };
 
+export type StudioSessionRole = "controller" | "worker";
+
+export type StudioSessionSummary = {
+  sessionId: string;
+  role: StudioSessionRole;
+  projectId: string | null;
+  sessionFile: string | null;
+  sessionTitle: string;
+  cwd: string | null;
+  isStreaming: boolean;
+  statusText: string | null;
+  errorText: string | null;
+  lastMessagePreview: string | null;
+  lastActivityAt: string | null;
+};
+
+export type StudioCanvasState = {
+  projectId: string | null;
+  controllerSessionId: string | null;
+  focusedSessionId: string | null;
+  workerSessionIds: string[];
+  sessions: Record<string, StudioSessionSummary>;
+};
+
 export type TuiState = {
   active: boolean;
   projectId: string | null;
@@ -266,6 +290,8 @@ export type StudioSnapshot = {
   threadsByProject: ProjectThreadsMap;
   activeProjectId: string | null;
   activeMode: StudioMode;
+  controller: GuiSessionState | null;
+  studio: StudioCanvasState;
   gui: GuiState;
   tui: TuiState;
   terminal: TerminalState;

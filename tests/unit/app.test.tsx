@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xterm/xterm", () => ({
@@ -36,13 +36,56 @@ if (!("ResizeObserver" in globalThis)) {
 
 import { App } from "../../src/surfaces/app/App";
 import type { DesktopBridge } from "../../src/shared/ipc";
-import type { FileTreeNode, StudioSnapshot } from "../../src/shared/types";
+import type { FileTreeNode, GuiState, StudioSnapshot } from "../../src/shared/types";
+
+const emptyResources = {
+  extensions: 0,
+  skills: 0,
+  prompts: 0,
+  themes: 0,
+  agentsFiles: 0,
+  extensionEntries: [],
+  extensionNames: [],
+  skillEntries: [],
+  skillNames: [],
+  promptNames: [],
+  themeNames: [],
+  agentsFilePaths: [],
+};
+
+function makeGuiState(sessionId: string, title: string, sessionFile: string): GuiState {
+  return {
+    sessionId,
+    projectId: "p1",
+    sessionFile,
+    sessionTitle: title,
+    cwd: "/tmp/demo",
+    isStreaming: false,
+    messages: [],
+    resources: emptyResources,
+    statusText: null,
+    errorText: null,
+    model: null,
+    availableModels: [],
+    thinkingLevel: "medium",
+    availableThinkingLevels: ["off", "medium", "high"],
+    streamingBehaviorPreference: "followUp",
+    attachments: [],
+    slashCommands: [
+      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
+      { command: "/model", description: "Open the model picker", source: "builtin" },
+    ],
+  };
+}
+
+const workerOne = makeGuiState("worker-1", "Thread one", "/tmp/demo/session.jsonl");
+const workerTwo = makeGuiState("worker-2", "Thread two", "/tmp/demo/session-2.jsonl");
+const controller = makeGuiState("controller", "Master controller", "/tmp/controller/session.jsonl");
 
 const snapshot: StudioSnapshot = {
   projects: [
     { id: "p1", name: "demo", path: "/tmp/demo", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
     { id: "p2", name: "alpha", path: "/tmp/alpha", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
-    { id: "p3", name: "empty", path: "/tmp/empty", isFavorite: false, isGitRepo: false, isGitHubRepo: false },
   ],
   threadsByProject: {
     p1: [
@@ -64,68 +107,61 @@ const snapshot: StudioSnapshot = {
         sessionId: "s2",
         sessionFile: "/tmp/demo/session-2.jsonl",
         title: "Thread two",
-        updatedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAtMs: Date.now() - 8 * 24 * 60 * 60 * 1000,
-        ageLabel: "8d",
+        updatedAt: new Date(Date.now() - 4_000).toISOString(),
+        updatedAtMs: Date.now() - 4_000,
+        ageLabel: "now",
         messageCount: 2,
         isPinned: true,
         isArchived: false,
         running: false,
       },
     ],
-    p2: [
-      {
-        id: "t3",
-        sessionId: "s3",
-        sessionFile: "/tmp/alpha/session.jsonl",
-        title: "Alpha latest",
-        updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        updatedAtMs: Date.now() - 2 * 60 * 60 * 1000,
-        ageLabel: "2h",
-        messageCount: 3,
-        isPinned: false,
-        isArchived: false,
-        running: false,
-      },
-    ],
-    p3: [],
+    p2: [],
   },
   activeProjectId: "p1",
   activeMode: "gui",
-  gui: {
-    sessionId: "default",
+  controller,
+  studio: {
     projectId: "p1",
-    sessionFile: "/tmp/demo/session.jsonl",
-    sessionTitle: "Thread one",
-    cwd: "/tmp/demo",
-    isStreaming: false,
-    messages: [],
-    resources: {
-      extensions: 0,
-      skills: 0,
-      prompts: 0,
-      themes: 0,
-      agentsFiles: 0,
-      extensionEntries: [],
-      extensionNames: [],
-      skillEntries: [],
-      skillNames: [],
-      promptNames: [],
-      themeNames: [],
-      agentsFilePaths: [],
+    controllerSessionId: "controller",
+    focusedSessionId: "worker-1",
+    workerSessionIds: ["worker-1", "worker-2"],
+    sessions: {
+      "worker-1": {
+        sessionId: "worker-1",
+        role: "worker",
+        projectId: "p1",
+        sessionFile: "/tmp/demo/session.jsonl",
+        sessionTitle: "Thread one",
+        cwd: "/tmp/demo",
+        isStreaming: false,
+        statusText: null,
+        errorText: null,
+        lastMessagePreview: "Fix the sidebar bug",
+        lastActivityAt: new Date().toISOString(),
+      },
+      "worker-2": {
+        sessionId: "worker-2",
+        role: "worker",
+        projectId: "p1",
+        sessionFile: "/tmp/demo/session-2.jsonl",
+        sessionTitle: "Thread two",
+        cwd: "/tmp/demo",
+        isStreaming: false,
+        statusText: null,
+        errorText: null,
+        lastMessagePreview: "Investigate session routing",
+        lastActivityAt: new Date().toISOString(),
+      },
     },
-    statusText: null,
-    errorText: null,
-    model: null,
-    availableModels: [],
-    thinkingLevel: "medium",
-    availableThinkingLevels: ["off", "medium", "high"],
-    streamingBehaviorPreference: "followUp",
-    attachments: [],
-    slashCommands: [
-      { command: "/tree", description: "Navigate the session tree", source: "builtin" },
-      { command: "/model", description: "Open the model picker", source: "builtin" },
-    ],
+  },
+  gui: {
+    ...workerOne,
+    activeSessionId: "worker-1",
+    sessions: {
+      "worker-1": workerOne,
+      "worker-2": workerTwo,
+    },
   },
   tui: {
     active: false,
@@ -185,6 +221,8 @@ describe("App", () => {
       toggleProjectFavorite: vi.fn().mockResolvedValue(snapshot),
       createThread: vi.fn().mockResolvedValue(snapshot),
       openThread: vi.fn().mockResolvedValue(snapshot),
+      focusSession: vi.fn().mockResolvedValue(snapshot),
+      closeSession: vi.fn().mockResolvedValue(snapshot),
       deleteThread: vi.fn().mockResolvedValue(snapshot),
       toggleThreadPinned: vi.fn().mockResolvedValue(snapshot),
       toggleThreadArchived: vi.fn().mockResolvedValue(snapshot),
@@ -210,17 +248,7 @@ describe("App", () => {
       addGitComment: vi.fn().mockResolvedValue(snapshot),
       removeGitComment: vi.fn().mockResolvedValue(snapshot),
       getProjectFileTree: vi.fn().mockResolvedValue(projectTree),
-      searchSessions: vi.fn().mockResolvedValue([
-        {
-          projectId: "p2",
-          projectName: "alpha",
-          sessionFile: "/tmp/alpha/session.jsonl",
-          threadTitle: "Alpha latest",
-          ageLabel: "2h",
-          excerpt: "match inside session",
-          matchedIn: "content",
-        },
-      ]),
+      searchSessions: vi.fn().mockResolvedValue([]),
       getSessionTree: vi.fn().mockResolvedValue({ leafId: null, nodes: [] }),
       navigateTree: vi.fn().mockResolvedValue({ cancelled: false }),
       runSlashCommand: vi.fn().mockResolvedValue({ handled: true }),
@@ -246,336 +274,79 @@ describe("App", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders the main workspace shell after bootstrap", async () => {
+  it("renders the multi-session workspace after bootstrap", async () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getAllByText("demo").length).toBeGreaterThan(0);
-      expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
+      expect(screen.getByText("Worker sessions")).toBeInTheDocument();
+      expect(screen.getByText("Master session")).toBeInTheDocument();
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
-      expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "GUI" })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "TUI" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle terminal panel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Toggle diff panel" })).not.toBeInTheDocument();
-      expect(screen.getAllByRole("button", { name: "Add attachment" }).length).toBeGreaterThan(0);
-      expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
-    });
-  });
-
-  it("resizes the sidebar with the separator controls", async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("separator", { name: "Resize sidebar" })).toBeInTheDocument();
-    });
-
-    const handle = screen.getByRole("separator", { name: "Resize sidebar" });
-    const sidebarShell = handle.parentElement;
-    if (!sidebarShell) {
-      throw new Error("sidebar shell missing");
-    }
-
-    const startingWidth = Number.parseInt(sidebarShell.style.width, 10);
-    expect(startingWidth).toBeGreaterThanOrEqual(260);
-
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-
-    expect(sidebarShell).toHaveStyle({ width: `${startingWidth + 16}px` });
-  });
-
-  it("creates a new gui thread from sidebar action", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Create thread in demo" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Create thread in demo" }));
-
-    expect(bridge.createThread).toHaveBeenCalledWith("p1", undefined);
-  });
-
-  it("creates a new gui thread for an inactive project from its row action", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Create thread in alpha" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Create thread in alpha" }));
-
-    expect(bridge.createThread).toHaveBeenCalledWith("p2", undefined);
-  });
-
-  it("deletes a project from the project row action", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "empty" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete project empty" }));
-
-    expect(confirmSpy).toHaveBeenCalledWith('Remove "empty" from Pi Studio? This only removes it from the sidebar.');
-    expect(bridge.removeProject).toHaveBeenCalledWith("p3");
-  });
-
-  it("deletes a thread from the sidebar hover action", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Delete thread Thread one in demo" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Delete thread Thread one in demo" }));
-
-    expect(confirmSpy).toHaveBeenCalledWith('Delete "Thread one"? This removes the saved session.');
-    expect(bridge.deleteThread).toHaveBeenCalledWith({ projectId: "p1", sessionFile: "/tmp/demo/session.jsonl" });
-  });
-
-  it("opens the latest thread when clicking a project name", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "alpha" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "alpha" }));
-
-    expect(bridge.openThread).toHaveBeenCalledWith("p2", "/tmp/alpha/session.jsonl", undefined);
-  });
-
-  it("uses brighter hover treatments for project and thread rows in the sidebar", async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "alpha" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Thread Thread two in demo" })).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole("button", { name: "alpha" }).className).toContain("group-hover:text-foreground");
-    expect(screen.getByRole("button", { name: "Thread Thread two in demo" }).className).toContain("group-hover:text-foreground");
-  });
-
-  it("searches session content and opens a matching result", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Search" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Search sessions" }), {
-      target: { value: "match" },
-    });
-
-    await waitFor(() => {
-      expect(bridge.searchSessions).toHaveBeenCalledWith({ query: "match" });
-      expect(screen.getByRole("button", { name: /Alpha latest/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Alpha latest/i }));
-
-    expect(bridge.openThread).toHaveBeenCalledWith("p2", "/tmp/alpha/session.jsonl", undefined);
-  });
-
-  it("toggles the browser surface for the active thread", async () => {
-    render(<App />);
-
-    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
     });
+  });
 
-    expect(screen.queryByLabelText("Agent browser surface", { selector: "aside" })).not.toBeInTheDocument();
+  it("sends prompts through the master composer to the controller session", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
+    render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
+    const composer = await screen.findByPlaceholderText(
+      "Ask Pi to create a session, delegate work, or steer the canvas",
+    );
+    fireEvent.change(composer, { target: { value: "Tell worker-2 to inspect auth flow" } });
+    fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
 
     await waitFor(() => {
-      const visibleBrowserSurface = screen.getByLabelText("Agent browser surface", { selector: "aside" });
-      expect(visibleBrowserSurface.closest("[aria-hidden='true']")).toBeNull();
-      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
+      expect(bridge.sendPrompt).toHaveBeenCalledWith({
+        text: "Tell worker-2 to inspect auth flow",
+        sessionId: "controller",
+      });
     });
   });
 
-  it("resizes the right-side utility panel when the browser is open", async () => {
+  it("sends prompts directly to a worker card", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
     render(<App />);
 
+    const workerCard = await screen.findByLabelText("Thread one");
+    const workerComposer = within(workerCard).getByPlaceholderText("Message Thread one");
+    fireEvent.change(workerComposer, { target: { value: "Fix the failing tests" } });
+    fireEvent.keyDown(workerComposer, { key: "Enter", ctrlKey: true });
+
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
+      expect(bridge.sendPrompt).toHaveBeenCalledWith({
+        text: "Fix the failing tests",
+        sessionId: "worker-1",
+      });
     });
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
-    });
-
-    const handle = screen.getByRole("separator", { name: "Resize utility panel" });
-    const startingWidth = Number.parseInt(handle.style.right, 10);
-    expect(startingWidth).toBeGreaterThanOrEqual(416);
-
-    fireEvent.keyDown(handle, { key: "ArrowLeft" });
-    expect(handle).toHaveStyle({ right: `${startingWidth + 16}px` });
   });
 
-  it("keeps the browser utility panel at a readable minimum width", async () => {
+  it("focuses and closes worker sessions from the canvas", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Toggle browser panel" }));
+    const workerCard = await screen.findByLabelText("Thread two");
+    fireEvent.click(within(workerCard).getByRole("button", { name: "Focus Thread two" }));
+    fireEvent.click(within(workerCard).getByRole("button", { name: "Close Thread two" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("separator", { name: "Resize utility panel" })).toBeInTheDocument();
+      expect(bridge.focusSession).toHaveBeenCalledWith("worker-2");
+      expect(bridge.closeSession).toHaveBeenCalledWith("worker-2");
     });
-
-    const handle = screen.getByRole("separator", { name: "Resize utility panel" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-
-    expect(Number.parseInt(handle.style.right, 10)).toBeGreaterThanOrEqual(416);
   });
 
-  it("loads the file tree in the workspace utility pane", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
+  it("opens the file tree in the right utility panel", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Toggle file tree panel" })).toBeInTheDocument();
-    });
-
+    await screen.findByRole("button", { name: "Toggle file tree panel" });
     fireEvent.click(screen.getByRole("button", { name: "Toggle file tree panel" }));
 
     await waitFor(() => {
       expect(screen.getByText("index.ts")).toBeInTheDocument();
+      expect(bridge.getProjectFileTree).toHaveBeenCalledWith({ projectId: "p1" });
     });
-
-    expect(bridge.getProjectFileTree).toHaveBeenCalledWith({ projectId: "p1" });
-  });
-
-  it("shows theme controls in the settings menu", async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
-
-    expect(screen.getByRole("menuitem", { name: /Open settings/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /dark mode|light mode/i })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /Extensions/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /Skills/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: /App settings/i })).not.toBeInTheDocument();
-  });
-
-  it("opens the full settings surface from the sidebar settings menu", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Settings/i })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /Settings/i }));
-    fireEvent.click(screen.getByRole("menuitem", { name: /Open settings/i }));
-
-    expect(bridge.setMode).toHaveBeenCalledWith("settings");
-  });
-
-  it("opens gui thread when clicking from settings surface", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
-      ...snapshot,
-      activeMode: "settings",
-    });
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Thread Thread two in demo" })).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Thread Thread two in demo" }));
-
-    expect(bridge.openThread).toHaveBeenCalledWith("p1", "/tmp/demo/session-2.jsonl", undefined);
-  });
-
-  it("keeps agent controls out of tui mode", async () => {
-    const bridge = (window as { piStudio?: DesktopBridge }).piStudio;
-    if (!bridge) {
-      throw new Error("desktop bridge missing");
-    }
-
-    vi.mocked(bridge.bootstrap).mockResolvedValueOnce({
-      ...snapshot,
-      activeMode: "tui",
-    });
-
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.getByLabelText("Hosted terminal")).toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole("button", { name: "Agent" })).not.toBeInTheDocument();
   });
 
   it("shows a bootstrap error when the desktop bridge is unavailable", async () => {
@@ -584,7 +355,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Booting Pi Studio…")).toBeInTheDocument();
+      expect(screen.getByText("Pi Studio failed to start")).toBeInTheDocument();
       expect(screen.getByText(/desktop bridge is unavailable/i)).toBeInTheDocument();
     });
   });

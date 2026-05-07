@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 import path from "node:path";
-import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
+import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import {
   PI_STUDIO_BUILTIN_EXTENSIONS,
   PI_STUDIO_BUILTIN_SKILLS,

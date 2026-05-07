@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GuiState, SessionTreeSnapshot } from "../../src/shared/types";
 import { ChatView } from "../../src/surfaces/components/ChatView";
 
+const DEFAULT_PLACEHOLDER = "Ask Pi to do something";
+
 function createGuiState(messages: GuiState["messages"], isStreaming = false): GuiState {
   return {
     sessionId: "default",
@@ -194,11 +196,11 @@ describe("ChatView", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Ask for follow-up changes"), {
+    fireEvent.change(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), {
       target: { value: "/tree" },
     });
-    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
-    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), { key: "Enter" });
 
     await waitFor(() => {
       expect(onRunSlashCommand).toHaveBeenCalledWith("/tree", undefined);
@@ -277,11 +279,11 @@ describe("ChatView", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Ask for follow-up changes"), {
+    fireEvent.change(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), {
       target: { value: "/tree" },
     });
-    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
-    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), { key: "Enter" });
 
     await waitFor(() => {
       expect(screen.getByText("Navigate the session tree in-place and optionally summarize the branch you leave behind.")).toBeInTheDocument();

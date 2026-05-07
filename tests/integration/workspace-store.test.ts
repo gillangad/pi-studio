@@ -29,6 +29,7 @@ describe("WorkspaceStore", () => {
       threadMetadataByProject: {},
       gitCommentsByProject: {},
       gitBaselineByProject: {},
+      studioSessionsByProject: {},
     });
 
     const raw = await readFile(filePath, "utf8");

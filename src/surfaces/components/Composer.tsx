@@ -23,6 +23,8 @@ type ComposerProps = {
   onClearAttachments: () => void;
   agentMenuOpen?: boolean;
   onAgentMenuOpenChange?: (open: boolean) => void;
+  compact?: boolean;
+  placeholder?: string;
 };
 
 export function Composer({
@@ -44,6 +46,8 @@ export function Composer({
   onClearAttachments,
   agentMenuOpen,
   onAgentMenuOpenChange,
+  compact = false,
+  placeholder = "Ask Pi to do something",
 }: ComposerProps) {
   const [internalAgentMenuOpen, setInternalAgentMenuOpen] = useState(false);
   const [abortRequested, setAbortRequested] = useState(false);
@@ -130,7 +134,10 @@ export function Composer({
       ) : null}
 
       <form
-        className="workspace-panel relative rounded-[24px] border border-border/70 bg-card/95 shadow-sm"
+        className={[
+          "workspace-panel relative border border-border/70 bg-card/95 shadow-sm",
+          compact ? "rounded-[20px]" : "rounded-[24px]",
+        ].join(" ")}
         onSubmit={(event) => {
           event.preventDefault();
           submitComposer();
@@ -138,9 +145,14 @@ export function Composer({
       >
         <Textarea
           value={value}
-          className="min-h-[104px] resize-y rounded-[24px] border-transparent bg-transparent pb-16 pr-24 pt-3.5 text-[15px] shadow-none focus-visible:ring-0"
-          placeholder="Ask for follow-up changes"
-          rows={3}
+          className={[
+            "resize-y border-transparent bg-transparent shadow-none focus-visible:ring-0",
+            compact
+              ? "min-h-[82px] rounded-[20px] pb-14 pr-22 pt-3 text-[14px]"
+              : "min-h-[104px] rounded-[24px] pb-16 pr-24 pt-3.5 text-[15px]",
+          ].join(" ")}
+          placeholder={placeholder}
+          rows={compact ? 2 : 3}
           onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
             if (slashSuggestions.length > 0 && event.key === "ArrowDown") {
@@ -236,7 +248,10 @@ export function Composer({
 
               {resolvedAgentMenuOpen ? (
                 <div
-                  className="absolute bottom-[calc(100%+8px)] left-0 z-20 grid min-w-[320px] gap-2 rounded-xl border border-border/70 bg-popover p-3 shadow-glass"
+                  className={[
+                    "absolute bottom-[calc(100%+8px)] left-0 z-20 grid gap-2 rounded-xl border border-border/70 bg-popover p-3 shadow-glass",
+                    compact ? "min-w-[280px]" : "min-w-[320px]",
+                  ].join(" ")}
                   role="menu"
                   aria-label="Agent settings"
                 >

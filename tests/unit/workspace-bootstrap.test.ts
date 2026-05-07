@@ -19,6 +19,7 @@ function createState(partial: Partial<WorkspaceState>): WorkspaceState {
     threadMetadataByProject: {},
     gitCommentsByProject: {},
     gitBaselineByProject: {},
+    studioSessionsByProject: {},
     ...partial,
   };
 }

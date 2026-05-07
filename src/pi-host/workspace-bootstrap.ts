@@ -6,6 +6,13 @@ export type ThreadMetadata = {
   piStudioBuiltins?: boolean;
 };
 
+export type StudioProjectState = {
+  focusedSessionId: string | null;
+  workerSessionOrder: string[];
+  sessionFilesBySessionId: Record<string, string>;
+  nextWorkerNumber: number;
+};
+
 export type WorkspaceState = {
   projects: ProjectRecord[];
   activeProjectId: string | null;
@@ -14,6 +21,7 @@ export type WorkspaceState = {
   threadMetadataByProject: Record<string, Record<string, ThreadMetadata>>;
   gitCommentsByProject: Record<string, GitComment[]>;
   gitBaselineByProject: Record<string, GitDiffBaseline>;
+  studioSessionsByProject: Record<string, StudioProjectState>;
 };
 
 type EnsureWorkspaceSelectionOptions = {

@@ -174,6 +174,14 @@ function registerIpcHandlers() {
       host?.openThread(payload.projectId, payload.sessionFile, payload.sessionId),
   );
   ipcMain.handle(
+    IPC_CHANNELS.invoke.focusSession,
+    async (_event, payload: { sessionId: string }) => host?.focusSession(payload.sessionId),
+  );
+  ipcMain.handle(
+    IPC_CHANNELS.invoke.closeSession,
+    async (_event, payload: { sessionId: string }) => host?.closeSession(payload.sessionId),
+  );
+  ipcMain.handle(
     IPC_CHANNELS.invoke.deleteThread,
     async (_event, payload: { projectId: string; sessionFile: string }) =>
       host?.deleteThread(payload.projectId, payload.sessionFile),

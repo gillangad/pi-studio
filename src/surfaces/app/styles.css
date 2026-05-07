@@ -180,6 +180,13 @@
     backdrop-filter: blur(10px);
   }
 
+  .session-canvas-shell {
+    background:
+      radial-gradient(circle at top right, hsl(var(--accent) / 0.22), transparent 34%),
+      radial-gradient(circle at bottom left, hsl(var(--secondary) / 0.24), transparent 38%),
+      linear-gradient(180deg, hsl(var(--card) / 0.98), hsl(var(--background) / 0.98));
+  }
+
   .workspace-flat-divider {
     border-color: hsl(var(--border) / 0.55);
   }

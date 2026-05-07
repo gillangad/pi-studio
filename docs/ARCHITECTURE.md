@@ -42,10 +42,11 @@ Examples:
 - Pi SDK session/runtime creation
 - resource loading
 - extension discovery integration
-- session and thread lifecycle
+- controller and worker session lifecycle
 - event bridging into desktop-safe view models
 - hosted TUI session management
 - terminal hosting support
+- host-owned session orchestration behind the Pi-native `session` tool
 
 This lane is the boundary where Pi semantics meet desktop-app semantics.
 
@@ -55,7 +56,9 @@ Owns user-facing application surfaces.
 
 Examples:
 
-- chat surface
+- worker session card surfaces
+- controller composer surface
+- focused session inspector surface
 - hosted TUI surface
 - settings surface
 - designer surface
@@ -97,6 +100,13 @@ Pi Studio has one built-in loading path for app-shipped Pi resources.
 - Built-in skills live under `src/builtins/skills/`
 - `src/pi-host/builtin-resources.ts` discovers those directories and exposes them to builtin-enabled sessions
 - `src/pi-host/builtin-selection.ts` decides which sessions receive Pi Studio built-ins
+
+Current built-ins:
+
+- `browser`, exposed through `src/builtins/extensions/pi-browser/`
+- `session`, exposed through `src/builtins/extensions/pi-session/`
+
+The `session` tool is agent-facing, but the session registry, visibility, focus, and worker lifecycle remain host-owned in `src/pi-host/`.
 
 For now, built-ins should follow a simple directory-based packaging convention instead of a heavier manifest format.
 
@@ -159,6 +169,7 @@ That means:
 - Pi remains the source of truth for extension/resource behavior.
 - Studio adds desktop-native shell and surface layers.
 - Shared first-party behavior should be Pi-native whenever practical.
+- Core desktop runtime concerns such as worker visibility, session focus, and session routing remain host-owned even when Pi accesses them through a tool.
 - GUI and TUI should stay operationally aligned, even when they are backed by different runtime surfaces.
 
 ## Update Policy

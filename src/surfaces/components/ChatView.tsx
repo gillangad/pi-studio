@@ -14,6 +14,10 @@ type ChatViewProps = {
   sessionId?: string;
   composerValue?: string;
   onComposerValueChange?: (value: string) => void;
+  compact?: boolean;
+  composerPlaceholder?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
   onSendPrompt: (text: string, sessionId?: string) => Promise<unknown> | unknown;
   onAbort: (sessionId?: string) => Promise<unknown> | unknown;
   onSetModel: (provider: string, modelId: string, sessionId?: string) => Promise<unknown> | unknown;
@@ -35,6 +39,10 @@ export function ChatView({
   sessionId,
   composerValue,
   onComposerValueChange,
+  compact = false,
+  composerPlaceholder,
+  emptyTitle = "Start a Pi session",
+  emptyDescription = "Send your first prompt to begin a thread.",
   onSendPrompt,
   onAbort,
   onSetModel,
@@ -236,7 +244,11 @@ export function ChatView({
           syncScrollState();
         }}
       >
-        <div className="chat-width-shell mx-auto flex min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5">
+        <div
+          className={[
+            compact ? "mx-auto flex w-full min-w-0 flex-col gap-2 px-3 py-3" : "chat-width-shell mx-auto flex min-w-0 flex-col gap-2.5 px-4 py-4 sm:px-5",
+          ].join(" ")}
+        >
           {timelineItems.length > 0 ? (
             timelineItems.map((item) => (
               <div key={item.id} className="mx-auto flex w-full min-w-0">
@@ -253,9 +265,9 @@ export function ChatView({
               </div>
             ))
           ) : (
-            <div className="mx-auto mt-16 grid w-full max-w-lg place-items-center px-6 py-10 text-center">
-              <h3 className="text-base font-semibold">Start a Pi session</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Send your first prompt to begin a thread.</p>
+            <div className={compact ? "mx-auto grid w-full place-items-center px-4 py-8 text-center" : "mx-auto mt-16 grid w-full max-w-lg place-items-center px-6 py-10 text-center"}>
+              <h3 className={compact ? "text-sm font-semibold" : "text-base font-semibold"}>{emptyTitle}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{emptyDescription}</p>
             </div>
           )}
         </div>
@@ -265,7 +277,7 @@ export function ChatView({
           type="button"
           size="icon"
           variant="secondary"
-          className="absolute bottom-4 right-5 h-9 w-9 rounded-full shadow-glass"
+          className={compact ? "absolute bottom-3 right-3 h-8 w-8 rounded-full shadow-glass" : "absolute bottom-4 right-5 h-9 w-9 rounded-full shadow-glass"}
           onClick={scrollToBottom}
           aria-label="Scroll chat to bottom"
           title="Scroll to bottom"
@@ -276,18 +288,23 @@ export function ChatView({
       </div>
 
       {gui.errorText ? (
-        <div className="mx-3 mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <div className={compact ? "mx-2 mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive" : "mx-3 mb-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"}>
           {gui.errorText}
         </div>
       ) : null}
       {gui.statusText ? (
-        <div className="mx-4 mb-2 rounded-md bg-muted/55 px-3 py-1.5 text-xs text-muted-foreground">
+        <div className={compact ? "mx-3 mb-2 rounded-md bg-muted/55 px-3 py-1.5 text-[11px] text-muted-foreground" : "mx-4 mb-2 rounded-md bg-muted/55 px-3 py-1.5 text-xs text-muted-foreground"}>
           {gui.statusText}
         </div>
       ) : null}
 
-      <div className={cn("border-t border-border/50 bg-background px-4 py-3 sm:px-5", gui.isStreaming && "shadow-inner")}>
-        <div className="chat-width-shell mx-auto w-full">
+      <div
+        className={cn(
+          compact ? "border-t border-border/50 bg-background px-3 py-2.5" : "border-t border-border/50 bg-background px-4 py-3 sm:px-5",
+          gui.isStreaming && "shadow-inner",
+        )}
+      >
+        <div className={compact ? "mx-auto w-full" : "chat-width-shell mx-auto w-full"}>
           <Composer
             busy={gui.isStreaming}
             value={resolvedComposerValue}
@@ -307,6 +324,8 @@ export function ChatView({
             onClearAttachments={() => void onClearAttachments(sessionId)}
             agentMenuOpen={agentMenuOpen}
             onAgentMenuOpenChange={setAgentMenuOpen}
+            compact={compact}
+            placeholder={composerPlaceholder}
           />
         </div>
       </div>

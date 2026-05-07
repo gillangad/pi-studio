@@ -1,9 +1,11 @@
-import { FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { FolderTree, Globe, MessageSquare, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FileTreeNode, GuiState } from "../../shared/types";
+import type { FileTreeNode, GuiState, StudioSessionSummary } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
 import { BrowserPanel } from "../components/BrowserPanel";
 import { ChatView } from "../components/ChatView";
+import { Composer } from "../components/Composer";
+import { SessionCard } from "../components/SessionCard";
 import { TerminalPanel } from "../components/TerminalPanel";
 import { TuiView } from "../components/TuiView";
 import { SettingsView } from "../components/SettingsView";
@@ -13,9 +15,8 @@ import { Button } from "../components/ui/button";
 import { useStudioState } from "../hooks/useStudioState";
 
 type StudioTheme = "dark" | "light";
-
 type BrowserUrlByThread = Record<string, string>;
-type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff";
+type WorkspaceUtilityPanel = "session" | "browser" | "terminal" | "files" | "diff";
 type UtilityPanelByThread = Record<string, WorkspaceUtilityPanel | null>;
 type FileTreeState = {
   projectId: string | null;
@@ -27,7 +28,7 @@ type FileTreeState = {
 const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
 const SIDEBAR_EXPANDED_MAX_WIDTH = 420;
 const SIDEBAR_COLLAPSED_WIDTH = 74;
-const UTILITY_PANEL_MIN_WIDTH = 320;
+const UTILITY_PANEL_MIN_WIDTH = 340;
 const UTILITY_PANEL_MAX_WIDTH = 920;
 const BROWSER_PANEL_MIN_WIDTH = 420;
 
@@ -109,10 +110,8 @@ export function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readInitialSidebarCollapsed);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialSidebarWidth);
   const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
-
-  const [guiThreadCache, setGuiThreadCache] = useState<Record<string, GuiState>>({});
-  const [pendingGuiThreadKey, setPendingGuiThreadKey] = useState<string | null>(null);
-
+  const [controllerComposerValue, setControllerComposerValue] = useState("");
+  const [controllerAgentMenuOpen, setControllerAgentMenuOpen] = useState(false);
   const [utilityPanelByThread, setUtilityPanelByThread] = useState<UtilityPanelByThread>(() =>
     readJsonRecord<UtilityPanelByThread>("pi-studio-utility-panel-by-thread"),
   );
@@ -165,49 +164,40 @@ export function App() {
       : (snapshot?.activeMode ?? "gui");
   const isWorkspaceMode = activeMode === "gui";
 
-  const activeGuiThreadKey = useMemo(() => {
-    if (!snapshot?.gui.projectId || !snapshot.gui.sessionFile) return null;
-    return threadKey(snapshot.gui.projectId, snapshot.gui.sessionFile);
-  }, [snapshot?.gui.projectId, snapshot?.gui.sessionFile]);
-
-  useEffect(() => {
-    if (!snapshot?.gui.projectId || !snapshot.gui.sessionFile) return;
-
-    const key = threadKey(snapshot.gui.projectId, snapshot.gui.sessionFile);
-    setGuiThreadCache((current) => ({
-      ...current,
-      [key]: snapshot.gui,
-    }));
-
-    if (pendingGuiThreadKey === key) {
-      setPendingGuiThreadKey(null);
-    }
-  }, [pendingGuiThreadKey, snapshot?.gui]);
-
-  const selectedGuiState = useMemo(() => {
-    if (!snapshot) return null;
-
-    if (pendingGuiThreadKey && pendingGuiThreadKey !== activeGuiThreadKey) {
-      const cached = guiThreadCache[pendingGuiThreadKey];
-      if (cached) {
-        return cached;
-      }
-
-      return null;
-    }
-
-    return snapshot.gui;
-  }, [activeGuiThreadKey, guiThreadCache, pendingGuiThreadKey, snapshot]);
-
-  const selectedThreadKey = activeGuiThreadKey ?? pendingGuiThreadKey;
-  const selectedUtilityPanel = selectedThreadKey ? utilityPanelByThread[selectedThreadKey] ?? null : null;
-  const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
-  const showingCachedThread = Boolean(pendingGuiThreadKey && pendingGuiThreadKey !== activeGuiThreadKey);
-  const activeProjectId = selectedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
+  const focusedGuiState = snapshot?.gui ?? null;
+  const focusedSessionId = snapshot?.studio.focusedSessionId ?? null;
+  const controllerState = snapshot?.controller ?? null;
+  const activeProjectId = focusedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
   const activeProject = useMemo(
     () => snapshot?.projects.find((project) => project.id === activeProjectId) ?? null,
     [activeProjectId, snapshot],
   );
+
+  const workerSessions = useMemo(() => {
+    if (!snapshot) return [] as Array<{ summary: StudioSessionSummary; gui: GuiState }>;
+
+    return snapshot.studio.workerSessionIds
+      .map((sessionId) => {
+        const summary = snapshot.studio.sessions[sessionId];
+        const gui = snapshot.gui.sessions?.[sessionId];
+        if (!summary || !gui) {
+          return null;
+        }
+
+        return { summary, gui };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  }, [snapshot]);
+
+  const selectedThreadKey = useMemo(() => {
+    if (!focusedGuiState?.projectId || !focusedGuiState.sessionFile) return null;
+    return threadKey(focusedGuiState.projectId, focusedGuiState.sessionFile);
+  }, [focusedGuiState?.projectId, focusedGuiState?.sessionFile]);
+
+  const selectedUtilityPanel = selectedThreadKey
+    ? (utilityPanelByThread[selectedThreadKey] ?? "session")
+    : "session";
+  const browserUrl = selectedThreadKey ? browserUrlByThread[selectedThreadKey] ?? "https://example.com" : "https://example.com";
 
   const loadProjectFileTree = useCallback(
     async (projectId?: string | null) => {
@@ -251,18 +241,13 @@ export function App() {
     if (selectedUtilityPanel === "diff") {
       void actions.refreshGitState();
     }
-  }, [actions, activeProject?.id, selectedUtilityPanel]);
+  }, [actions, selectedUtilityPanel]);
 
   const openGuiThread = useCallback(
     (projectId: string, sessionFile: string) => {
-      const nextKey = threadKey(projectId, sessionFile);
-      if (nextKey !== activeGuiThreadKey) {
-        setPendingGuiThreadKey(nextKey);
-      }
-
       void actions.openThread(projectId, sessionFile);
     },
-    [actions, activeGuiThreadKey],
+    [actions],
   );
 
   const toggleUtilityPanel = (panel: WorkspaceUtilityPanel) => {
@@ -287,19 +272,8 @@ export function App() {
     }
   };
 
-  const utilityPanelLabel = selectedUtilityPanel
-    ? {
-        browser: "Browser",
-        terminal: "Terminal",
-        files: "Files",
-        diff: "Diff",
-      }[selectedUtilityPanel]
-    : null;
-
   const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
-  const hasSideUtilityPanel = Boolean(
-    selectedUtilityPanel && selectedUtilityPanel !== "terminal",
-  );
+  const hasSideUtilityPanel = Boolean(selectedUtilityPanel && selectedUtilityPanel !== "terminal");
 
   const startSidebarResize = useCallback(
     (pointerStartX: number) => {
@@ -345,38 +319,60 @@ export function App() {
     [hasSideUtilityPanel, selectedUtilityPanel, utilityPanelWidth],
   );
 
-  useEffect(() => {
-    if (!selectedUtilityPanel) return;
+  const sendControllerPrompt = useCallback(() => {
+    const trimmed = controllerComposerValue.trim();
+    if (!trimmed || !controllerState) return;
 
-    setUtilityPanelWidth((current) => clampUtilityPanelWidth(current, selectedUtilityPanel));
-  }, [selectedUtilityPanel]);
+    if (/^\//.test(trimmed)) {
+      const commandText = trimmed;
+      setControllerComposerValue("");
+      void actions.runSlashCommand(commandText, controllerState.sessionId).then((result) => {
+        if (!result.handled) {
+          setControllerComposerValue(commandText);
+        }
 
-  if (!snapshot) {
+        if (result.openModelPicker) {
+          setControllerAgentMenuOpen(true);
+        }
+      });
+      return;
+    }
+
+    void actions.sendPrompt(trimmed, controllerState.sessionId);
+    setControllerComposerValue("");
+  }, [actions, controllerComposerValue, controllerState]);
+
+  if (bootstrapError) {
     return (
-      <main className="flex h-screen w-screen items-center justify-center bg-background p-8">
-        <div className="w-full max-w-md rounded-[28px] border border-border/60 bg-card/90 p-6 shadow-glass">
-          <h1 className="text-lg font-semibold">Booting Pi Studio…</h1>
-          <div className="mt-3">
-            {bootstrapError ? (
-              <p className="text-sm text-destructive">{bootstrapError}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Preparing workspace and runtime bridge.</p>
-            )}
-          </div>
+      <main className="flex h-screen items-center justify-center bg-background px-6 text-center">
+        <div>
+          <h1 className="text-lg font-semibold">Pi Studio failed to start</h1>
+          <p className="mt-2 max-w-lg text-sm text-muted-foreground">{bootstrapError}</p>
         </div>
       </main>
     );
   }
 
+  if (!snapshot) {
+    return (
+      <main className="flex h-screen items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Launching Pi Studio…</div>
+      </main>
+    );
+  }
+
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <div className="relative shrink-0" style={{ width: `${sidebarRenderedWidth}px` }}>
+    <main className="flex h-screen overflow-hidden bg-background text-foreground">
+      <div
+        className="relative shrink-0"
+        style={{ width: sidebarRenderedWidth }}
+      >
         <Sidebar
           projects={snapshot.projects}
           activeProjectId={snapshot.activeProjectId}
           threadsByProject={snapshot.threadsByProject}
-          activeSessionFile={snapshot.gui.sessionFile}
-          activeMode={activeMode}
+          activeSessionFile={focusedGuiState?.sessionFile ?? null}
+          activeMode={snapshot.activeMode}
           theme={theme}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
@@ -386,32 +382,11 @@ export function App() {
           onSelectProject={(projectId) => void actions.selectProject(projectId)}
           onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
           onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
-          onRemoveProject={(projectId) => {
-            const project = snapshot.projects.find((entry) => entry.id === projectId);
-            const projectName = project?.name ?? "this project";
-            const confirmed = window.confirm(
-              `Remove "${projectName}" from Pi Studio? This only removes it from the sidebar.`,
-            );
-            if (!confirmed) return;
-
-            setPendingGuiThreadKey(null);
-            void actions.removeProject(projectId);
-          }}
-          onSearchSessions={actions.searchSessions}
-          onCreateThread={(projectId) => {
-            setPendingGuiThreadKey(null);
-            void actions.createThread(projectId);
-          }}
-          onOpenThread={(projectId, sessionFile) => {
-            openGuiThread(projectId, sessionFile);
-          }}
-          onDeleteThread={(projectId, sessionFile, threadTitle) => {
-            const confirmed = window.confirm(`Delete "${threadTitle}"? This removes the saved session.`);
-            if (!confirmed) return;
-
-            setPendingGuiThreadKey(null);
-            void actions.deleteThread(projectId, sessionFile);
-          }}
+          onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+          onSearchSessions={(query) => actions.searchSessions(query)}
+          onCreateThread={(projectId) => void actions.createThread(projectId)}
+          onOpenThread={(projectId, sessionFile) => openGuiThread(projectId, sessionFile)}
+          onDeleteThread={(projectId, sessionFile) => void actions.deleteThread(projectId, sessionFile)}
           onToggleThreadPinned={(projectId, sessionFile) =>
             void actions.toggleThreadPinned(projectId, sessionFile)
           }
@@ -449,182 +424,309 @@ export function App() {
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           {isWorkspaceMode ? (
             <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="GUI workspace">
-            <header className="flex items-center justify-between gap-3 px-5 py-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="truncate text-[15px] font-semibold text-foreground">
-                    {selectedGuiState?.sessionTitle ?? "No thread selected"}
-                  </h2>
-                  {activeProject ? (
-                    <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
+              <header className="flex items-center justify-between gap-3 px-5 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="truncate text-[15px] font-semibold text-foreground">
+                      {focusedGuiState?.sessionTitle ?? "Session canvas"}
+                    </h2>
+                    {activeProject ? (
+                      <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">{activeProject?.path ?? focusedGuiState?.cwd ?? "No project"}</span>
+                    <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">
+                      {workerSessions.length} sessions
+                    </span>
+                    {focusedSessionId ? (
+                      <span className="rounded-full bg-primary/8 px-2 py-0.5 text-[11px] text-primary">
+                        Focused: {focusedSessionId}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={selectedUtilityPanel === "session" ? "secondary" : "ghost"}
+                    onClick={() => toggleUtilityPanel("session")}
+                    disabled={!selectedThreadKey}
+                    aria-label="Toggle session panel"
+                    title="Session"
+                  >
+                    <MessageSquare size={16} />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
+                    onClick={() => toggleUtilityPanel("terminal")}
+                    disabled={!selectedThreadKey}
+                    aria-label="Toggle terminal panel"
+                    title="Terminal"
+                  >
+                    <TerminalSquare size={16} />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
+                    onClick={() => toggleUtilityPanel("files")}
+                    disabled={!selectedThreadKey}
+                    aria-label="Toggle file tree panel"
+                    title="Files"
+                  >
+                    <FolderTree size={16} />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
+                    onClick={() => toggleUtilityPanel("browser")}
+                    disabled={!selectedThreadKey}
+                    aria-label="Toggle browser panel"
+                    title="Browser"
+                  >
+                    <Globe size={16} />
+                  </Button>
+                </div>
+              </header>
+
+              <div className="relative min-h-0 flex-1 px-3 pb-3">
+                <div
+                  className="grid h-full min-h-0"
+                  style={
+                    selectedUtilityPanel === "terminal"
+                      ? {
+                          gridTemplateColumns: "minmax(0,1fr)",
+                          gridTemplateRows: "minmax(0,1fr) 260px",
+                        }
+                      : hasSideUtilityPanel
+                        ? {
+                            gridTemplateColumns: `minmax(0,1fr) ${utilityPanelWidth}px`,
+                          }
+                        : {
+                            gridTemplateColumns: "minmax(0,1fr)",
+                          }
+                  }
+                >
+                  <div className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
+                    <section className="session-canvas-shell min-h-0 overflow-hidden rounded-[32px] border border-border/60 bg-gradient-to-br from-card/94 via-card/86 to-background/96">
+                      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+                        <div className="flex items-center justify-between gap-3 border-b border-border/55 px-4 py-3">
+                          <div>
+                            <h3 className="text-sm font-semibold">Worker sessions</h3>
+                            <p className="text-xs text-muted-foreground">
+                              Every card is a live Pi session with its own transcript and input bar.
+                            </p>
+                          </div>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => void actions.createThread(activeProject?.id ?? snapshot.activeProjectId ?? "")} disabled={!activeProject?.id && !snapshot.activeProjectId}>
+                            New session
+                          </Button>
+                        </div>
+
+                        <div className="min-h-0 overflow-y-auto px-4 py-4">
+                          {workerSessions.length > 0 ? (
+                            <div className="grid min-h-full auto-rows-[minmax(460px,1fr)] gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))" }}>
+                              {workerSessions.map(({ summary, gui }) => (
+                                <SessionCard
+                                  key={summary.sessionId}
+                                  summary={summary}
+                                  gui={gui}
+                                  focused={summary.sessionId === focusedSessionId}
+                                  onFocus={() => void actions.focusSession(summary.sessionId)}
+                                  onClose={() => void actions.closeSession(summary.sessionId)}
+                                  onSendPrompt={actions.sendPrompt}
+                                  onAbort={actions.abortPrompt}
+                                  onSetModel={actions.setModel}
+                                  onSetThinkingLevel={actions.setThinkingLevel}
+                                  onPickAttachments={actions.pickAttachments}
+                                  onRemoveAttachment={actions.removeAttachment}
+                                  onClearAttachments={actions.clearAttachments}
+                                  onGetSessionTree={actions.getSessionTree}
+                                  onNavigateTree={actions.navigateTree}
+                                  onRunSlashCommand={actions.runSlashCommand}
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex h-full min-h-[320px] items-center justify-center text-center">
+                              <div className="max-w-md px-6">
+                                <h3 className="text-base font-semibold">Open a worker session</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  Create a new session from the canvas or open one from the project sidebar.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="workspace-panel rounded-[30px] border border-border/70 px-4 py-4 shadow-sm">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-semibold">Master session</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Talk here to create sessions, delegate work, and steer the canvas.
+                          </p>
+                        </div>
+                        {controllerState?.isStreaming ? (
+                          <span className="rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success">
+                            running
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {controllerState?.errorText ? (
+                        <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {controllerState.errorText}
+                        </div>
+                      ) : null}
+                      {controllerState?.statusText ? (
+                        <div className="mb-3 rounded-md bg-muted/55 px-3 py-2 text-xs text-muted-foreground">
+                          {controllerState.statusText}
+                        </div>
+                      ) : null}
+
+                      {controllerState ? (
+                        <Composer
+                          busy={controllerState.isStreaming}
+                          value={controllerComposerValue}
+                          onValueChange={setControllerComposerValue}
+                          onSubmit={sendControllerPrompt}
+                          onAbort={() => actions.abortPrompt(controllerState.sessionId)}
+                          models={controllerState.availableModels}
+                          currentModel={controllerState.model}
+                          thinkingLevel={controllerState.thinkingLevel}
+                          availableThinkingLevels={controllerState.availableThinkingLevels}
+                          attachments={controllerState.attachments}
+                          slashCommands={controllerState.slashCommands}
+                          onSetModel={(provider, modelId) => void actions.setModel(provider, modelId, controllerState.sessionId)}
+                          onSetThinkingLevel={(level) => void actions.setThinkingLevel(level, controllerState.sessionId)}
+                          onPickAttachments={() => void actions.pickAttachments(controllerState.sessionId)}
+                          onRemoveAttachment={(attachmentId) => void actions.removeAttachment(attachmentId, controllerState.sessionId)}
+                          onClearAttachments={() => void actions.clearAttachments(controllerState.sessionId)}
+                          agentMenuOpen={controllerAgentMenuOpen}
+                          onAgentMenuOpenChange={setControllerAgentMenuOpen}
+                          placeholder="Ask Pi to create a session, delegate work, or steer the canvas"
+                        />
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
+                          Controller session is loading…
+                        </div>
+                      )}
+                    </section>
+                  </div>
+
+                  {hasSideUtilityPanel ? (
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-label="Resize utility panel"
+                      tabIndex={0}
+                      className="utility-panel-resizer absolute bottom-3 right-0 top-0 z-20 w-3 cursor-col-resize touch-none"
+                      style={{ right: `${utilityPanelWidth - 4}px` }}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        startUtilityPanelResize(event.clientX);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowLeft") {
+                          event.preventDefault();
+                          setUtilityPanelWidth((current) => clampUtilityPanelWidth(current + 16, selectedUtilityPanel));
+                        }
+                        if (event.key === "ArrowRight") {
+                          event.preventDefault();
+                          setUtilityPanelWidth((current) => clampUtilityPanelWidth(current - 16, selectedUtilityPanel));
+                        }
+                      }}
+                    />
+                  ) : null}
+
+                  {selectedUtilityPanel === "session" && focusedGuiState ? (
+                    <div className="min-h-0 min-w-0 overflow-hidden rounded-[28px] border border-border/60 bg-background/70">
+                      <div className="border-b border-border/55 px-4 py-3">
+                        <div className="text-sm font-semibold">{focusedGuiState.sessionTitle}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          Focused worker session
+                        </div>
+                      </div>
+                      <ChatView
+                        gui={focusedGuiState}
+                        sessionId={focusedGuiState.sessionId}
+                        composerPlaceholder={`Message ${focusedGuiState.sessionTitle}`}
+                        onSendPrompt={actions.sendPrompt}
+                        onAbort={actions.abortPrompt}
+                        onSetModel={actions.setModel}
+                        onSetThinkingLevel={actions.setThinkingLevel}
+                        onPickAttachments={actions.pickAttachments}
+                        onRemoveAttachment={actions.removeAttachment}
+                        onClearAttachments={actions.clearAttachments}
+                        onGetSessionTree={actions.getSessionTree}
+                        onNavigateTree={actions.navigateTree}
+                        onRunSlashCommand={actions.runSlashCommand}
+                      />
+                    </div>
+                  ) : null}
+
+                  {selectedUtilityPanel === "browser" && selectedThreadKey ? (
+                    <div className="relative min-h-0 min-w-0">
+                      <BrowserPanel
+                        className="h-full w-full rounded-[28px]"
+                        threadKey={selectedThreadKey}
+                        sessionFile={focusedGuiState?.sessionFile ?? null}
+                        initialUrl={browserUrl}
+                        onUrlChange={(url) => {
+                          setBrowserUrlByThread((current) => ({
+                            ...current,
+                            [selectedThreadKey]: url,
+                          }));
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  {selectedUtilityPanel === "terminal" ? (
+                    <TerminalPanel
+                      sessionId="utility"
+                      terminal={snapshot.terminal}
+                      onStart={actions.startTerminal}
+                      onStop={actions.stopTerminal}
+                      onResize={actions.resizeTerminal}
+                      onData={actions.writeToTerminal}
+                      subscribeToData={actions.onTerminalData}
+                    />
+                  ) : null}
+
+                  {selectedUtilityPanel === "files" ? (
+                    <FileTreePanel
+                      projectName={activeProject?.name ?? "Project files"}
+                      projectPath={activeProject?.path ?? focusedGuiState?.cwd ?? null}
+                      nodes={fileTree.projectId === activeProject?.id ? fileTree.nodes : []}
+                      loading={fileTree.loading && fileTree.projectId === activeProject?.id}
+                      errorText={fileTree.projectId === activeProject?.id ? fileTree.errorText : null}
+                      onRefresh={() => {
+                        void loadProjectFileTree(activeProject?.id ?? null);
+                      }}
+                    />
+                  ) : null}
+
+                  {selectedUtilityPanel === "diff" ? (
+                    <GitView
+                      compact
+                      git={snapshot.git}
+                      onRefresh={actions.refreshGitState}
+                      onSetBaseline={actions.setGitBaseline}
+                      onAddComment={actions.addGitComment}
+                      onRemoveComment={actions.removeGitComment}
+                    />
                   ) : null}
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="truncate">{selectedGuiState?.cwd ?? activeProject?.path ?? "No project"}</span>
-                  {utilityPanelLabel ? <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">{utilityPanelLabel}</span> : null}
-                  {showingCachedThread ? <span>Loading thread…</span> : null}
-                </div>
               </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={selectedUtilityPanel === "terminal" ? "secondary" : "ghost"}
-                  onClick={() => toggleUtilityPanel("terminal")}
-                  disabled={!selectedThreadKey}
-                  aria-label="Toggle terminal panel"
-                  title="Terminal"
-                >
-                  <TerminalSquare size={16} />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={selectedUtilityPanel === "files" ? "secondary" : "ghost"}
-                  onClick={() => toggleUtilityPanel("files")}
-                  disabled={!selectedThreadKey}
-                  aria-label="Toggle file tree panel"
-                  title="Files"
-                >
-                  <FolderTree size={16} />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={selectedUtilityPanel === "browser" ? "secondary" : "ghost"}
-                  onClick={() => toggleUtilityPanel("browser")}
-                  disabled={!selectedThreadKey}
-                  aria-label="Toggle browser panel"
-                  title="Browser"
-                >
-                  <Globe size={16} />
-                </Button>
-              </div>
-            </header>
-
-            <div className="relative min-h-0 flex-1">
-              <div
-                className="grid h-full min-h-0 px-3 pb-3"
-                style={
-                  selectedUtilityPanel === "terminal"
-                    ? {
-                        gridTemplateColumns: "minmax(0,1fr)",
-                        gridTemplateRows: "minmax(0,1fr) 260px",
-                      }
-                    : hasSideUtilityPanel
-                      ? {
-                          gridTemplateColumns: `minmax(0,1fr) ${utilityPanelWidth}px`,
-                        }
-                      : {
-                          gridTemplateColumns: "minmax(0,1fr)",
-                        }
-                }
-              >
-              <div className="min-h-0 min-w-0">
-                {selectedGuiState ? (
-                  <ChatView
-                    gui={selectedGuiState}
-                    onSendPrompt={actions.sendPrompt}
-                    onAbort={actions.abortPrompt}
-                    onSetModel={actions.setModel}
-                    onSetThinkingLevel={actions.setThinkingLevel}
-                    onPickAttachments={actions.pickAttachments}
-                    onRemoveAttachment={actions.removeAttachment}
-                    onClearAttachments={actions.clearAttachments}
-                    onGetSessionTree={actions.getSessionTree}
-                    onNavigateTree={actions.navigateTree}
-                    onRunSlashCommand={actions.runSlashCommand}
-                  />
-                ) : (
-                  <div className="flex h-full min-h-0 items-center justify-center text-center">
-                    <div className="px-6 py-10">
-                      <h3 className="text-base font-semibold">No thread selected</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">Select or create a thread.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {hasSideUtilityPanel ? (
-                <div
-                  role="separator"
-                  aria-orientation="vertical"
-                  aria-label="Resize utility panel"
-                  tabIndex={0}
-                  className="utility-panel-resizer absolute bottom-3 right-0 top-0 z-20 w-3 cursor-col-resize touch-none"
-                  style={{ right: `${utilityPanelWidth - 4}px` }}
-                  onPointerDown={(event) => {
-                    event.preventDefault();
-                    startUtilityPanelResize(event.clientX);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "ArrowLeft") {
-                      event.preventDefault();
-                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current + 16, selectedUtilityPanel));
-                    }
-                    if (event.key === "ArrowRight") {
-                      event.preventDefault();
-                      setUtilityPanelWidth((current) => clampUtilityPanelWidth(current - 16, selectedUtilityPanel));
-                    }
-                  }}
-                />
-              ) : null}
-
-              {selectedUtilityPanel === "browser" && selectedThreadKey ? (
-                <div className="relative min-h-0 min-w-0">
-                  <BrowserPanel
-                    className="h-full w-full"
-                    threadKey={selectedThreadKey}
-                    sessionFile={selectedGuiState?.sessionFile ?? null}
-                    initialUrl={browserUrl}
-                    onUrlChange={(url) => {
-                      setBrowserUrlByThread((current) => ({
-                        ...current,
-                        [selectedThreadKey]: url,
-                      }));
-                    }}
-                  />
-                </div>
-              ) : null}
-
-              {selectedUtilityPanel === "terminal" ? (
-                <TerminalPanel
-                  sessionId="utility"
-                  terminal={snapshot.terminal}
-                  onStart={actions.startTerminal}
-                  onStop={actions.stopTerminal}
-                  onResize={actions.resizeTerminal}
-                  onData={actions.writeToTerminal}
-                  subscribeToData={actions.onTerminalData}
-                />
-              ) : null}
-
-              {selectedUtilityPanel === "files" ? (
-                <FileTreePanel
-                  projectName={activeProject?.name ?? "Project files"}
-                  projectPath={activeProject?.path ?? selectedGuiState?.cwd ?? null}
-                  nodes={fileTree.projectId === activeProject?.id ? fileTree.nodes : []}
-                  loading={fileTree.loading && fileTree.projectId === activeProject?.id}
-                  errorText={fileTree.projectId === activeProject?.id ? fileTree.errorText : null}
-                  onRefresh={() => {
-                    void loadProjectFileTree(activeProject?.id ?? null);
-                  }}
-                />
-              ) : null}
-
-              {selectedUtilityPanel === "diff" ? (
-                <GitView
-                  compact
-                  git={snapshot.git}
-                  onRefresh={actions.refreshGitState}
-                  onSetBaseline={actions.setGitBaseline}
-                  onAddComment={actions.addGitComment}
-                  onRemoveComment={actions.removeGitComment}
-                />
-                ) : null}
-              </div>
-            </div>
             </section>
           ) : null}
 

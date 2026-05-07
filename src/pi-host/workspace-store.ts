@@ -12,6 +12,7 @@ const DEFAULT_STATE: WorkspaceState = {
   threadMetadataByProject: {},
   gitCommentsByProject: {},
   gitBaselineByProject: {},
+  studioSessionsByProject: {},
 };
 
 export class WorkspaceStore {
@@ -29,6 +30,7 @@ export class WorkspaceStore {
         threadMetadataByProject: parsed.threadMetadataByProject ?? {},
         gitCommentsByProject: parsed.gitCommentsByProject ?? {},
         gitBaselineByProject: parsed.gitBaselineByProject ?? {},
+        studioSessionsByProject: parsed.studioSessionsByProject ?? {},
       } satisfies WorkspaceState;
     } catch {
       return { ...DEFAULT_STATE };

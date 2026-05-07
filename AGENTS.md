@@ -4,15 +4,22 @@
 
 Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practical and avoid inventing a parallel system.
 
+Current baseline:
+
+* Pi Studio currently ships a Pi-native browser capability.
+* The old artifact and session-control systems were removed and should be treated as deleted, not as patterns to restore by default.
+* If artifacts or higher-level session orchestration come back, rebuild them against the current vision instead of reviving the old transcript-derived or parallel-runtime designs.
+
 ## Read First
 
 * [README.md](/home/angad/projects/pi-studio/README.md) explains usage.
 * [docs/ARCHITECTURE.md](/home/angad/projects/pi-studio/docs/ARCHITECTURE.md) explains the present structure.
 * [docs/VISION.md](/home/angad/projects/pi-studio/docs/VISION.md) explains the future direction.
+* Upstream Pi source lives at [badlogic/pi-mono](https://github.com/badlogic/pi-mono). When packaged docs are not enough, inspect the upstream Pi code path there too, especially `packages/coding-agent`.
 * When developing Pi extensions, skills, prompts, themes, or Pi SDK integrations, read the upstream Pi docs and examples first and follow relevant `.md` cross-references before implementing:
-  * [Pi SDK README](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/README.md)
-  * [Pi extensions docs](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/docs/extensions.md)
-  * [Pi extension examples](/home/angad/projects/pi-studio/node_modules/@mariozechner/pi-coding-agent/examples/extensions/README.md)
+  * [Pi SDK README](/home/angad/projects/pi-studio/node_modules/@earendil-works/pi-coding-agent/README.md)
+  * [Pi extensions docs](/home/angad/projects/pi-studio/node_modules/@earendil-works/pi-coding-agent/docs/extensions.md)
+  * [Pi extension examples](/home/angad/projects/pi-studio/node_modules/@earendil-works/pi-coding-agent/examples/extensions/README.md)
 
 ## Source Lanes
 
@@ -28,7 +35,11 @@ Pi Studio is a desktop client for Pi. Keep Pi behavior Pi-native whenever practi
 * Keep Pi SDK/runtime logic out of `src/shell/` and `src/surfaces/`.
 * Keep UI code out of `src/pi-host/`.
 * Prefer Pi-native extensions/resources over desktop-only behavior when the feature belongs to Pi behavior.
-* New Pi-facing functionality such as artifacts, browser control, session control, and similar agent capabilities must ship as Pi extensions/tools unless there is a clear documented reason not to.
+* Treat Pi-facing capabilities as Pi-native whenever practical. Agent-callable verbs such as browser control, artifact creation requests, delegation requests, and similar capabilities should usually ship as Pi extensions/tools unless there is a clear documented reason not to.
+* Do not force Pi extensions to become the source of truth for core desktop runtime concerns. Session orchestration, artifact persistence, routing, visibility, and UI state should stay host-owned unless there is a clear documented reason to model them inside Pi itself.
+* Do not reintroduce removed systems by inertia. If artifact workflows or multi-session orchestration return, design them from the current product vision and document the ownership split between host runtime, Pi extensions, and UI surfaces first.
+* Be minimal. Do not add new host-side plumbing, duplicate tool-discovery paths, meta tools, or parallel behavior when Pi already has a native mechanism for it.
+* Before adding functionality, check whether Pi already provides it through the tool registry, active tool list, extensions, skills, prompt snippets, prompt guidelines, commands, or another built-in surface. Reuse and configure what already exists before inventing anything new.
 * For extension or skill work, treat Pi docs and examples as required implementation context, not optional background reading.
 * Do not add new top-level lanes without updating `docs/ARCHITECTURE.md`.
 

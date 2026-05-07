@@ -3,6 +3,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Composer } from "../../src/surfaces/components/Composer";
 
+const DEFAULT_PLACEHOLDER = "Ask Pi to do something";
+
 describe("Composer", () => {
   it("submits on Enter and keeps Shift+Enter for newlines", () => {
     const onSubmit = vi.fn();
@@ -28,7 +30,7 @@ describe("Composer", () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText("Ask for follow-up changes");
+    const input = screen.getByPlaceholderText(DEFAULT_PLACEHOLDER);
 
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
@@ -157,7 +159,7 @@ describe("Composer", () => {
       />,
     );
 
-    const input = screen.getByPlaceholderText("Ask for follow-up changes");
+    const input = screen.getByPlaceholderText(DEFAULT_PLACEHOLDER);
     expect(input.className).toContain("bg-transparent");
     expect(input.className).toContain("border-transparent");
   });
@@ -225,7 +227,7 @@ describe("Composer", () => {
     expect(screen.getByRole("listbox", { name: "Slash commands" }).className).toContain("bottom-[calc(100%+0.5rem)]");
     expect(screen.getByRole("listbox", { name: "Slash commands" }).className).toContain("bg-popover");
 
-    fireEvent.keyDown(screen.getByPlaceholderText("Ask for follow-up changes"), { key: "Enter" });
+    fireEvent.keyDown(screen.getByPlaceholderText(DEFAULT_PLACEHOLDER), { key: "Enter" });
 
     expect(onValueChange).toHaveBeenCalledWith("/tree");
   });
