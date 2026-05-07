@@ -193,6 +193,7 @@ export function App() {
     if (!focusedGuiState?.projectId || !focusedGuiState.sessionFile) return null;
     return threadKey(focusedGuiState.projectId, focusedGuiState.sessionFile);
   }, [focusedGuiState?.projectId, focusedGuiState?.sessionFile]);
+  const hasWorkerSessions = workerSessions.length > 0;
 
   const selectedUtilityPanel = selectedThreadKey
     ? (utilityPanelByThread[selectedThreadKey] ?? "session")
@@ -428,7 +429,7 @@ export function App() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <h2 className="truncate text-[15px] font-semibold text-foreground">
-                      {focusedGuiState?.sessionTitle ?? "Session canvas"}
+                      {focusedSessionId ? focusedGuiState?.sessionTitle ?? "Session canvas" : "Session canvas"}
                     </h2>
                     {activeProject ? (
                       <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
@@ -513,23 +514,26 @@ export function App() {
                           }
                   }
                 >
-                  <div className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-3">
-                    <section className="session-canvas-shell min-h-0 overflow-hidden rounded-[32px] border border-border/60 bg-gradient-to-br from-card/94 via-card/86 to-background/96">
-                      <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-                        <div className="flex items-center justify-between gap-3 border-b border-border/55 px-4 py-3">
-                          <div>
-                            <h3 className="text-sm font-semibold">Worker sessions</h3>
-                            <p className="text-xs text-muted-foreground">
-                              Every card is a live Pi session with its own transcript and input bar.
-                            </p>
+                  <div
+                    className="grid min-h-0 min-w-0 gap-3"
+                    style={{ gridTemplateRows: hasWorkerSessions ? "minmax(0,1fr) auto" : "minmax(0,1fr) auto" }}
+                  >
+                    {hasWorkerSessions ? (
+                      <section className="session-canvas-shell min-h-0 overflow-hidden rounded-[32px] border border-border/60 bg-gradient-to-br from-card/94 via-card/86 to-background/96">
+                        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+                          <div className="flex items-center justify-between gap-3 border-b border-border/55 px-4 py-3">
+                            <div>
+                              <h3 className="text-sm font-semibold">Worker sessions</h3>
+                              <p className="text-xs text-muted-foreground">
+                                Every card is a live Pi session with its own transcript and input bar.
+                              </p>
+                            </div>
+                            <Button type="button" variant="secondary" size="sm" onClick={() => void actions.createThread(activeProject?.id ?? snapshot.activeProjectId ?? "")} disabled={!activeProject?.id && !snapshot.activeProjectId}>
+                              New session
+                            </Button>
                           </div>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => void actions.createThread(activeProject?.id ?? snapshot.activeProjectId ?? "")} disabled={!activeProject?.id && !snapshot.activeProjectId}>
-                            New session
-                          </Button>
-                        </div>
 
-                        <div className="min-h-0 overflow-y-auto px-4 py-4">
-                          {workerSessions.length > 0 ? (
+                          <div className="min-h-0 overflow-y-auto px-4 py-4">
                             <div className="grid min-h-full auto-rows-[minmax(460px,1fr)] gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))" }}>
                               {workerSessions.map(({ summary, gui }) => (
                                 <SessionCard
@@ -552,19 +556,12 @@ export function App() {
                                 />
                               ))}
                             </div>
-                          ) : (
-                            <div className="flex h-full min-h-[320px] items-center justify-center text-center">
-                              <div className="max-w-md px-6">
-                                <h3 className="text-base font-semibold">Open a worker session</h3>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                  Create a new session from the canvas or open one from the project sidebar.
-                                </p>
-                              </div>
-                            </div>
-                          )}
+                          </div>
                         </div>
-                      </div>
-                    </section>
+                      </section>
+                    ) : (
+                      <div className="min-h-0" aria-hidden="true" />
+                    )}
 
                     <section className="workspace-panel rounded-[30px] border border-border/70 px-4 py-4 shadow-sm">
                       <div className="mb-3 flex items-start justify-between gap-3">
@@ -647,7 +644,7 @@ export function App() {
                     />
                   ) : null}
 
-                  {selectedUtilityPanel === "session" && focusedGuiState ? (
+                  {selectedUtilityPanel === "session" && focusedSessionId && focusedGuiState && focusedGuiState.sessionFile ? (
                     <div className="min-h-0 min-w-0 overflow-hidden rounded-[28px] border border-border/60 bg-background/70">
                       <div className="border-b border-border/55 px-4 py-3">
                         <div className="text-sm font-semibold">{focusedGuiState.sessionTitle}</div>

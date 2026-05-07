@@ -167,7 +167,6 @@ const FILE_TREE_DEPTH_LIMIT = 4;
 const FILE_TREE_IGNORES = new Set([".git", "node_modules", "out", "dist", ".next"]);
 const SEARCH_RESULT_LIMIT = 50;
 const CONTROLLER_SESSION_ID = "controller";
-const DEFAULT_WORKER_SESSION_ID = "worker-1";
 const CONTROLLER_SESSION_ROOT = path.join(getAgentDir(), "pi-studio", "controllers");
 const BUILTIN_SLASH_COMMANDS = [
   { name: "settings", description: "Open settings menu" },
@@ -222,14 +221,14 @@ export class StudioHost {
   private threadCache: ProjectThreadsMap = {};
   private projectGitInfo: Record<string, ProjectGitInfo> = {};
   private guiSessions: Record<string, GuiSessionRuntime> = {};
-  private activeGuiSessionId = DEFAULT_WORKER_SESSION_ID;
+  private activeGuiSessionId: string | null = null;
   private currentSession: any = null;
   private currentResourceLoader: any = null;
   private resourceLoadersByProject: Record<string, Partial<Record<ResourceLoaderProfile, any>>> = {};
   private resourceLoaderLastReloadMsByProject: Record<string, Partial<Record<ResourceLoaderProfile, number>>> = {};
   private currentProjectPath: string | null = null;
   private currentSessionFile: string | null = null;
-  private currentSessionTitle = "New thread";
+  private currentSessionTitle = "Session canvas";
   private guiMessages = [] as StudioSnapshot["gui"]["messages"];
   private guiStreaming = false;
   private guiStatusText: string | null = null;
@@ -336,7 +335,8 @@ export class StudioHost {
     return false;
   }
 
-  private getGuiRuntime(sessionId = this.activeGuiSessionId) {
+  private getGuiRuntime(sessionId: string | null = this.activeGuiSessionId) {
+    if (!sessionId) return null;
     return this.guiSessions[sessionId] ?? null;
   }
 
@@ -411,9 +411,6 @@ export class StudioHost {
       studioState.sessionFilesBySessionId[sessionId] = sessionFile;
     }
 
-    if (!studioState.focusedSessionId) {
-      studioState.focusedSessionId = sessionId;
-    }
   }
 
   private forgetWorkerSession(projectId: string, sessionId: string) {
@@ -422,8 +419,23 @@ export class StudioHost {
     delete studioState.sessionFilesBySessionId[sessionId];
 
     if (studioState.focusedSessionId === sessionId) {
-      studioState.focusedSessionId = studioState.workerSessionOrder[0] ?? null;
+      studioState.focusedSessionId = null;
     }
+  }
+
+  private clearLegacyGuiState(projectPath: string | null = null) {
+    this.currentSession = null;
+    this.currentResourceLoader = null;
+    this.currentProjectPath = projectPath;
+    this.currentSessionFile = null;
+    this.currentSessionTitle = "Session canvas";
+    this.guiMessages = [];
+    this.guiStreaming = false;
+    this.guiStatusText = null;
+    this.guiErrorText = null;
+    this.resourceSummary = emptyResourceSummary();
+    this.currentModel = null;
+    this.pendingAttachments = [];
   }
 
   private disposeGuiRuntime(sessionId: string) {
@@ -451,11 +463,17 @@ export class StudioHost {
       this.disposeGuiRuntime(sessionId);
     }
 
-    if (!this.guiSessions[this.activeGuiSessionId]) {
+    if (!this.activeGuiSessionId || !this.guiSessions[this.activeGuiSessionId]) {
       const studioState = this.workspaceState.activeProjectId
         ? this.getStudioProjectState(this.workspaceState.activeProjectId)
         : null;
-      this.activeGuiSessionId = studioState?.focusedSessionId ?? DEFAULT_WORKER_SESSION_ID;
+      this.activeGuiSessionId = studioState?.focusedSessionId ?? null;
+      if (this.activeGuiSessionId) {
+        this.syncLegacyGuiStateFromRuntime(this.activeGuiSessionId);
+      } else {
+        const activeProject = this.getActiveProject();
+        this.clearLegacyGuiState(activeProject?.path ?? null);
+      }
     }
   }
 
@@ -468,7 +486,8 @@ export class StudioHost {
     );
   }
 
-  private syncLegacyGuiStateFromRuntime(sessionId = this.activeGuiSessionId) {
+  private syncLegacyGuiStateFromRuntime(sessionId: string | null = this.activeGuiSessionId) {
+    if (!sessionId) return;
     const runtime = this.guiSessions[sessionId];
     if (!runtime) return;
 
@@ -542,26 +561,18 @@ export class StudioHost {
         .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0),
     );
 
-    if (restoredWorkerIds.length === 0) {
-      const sessionId = this.nextWorkerSessionId(project.id);
-      await this.openSessionForProject(project, {
-        sessionId,
-        role: "worker",
-        options: { kind: "continue" },
-      });
-      restoredWorkerIds.push(sessionId);
-    }
-
     const focusedSessionId =
       (studioState.focusedSessionId && restoredWorkerIds.includes(studioState.focusedSessionId))
         ? studioState.focusedSessionId
-        : restoredWorkerIds[0] ?? null;
+        : null;
 
     studioState.focusedSessionId = focusedSessionId;
-    this.activeGuiSessionId = focusedSessionId ?? DEFAULT_WORKER_SESSION_ID;
+    this.activeGuiSessionId = focusedSessionId;
 
     if (focusedSessionId) {
       this.syncLegacyGuiStateFromRuntime(focusedSessionId);
+    } else {
+      this.clearLegacyGuiState(project.path);
     }
 
     await this.persistWorkspace();
@@ -577,6 +588,11 @@ export class StudioHost {
     });
 
     this.workspaceState = state;
+    for (const studioState of Object.values(this.workspaceState.studioSessionsByProject)) {
+      studioState.focusedSessionId = null;
+      studioState.workerSessionOrder = [];
+      studioState.sessionFilesBySessionId = {};
+    }
 
     if ((this.workspaceState.activeMode as string) === "cockpit") {
       this.workspaceState.activeMode = "gui";
@@ -622,7 +638,7 @@ export class StudioHost {
     });
 
     const runtimeToGuiState = (runtime: GuiSessionRuntime | null) => ({
-      sessionId: runtime?.id ?? DEFAULT_WORKER_SESSION_ID,
+      sessionId: runtime?.id ?? "",
       projectId: runtime?.projectId || null,
       sessionFile: runtime?.sessionFile ?? null,
       sessionTitle: runtime?.sessionTitle ?? "New thread",
@@ -648,7 +664,6 @@ export class StudioHost {
     const activeRuntime =
       this.getGuiRuntime(this.activeGuiSessionId) ??
       (studioProjectState?.focusedSessionId ? this.getGuiRuntime(studioProjectState.focusedSessionId) : null) ??
-      workerSessionEntries[0]?.[1] ??
       null;
 
     return {
@@ -723,8 +738,8 @@ export class StudioHost {
           ...sourceRuntime,
           availableModels: this.availableModels,
           streamingBehaviorPreference: this.streamingBehaviorPreference,
-          sessionId: activeRuntime?.id ?? this.activeGuiSessionId,
-          activeSessionId: activeRuntime?.id ?? this.activeGuiSessionId,
+          sessionId: activeRuntime?.id ?? "",
+          activeSessionId: activeRuntime?.id ?? undefined,
           sessions: Object.fromEntries(
             workerSessionEntries.map(([sessionId, runtime]) => [
               sessionId,
@@ -942,8 +957,8 @@ export class StudioHost {
       }
     }
 
-    if (!this.guiSessions[this.activeGuiSessionId]) {
-      this.activeGuiSessionId = DEFAULT_WORKER_SESSION_ID;
+    if (!this.activeGuiSessionId || !this.guiSessions[this.activeGuiSessionId]) {
+      this.activeGuiSessionId = null;
     }
 
     if (removedActive) {
@@ -1094,13 +1109,8 @@ export class StudioHost {
       if (nextFocusedId && this.guiSessions[nextFocusedId]) {
         this.focusWorkerSession(project.id, nextFocusedId);
       } else {
-        const replacementSessionId = this.nextWorkerSessionId(project.id);
-        await this.openSessionForProject(project, {
-          sessionId: replacementSessionId,
-          role: "worker",
-          options: { kind: "continue" },
-        });
-        this.focusWorkerSession(project.id, replacementSessionId);
+        this.activeGuiSessionId = null;
+        this.clearLegacyGuiState(project.path);
       }
     }
 
@@ -1281,9 +1291,10 @@ export class StudioHost {
     const project = this.workspaceState.projects.find((entry) => entry.id === projectId);
     if (!project) return this.getSnapshot();
 
+    const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId);
     const deletingActiveThread =
-      this.guiSessions[this.activeGuiSessionId]?.projectId === projectId &&
-      this.guiSessions[this.activeGuiSessionId]?.sessionFile === sessionFile;
+      activeRuntime?.projectId === projectId &&
+      activeRuntime?.sessionFile === sessionFile;
 
     await this.disposeGuiRuntimesForThread(projectId, sessionFile);
     this.stopTuiSessionsForThread(projectId, sessionFile);
@@ -1312,14 +1323,8 @@ export class StudioHost {
       if (nextSessionId && this.guiSessions[nextSessionId]) {
         this.focusWorkerSession(project.id, nextSessionId);
       } else {
-        const workerSessionId = this.nextWorkerSessionId(project.id);
-        const nextThread = (this.threadCache[project.id] ?? [])[0] ?? null;
-        await this.openSessionForProject(project, {
-          sessionId: workerSessionId,
-          role: "worker",
-          options: nextThread ? { kind: "open", sessionFile: nextThread.sessionFile } : { kind: "new" },
-        });
-        this.focusWorkerSession(project.id, workerSessionId);
+        this.activeGuiSessionId = null;
+        this.clearLegacyGuiState(project.path);
       }
     }
 
@@ -1362,7 +1367,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  private async refreshSlashCommands(sessionId = this.activeGuiSessionId) {
+  private async refreshSlashCommands(sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session) return;
 
@@ -1418,12 +1423,13 @@ export class StudioHost {
     this.emitSnapshot();
   }
 
-  async runSlashCommand(text: string, sessionId = this.activeGuiSessionId): Promise<RunSlashCommandResult> {
+  async runSlashCommand(text: string, sessionId: string | null = this.activeGuiSessionId): Promise<RunSlashCommandResult> {
     const runtime = this.getGuiRuntime(sessionId);
     const commandText = text.trim();
     if (!runtime?.session || !commandText.startsWith("/")) {
       return { handled: false };
     }
+    const runtimeSessionId = runtime.id;
 
     const [, rawCommand = "", rawArgs = ""] = commandText.match(/^\/(\S+)(?:\s+(.*))?$/) ?? [];
     const command = rawCommand.toLowerCase();
@@ -1442,15 +1448,15 @@ export class StudioHost {
         case "new": {
           const projectId = runtime.projectId || this.workspaceState.activeProjectId;
           if (!projectId) {
-            this.setRuntimeStatus(runtime, { errorText: "No active project for /new." }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "No active project for /new." }, runtimeSessionId);
             return { handled: true, errorText: "No active project for /new." };
           }
-          await this.createThread(projectId, sessionId);
+          await this.createThread(projectId, runtimeSessionId);
           return { handled: true, statusText: "Started a new session." };
         }
         case "name": {
           if (!args) {
-            this.setRuntimeStatus(runtime, { errorText: "Usage: /name <new name>" }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /name <new name>" }, runtimeSessionId);
             return { handled: true, errorText: "Usage: /name <new name>" };
           }
           runtime.session.setSessionName?.(args);
@@ -1461,7 +1467,7 @@ export class StudioHost {
               await this.refreshProjectThreads(project);
             }
           }
-          this.setRuntimeStatus(runtime, { statusText: `Renamed session to ${args}.`, errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: `Renamed session to ${args}.`, errorText: null }, runtimeSessionId);
           return { handled: true, statusText: `Renamed session to ${args}.` };
         }
         case "session": {
@@ -1469,18 +1475,18 @@ export class StudioHost {
           const summary = stats
             ? `Session: ${runtime.sessionTitle} | ${stats.totalMessages ?? 0} messages | ${stats.userMessages ?? 0} user | ${stats.assistantMessages ?? 0} assistant`
             : `Session: ${runtime.sessionTitle}`;
-          this.setRuntimeStatus(runtime, { statusText: summary, errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: summary, errorText: null }, runtimeSessionId);
           return { handled: true, statusText: summary };
         }
         case "compact": {
           await runtime.session.compact?.(args || undefined);
-          await this.refreshSlashCommands(sessionId);
-          this.setRuntimeStatus(runtime, { statusText: "Session compacted.", errorText: null }, sessionId);
+          await this.refreshSlashCommands(runtimeSessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Session compacted.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Session compacted." };
         }
         case "copy": {
           clipboard.writeText(runtime.session.getLastAssistantText?.() ?? "");
-          this.setRuntimeStatus(runtime, { statusText: "Copied last assistant message.", errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Copied last assistant message.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Copied last assistant message." };
         }
         case "export": {
@@ -1494,54 +1500,54 @@ export class StudioHost {
           } else {
             await runtime.session.exportToHtml?.(outputPath);
           }
-          this.setRuntimeStatus(runtime, { statusText: `Exported session to ${outputPath}.`, errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: `Exported session to ${outputPath}.`, errorText: null }, runtimeSessionId);
           return { handled: true, statusText: `Exported session to ${outputPath}.` };
         }
         case "reload": {
           await runtime.session.reload?.();
-          await this.refreshSlashCommands(sessionId);
+          await this.refreshSlashCommands(runtimeSessionId);
           runtime.resourceSummary = this.readResourceSummary(runtime.resourceLoader);
-          this.setRuntimeStatus(runtime, { statusText: "Reloaded session resources.", errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Reloaded session resources.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Reloaded session resources.", slashCommands: runtime.slashCommands };
         }
         case "fork": {
           if (!runtime.projectId || !runtime.sessionFile) {
-            this.setRuntimeStatus(runtime, { errorText: "No active session to fork." }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "No active session to fork." }, runtimeSessionId);
             return { handled: true, errorText: "No active session to fork." };
           }
           const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
           if (!project) {
-            this.setRuntimeStatus(runtime, { errorText: "Project missing for /fork." }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Project missing for /fork." }, runtimeSessionId);
             return { handled: true, errorText: "Project missing for /fork." };
           }
           const forkedManager = SessionManager.forkFrom(runtime.sessionFile, project.path);
           const forkedSessionFile = forkedManager.getSessionFile();
           if (!forkedSessionFile) {
-            this.setRuntimeStatus(runtime, { errorText: "Forked session file was not created." }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Forked session file was not created." }, runtimeSessionId);
             return { handled: true, errorText: "Forked session file was not created." };
           }
           await this.openSessionForProject(project, {
-            sessionId,
+            sessionId: runtimeSessionId,
             role: runtime.role,
             options: { kind: "open", sessionFile: forkedSessionFile },
             sessionDir: runtime.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
           });
-          this.setRuntimeStatus(this.getGuiRuntime(sessionId) ?? runtime, { statusText: "Forked current session.", errorText: null }, sessionId);
+          this.setRuntimeStatus(this.getGuiRuntime(runtimeSessionId) ?? runtime, { statusText: "Forked current session.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Forked current session." };
         }
         case "resume": {
           if (!args) {
-            this.setRuntimeStatus(runtime, { errorText: "Usage: /resume <session file>" }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /resume <session file>" }, runtimeSessionId);
             return { handled: true, errorText: "Usage: /resume <session file>" };
           }
           const targetPath = path.resolve(runtime.projectPath, args);
           const project = this.workspaceState.projects.find((entry) => entry.id === runtime.projectId);
           if (!project) {
-            this.setRuntimeStatus(runtime, { errorText: "Project missing for /resume." }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Project missing for /resume." }, runtimeSessionId);
             return { handled: true, errorText: "Project missing for /resume." };
           }
           await this.openSessionForProject(project, {
-            sessionId,
+            sessionId: runtimeSessionId,
             role: runtime.role,
             options: { kind: "open", sessionFile: targetPath },
             sessionDir: runtime.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
@@ -1550,24 +1556,24 @@ export class StudioHost {
         }
         case "import": {
           if (!args) {
-            this.setRuntimeStatus(runtime, { errorText: "Usage: /import <jsonl file>" }, sessionId);
+            this.setRuntimeStatus(runtime, { errorText: "Usage: /import <jsonl file>" }, runtimeSessionId);
             return { handled: true, errorText: "Usage: /import <jsonl file>" };
           }
           await runtime.session._runtime?.importFromJsonl?.(args);
-          await this.refreshSlashCommands(sessionId);
-          this.setRuntimeStatus(runtime, { statusText: "Imported session file.", errorText: null }, sessionId);
+          await this.refreshSlashCommands(runtimeSessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Imported session file.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Imported session file." };
         }
         case "hotkeys":
-          this.setRuntimeStatus(runtime, { statusText: "Hotkeys: Ctrl+L mode, Ctrl+T tools, Ctrl+G external editor, /tree for branches.", errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "Hotkeys: Ctrl+L mode, Ctrl+T tools, Ctrl+G external editor, /tree for branches.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Hotkeys: Ctrl+L mode, Ctrl+T tools, Ctrl+G external editor, /tree for branches." };
         case "changelog":
-          this.setRuntimeStatus(runtime, { statusText: "See the local Pi CHANGELOG.md for release notes.", errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: "See the local Pi CHANGELOG.md for release notes.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "See the local Pi CHANGELOG.md for release notes." };
         case "share":
         case "login":
         case "logout":
-          this.setRuntimeStatus(runtime, { statusText: `/${command} is not wired into the GUI yet. Use TUI for the full interactive flow.`, errorText: null }, sessionId);
+          this.setRuntimeStatus(runtime, { statusText: `/${command} is not wired into the GUI yet. Use TUI for the full interactive flow.`, errorText: null }, runtimeSessionId);
           return { handled: true, statusText: `/${command} is not wired into the GUI yet.` };
         case "quit":
           app.quit();
@@ -1578,18 +1584,18 @@ export class StudioHost {
             source: "interactive",
             ...(runtime.session.isStreaming ? { streamingBehavior: this.streamingBehaviorPreference } : {}),
           });
-          await this.refreshSlashCommands(sessionId);
+          await this.refreshSlashCommands(runtimeSessionId);
           this.emitSnapshot();
           return { handled: true, slashCommands: runtime.slashCommands };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.setRuntimeStatus(runtime, { errorText: message }, sessionId);
+      this.setRuntimeStatus(runtime, { errorText: message }, runtimeSessionId);
       return { handled: true, errorText: message };
     }
   }
 
-  async sendPrompt(text: string, sessionId = this.activeGuiSessionId) {
+  async sendPrompt(text: string, sessionId: string | null = this.activeGuiSessionId) {
     const message = text.trim();
     const runtime = this.getGuiRuntime(sessionId);
     if (!message || !runtime?.session) return this.getSnapshot();
@@ -1598,7 +1604,7 @@ export class StudioHost {
 
     const isSlashCommand = /^\/\S+/.test(message);
     if (isSlashCommand) {
-      return this.runSlashCommand(message, sessionId).then(() => this.getSnapshot());
+      return this.runSlashCommand(message, runtime.id).then(() => this.getSnapshot());
     }
 
     const attachments = runtime.attachments.map((entry) => entry.path);
@@ -1629,7 +1635,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async abortPrompt(sessionId = this.activeGuiSessionId) {
+  async abortPrompt(sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session) {
       return this.getSnapshot();
@@ -1657,7 +1663,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async pickAttachments(sessionId = this.activeGuiSessionId) {
+  async pickAttachments(sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime) return this.getSnapshot();
 
@@ -1694,7 +1700,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async removeAttachment(attachmentId: string, sessionId = this.activeGuiSessionId) {
+  async removeAttachment(attachmentId: string, sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime) return this.getSnapshot();
 
@@ -1708,7 +1714,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async clearAttachments(sessionId = this.activeGuiSessionId) {
+  async clearAttachments(sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime) return this.getSnapshot();
 
@@ -1722,7 +1728,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async setModel(provider: string, modelId: string, sessionId = this.activeGuiSessionId) {
+  async setModel(provider: string, modelId: string, sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session) return this.getSnapshot();
 
@@ -1751,7 +1757,7 @@ export class StudioHost {
     return this.getSnapshot();
   }
 
-  async setThinkingLevel(level: string, sessionId = this.activeGuiSessionId) {
+  async setThinkingLevel(level: string, sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session) return this.getSnapshot();
 
@@ -2101,7 +2107,7 @@ export class StudioHost {
     return results;
   }
 
-  async getSessionTree(sessionId = this.activeGuiSessionId): Promise<SessionTreeSnapshot> {
+  async getSessionTree(sessionId: string | null = this.activeGuiSessionId): Promise<SessionTreeSnapshot> {
     const runtime = this.getGuiRuntime(sessionId);
     const sessionManager = runtime?.session?.sessionManager;
     if (!sessionManager || typeof sessionManager.getTree !== "function") {
@@ -2123,7 +2129,7 @@ export class StudioHost {
   async navigateTree(
     targetId: string,
     options?: NavigateTreeOptions,
-    sessionId = this.activeGuiSessionId,
+    sessionId: string | null = this.activeGuiSessionId,
   ): Promise<NavigateTreeResult> {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session || !targetId) {
@@ -2453,7 +2459,7 @@ export class StudioHost {
     }
   }
 
-  private syncSessionState(sessionId = this.activeGuiSessionId) {
+  private syncSessionState(sessionId: string | null = this.activeGuiSessionId) {
     const runtime = this.getGuiRuntime(sessionId);
     if (!runtime?.session) return;
 
@@ -2466,7 +2472,7 @@ export class StudioHost {
     );
 
     if (runtime.role === "worker" && runtime.sessionFile) {
-      this.recordWorkerSession(runtime.projectId, sessionId, runtime.sessionFile);
+      this.recordWorkerSession(runtime.projectId, runtime.id, runtime.sessionFile);
     }
 
     if (runtime.role === "worker" && runtime.usePiStudioBuiltins && runtime.sessionFile) {

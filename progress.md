@@ -41,7 +41,7 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - [x] Expose controller/worker state through shared snapshot types
 - [x] Rebuild GUI into a multi-session canvas
 - [x] Add tests and docs
-- [ ] Run checks, commit, and push
+- [x] Run checks, commit, and push
 
 ## Progress Log
 
@@ -49,3 +49,4 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - 2026-05-08: Added the first shared and host-side session architecture pass. `WorkspaceState` now persists project-scoped open worker metadata, a new Pi Studio `session` extension/skill exists, and `StudioHost` now restores a dedicated controller session plus visible worker sessions per project while exposing create/focus/send/close/list behavior through one host-owned runtime.
 - 2026-05-08: Rebuilt the main GUI shell around a multi-session canvas. Worker sessions now render as live chat-style cards with their own composers, the right-side utility panel now includes a session view, and the bottom master composer is wired to the controller session while preserving the top-right utility controls and the existing sidebar shell.
 - 2026-05-08: Finished the verification pass and tightened the new UI tests to match the richer live-session layout. Checks now pass in the Windows desktop workspace with `npm run typecheck`, `npm run test`, `npm run build`, and `npm link`.
+- 2026-05-08: Adjusted the session lifecycle to match the intended UX more closely. Pi Studio now starts with only the master session visible, no worker is auto-restored or auto-focused, and closing the focused worker clears focus instead of silently switching to another one.

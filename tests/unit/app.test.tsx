@@ -197,6 +197,25 @@ const snapshot: StudioSnapshot = {
   },
 };
 
+const blankSnapshot: StudioSnapshot = {
+  ...snapshot,
+  studio: {
+    projectId: "p1",
+    controllerSessionId: "controller",
+    focusedSessionId: null,
+    workerSessionIds: [],
+    sessions: {},
+  },
+  gui: {
+    ...makeGuiState("", "Session canvas", ""),
+    projectId: "p1",
+    sessionFile: null,
+    cwd: "/tmp/demo",
+    activeSessionId: undefined,
+    sessions: {},
+  },
+};
+
 const projectTree: FileTreeNode[] = [
   {
     name: "src",
@@ -284,6 +303,20 @@ describe("App", () => {
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
       expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
+    });
+  });
+
+  it("starts with only the master session when no workers are open", async () => {
+    const bridge = (window as { piStudio?: DesktopBridge }).piStudio!;
+    bridge.bootstrap = vi.fn().mockResolvedValue(blankSnapshot);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Master session")).toBeInTheDocument();
+      expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Focused:/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Toggle session panel" })).toBeDisabled();
     });
   });
 
