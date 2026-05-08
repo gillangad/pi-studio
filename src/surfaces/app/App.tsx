@@ -1,6 +1,6 @@
 import { FolderTree, Globe, TerminalSquare } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FileTreeNode, GuiState, StudioSessionSummary } from "../../shared/types";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import type { FileTreeNode, GuiState, ProjectRecord, StudioSessionSummary } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
 import { BrowserPanel } from "../components/BrowserPanel";
 import { Composer } from "../components/Composer";
@@ -17,11 +17,18 @@ type StudioTheme = "dark" | "light";
 type BrowserUrlByProject = Record<string, string>;
 type WorkspaceUtilityPanel = "browser" | "terminal" | "files" | "diff";
 type UtilityPanelByProject = Record<string, WorkspaceUtilityPanel | null>;
+type ProjectColumnUnits = Record<string, number>;
 type FileTreeState = {
   projectId: string | null;
   nodes: FileTreeNode[];
   loading: boolean;
   errorText: string | null;
+};
+type WorkerSessionEntry = { summary: StudioSessionSummary; gui: GuiState };
+type ProjectSessionGroup = {
+  project: ProjectRecord;
+  sessions: WorkerSessionEntry[];
+  accent: string;
 };
 
 const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
@@ -30,6 +37,10 @@ const SIDEBAR_COLLAPSED_WIDTH = 74;
 const UTILITY_PANEL_MIN_WIDTH = 340;
 const UTILITY_PANEL_MAX_WIDTH = 920;
 const BROWSER_PANEL_MIN_WIDTH = 420;
+const SESSION_COLUMN_MIN_UNITS = 90;
+const SESSION_COLUMN_MAX_UNITS = 320;
+const SESSION_COLUMN_UNIT_PIXELS = 4;
+const PROJECT_ACCENTS = ["#4f9cf9", "#f28c28", "#2aa876", "#e05d5d", "#b06cf7", "#d4a72c"];
 
 function projectKey(projectId: string) {
   return `project::${projectId}`;
@@ -103,6 +114,26 @@ function readJsonRecord<T extends Record<string, unknown>>(key: string): T {
   }
 }
 
+function clampProjectColumnUnits(units: number) {
+  return Math.min(SESSION_COLUMN_MAX_UNITS, Math.max(SESSION_COLUMN_MIN_UNITS, units));
+}
+
+function readInitialProjectColumnUnits() {
+  return readJsonRecord<ProjectColumnUnits>("pi-studio-project-column-units");
+}
+
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function colorForProject(projectId: string) {
+  return PROJECT_ACCENTS[hashString(projectId) % PROJECT_ACCENTS.length] ?? PROJECT_ACCENTS[0];
+}
+
 export function App() {
   const { snapshot, bootstrapError, actions } = useStudioState();
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
@@ -111,6 +142,7 @@ export function App() {
   const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
   const [controllerComposerValue, setControllerComposerValue] = useState("");
   const [controllerAgentMenuOpen, setControllerAgentMenuOpen] = useState(false);
+  const [projectColumnUnits, setProjectColumnUnits] = useState<ProjectColumnUnits>(readInitialProjectColumnUnits);
   const [utilityPanelByProject, setUtilityPanelByProject] = useState<UtilityPanelByProject>(() =>
     readJsonRecord<UtilityPanelByProject>("pi-studio-utility-panel-by-project"),
   );
@@ -150,6 +182,10 @@ export function App() {
   }, [browserUrlByProject]);
 
   useEffect(() => {
+    window.localStorage.setItem("pi-studio-project-column-units", JSON.stringify(projectColumnUnits));
+  }, [projectColumnUnits]);
+
+  useEffect(() => {
     if (!snapshot) return;
 
     if (snapshot.activeMode === "extensions" || snapshot.activeMode === "skills") {
@@ -165,14 +201,14 @@ export function App() {
 
   const focusedGuiState = snapshot?.gui ?? null;
   const controllerState = snapshot?.controller ?? null;
-  const activeProjectId = focusedGuiState?.projectId ?? snapshot?.activeProjectId ?? null;
+  const activeProjectId = snapshot?.activeProjectId ?? null;
   const activeProject = useMemo(
     () => snapshot?.projects.find((project) => project.id === activeProjectId) ?? null,
     [activeProjectId, snapshot],
   );
 
   const workerSessions = useMemo(() => {
-    if (!snapshot) return [] as Array<{ summary: StudioSessionSummary; gui: GuiState }>;
+    if (!snapshot) return [] as WorkerSessionEntry[];
 
     return snapshot.studio.workerSessionIds
       .map((sessionId) => {
@@ -186,6 +222,25 @@ export function App() {
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   }, [snapshot]);
+
+  const projectSessionGroups = useMemo(() => {
+    if (!snapshot) return [] as ProjectSessionGroup[];
+
+    return snapshot.projects
+      .map((project) => {
+        const sessions = workerSessions.filter(({ summary }) => summary.projectId === project.id);
+        if (sessions.length === 0) {
+          return null;
+        }
+
+        return {
+          project,
+          sessions,
+          accent: colorForProject(project.id),
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  }, [snapshot, workerSessions]);
 
   const selectedProjectKey = activeProjectId ? projectKey(activeProjectId) : null;
   const hasWorkerSessions = workerSessions.length > 0;
@@ -237,6 +292,29 @@ export function App() {
     }
   }, [actions, selectedUtilityPanel]);
 
+  useEffect(() => {
+    if (projectSessionGroups.length === 0) return;
+
+    setProjectColumnUnits((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      for (const group of projectSessionGroups) {
+        if (next[group.project.id]) continue;
+        next[group.project.id] = clampProjectColumnUnits(group.sessions.length * 110);
+        changed = true;
+      }
+
+      for (const projectId of Object.keys(next)) {
+        if (projectSessionGroups.some((group) => group.project.id === projectId)) continue;
+        delete next[projectId];
+        changed = true;
+      }
+
+      return changed ? next : current;
+    });
+  }, [projectSessionGroups]);
+
   const openGuiThread = useCallback(
     (projectId: string, sessionFile: string) => {
       void actions.openThread(projectId, sessionFile);
@@ -268,6 +346,14 @@ export function App() {
 
   const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
   const hasSideUtilityPanel = Boolean(selectedUtilityPanel && selectedUtilityPanel !== "terminal");
+  const totalProjectColumnUnits = useMemo(
+    () =>
+      projectSessionGroups.reduce(
+        (sum, group) => sum + (projectColumnUnits[group.project.id] ?? clampProjectColumnUnits(group.sessions.length * 110)),
+        0,
+      ),
+    [projectColumnUnits, projectSessionGroups],
+  );
 
   const startSidebarResize = useCallback(
     (pointerStartX: number) => {
@@ -311,6 +397,36 @@ export function App() {
       window.addEventListener("pointerup", handleEnd);
     },
     [hasSideUtilityPanel, selectedUtilityPanel, utilityPanelWidth],
+  );
+
+  const startProjectColumnResize = useCallback(
+    (leftProjectId: string, rightProjectId: string, pointerStartX: number) => {
+      const leftAtStart = projectColumnUnits[leftProjectId] ?? SESSION_COLUMN_MIN_UNITS;
+      const rightAtStart = projectColumnUnits[rightProjectId] ?? SESSION_COLUMN_MIN_UNITS;
+      const combined = leftAtStart + rightAtStart;
+
+      const handleMove = (event: PointerEvent) => {
+        const deltaUnits = (event.clientX - pointerStartX) / SESSION_COLUMN_UNIT_PIXELS;
+        const nextLeft = clampProjectColumnUnits(leftAtStart + deltaUnits);
+        const nextRight = clampProjectColumnUnits(combined - nextLeft);
+        const stabilizedLeft = clampProjectColumnUnits(combined - nextRight);
+
+        setProjectColumnUnits((current) => ({
+          ...current,
+          [leftProjectId]: stabilizedLeft,
+          [rightProjectId]: nextRight,
+        }));
+      };
+
+      const handleEnd = () => {
+        window.removeEventListener("pointermove", handleMove);
+        window.removeEventListener("pointerup", handleEnd);
+      };
+
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleEnd);
+    },
+    [projectColumnUnits],
   );
 
   const sendControllerPrompt = useCallback(() => {
@@ -417,21 +533,13 @@ export function App() {
       <section className="relative flex min-w-0 flex-1">
         <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
           {isWorkspaceMode ? (
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="GUI workspace">
-              <header className="flex items-center justify-between gap-3 px-5 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate text-[15px] font-semibold text-foreground">Session canvas</h2>
-                    {activeProject ? (
-                      <span className="truncate text-[14px] text-muted-foreground">{activeProject.name}</span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="truncate">{activeProject?.path ?? focusedGuiState?.cwd ?? "No project"}</span>
-                    <span className="rounded-full bg-muted/70 px-2 py-0.5 text-[11px]">
-                      {workerSessions.length} sessions
-                    </span>
-                  </div>
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="Canvas">
+              <header className="flex items-center justify-end gap-3 px-5 py-3">
+                <div
+                  className="min-w-0 max-w-[52%] truncate rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground"
+                  title={controllerState?.cwd ?? snapshot.settings.masterSessionPath ?? "No master directory"}
+                >
+                  {controllerState?.cwd ?? snapshot.settings.masterSessionPath ?? "No master directory"}
                 </div>
 
                 <div className="flex items-center gap-1">
@@ -495,40 +603,106 @@ export function App() {
                   >
                     {hasWorkerSessions ? (
                       <section className="session-canvas-shell min-h-0 overflow-hidden rounded-[32px] border border-border/60 bg-gradient-to-br from-card/94 via-card/86 to-background/96">
-                        <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-                          <div className="flex items-center justify-between gap-3 border-b border-border/55 px-4 py-3">
-                            <div>
-                              <h3 className="text-sm font-semibold">Worker sessions</h3>
-                              <p className="text-xs text-muted-foreground">
-                                Every card is a live Pi session with its own transcript and input bar.
-                              </p>
-                            </div>
-                            <Button type="button" variant="secondary" size="sm" onClick={() => void actions.createThread(activeProject?.id ?? snapshot.activeProjectId ?? "")} disabled={!activeProject?.id && !snapshot.activeProjectId}>
-                              New session
-                            </Button>
-                          </div>
+                        <div className="h-full min-h-0 overflow-auto px-4 py-4">
+                          <div className="flex min-h-full items-stretch gap-4">
+                            {projectSessionGroups.map((group, index) => {
+                              const units =
+                                projectColumnUnits[group.project.id] ??
+                                clampProjectColumnUnits(group.sessions.length * 110);
+                              const nextGroup = projectSessionGroups[index + 1] ?? null;
 
-                          <div className="min-h-0 overflow-y-auto px-4 py-4">
-                            <div className="grid min-h-full auto-rows-[minmax(460px,1fr)] gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))" }}>
-                              {workerSessions.map(({ summary, gui }) => (
-                                <SessionCard
-                                  key={summary.sessionId}
-                                  summary={summary}
-                                  gui={gui}
-                                  onClose={() => void actions.closeSession(summary.sessionId)}
-                                  onSendPrompt={actions.sendPrompt}
-                                  onAbort={actions.abortPrompt}
-                                  onSetModel={actions.setModel}
-                                  onSetThinkingLevel={actions.setThinkingLevel}
-                                  onPickAttachments={actions.pickAttachments}
-                                  onRemoveAttachment={actions.removeAttachment}
-                                  onClearAttachments={actions.clearAttachments}
-                                  onGetSessionTree={actions.getSessionTree}
-                                  onNavigateTree={actions.navigateTree}
-                                  onRunSlashCommand={actions.runSlashCommand}
-                                />
-                              ))}
-                            </div>
+                              return (
+                                <Fragment key={group.project.id}>
+                                  <section
+                                    className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-[28px] border bg-card/40"
+                                    style={{
+                                      flexBasis: totalProjectColumnUnits > 0 ? `${(units / totalProjectColumnUnits) * 100}%` : "100%",
+                                      minWidth: `${Math.max(440, group.sessions.length * 380 + Math.max(0, group.sessions.length - 1) * 16 + 40)}px`,
+                                      borderColor: `${group.accent}44`,
+                                      boxShadow: `inset 0 1px 0 ${group.accent}22`,
+                                      background: `linear-gradient(180deg, ${group.accent}12 0%, rgba(0,0,0,0) 22%), rgba(255,255,255,0.01)`,
+                                    }}
+                                  >
+                                    <div
+                                      className="border-b px-4 py-3"
+                                      style={{ borderColor: `${group.accent}2e` }}
+                                    >
+                                      <div className="flex items-center justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className="h-2.5 w-2.5 rounded-full"
+                                              style={{ backgroundColor: group.accent }}
+                                            />
+                                            <span className="truncate text-sm font-semibold text-foreground">
+                                              {group.project.name}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 truncate text-[11px] text-muted-foreground">
+                                            {group.project.path}
+                                          </div>
+                                        </div>
+                                        <span
+                                          className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                                          style={{
+                                            backgroundColor: `${group.accent}22`,
+                                            color: group.accent,
+                                          }}
+                                        >
+                                          {group.sessions.length}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="min-h-0 overflow-x-auto overflow-y-hidden px-4 py-4">
+                                      <div
+                                        className="grid min-h-full auto-rows-[minmax(460px,1fr)] gap-4"
+                                        style={{
+                                          gridTemplateColumns: `repeat(${group.sessions.length}, minmax(360px, 1fr))`,
+                                          minWidth: `${Math.max(
+                                            group.sessions.length * 360 +
+                                              Math.max(0, group.sessions.length - 1) * 16,
+                                            360,
+                                          )}px`,
+                                        }}
+                                      >
+                                        {group.sessions.map(({ summary, gui }) => (
+                                          <SessionCard
+                                            key={summary.sessionId}
+                                            summary={summary}
+                                            gui={gui}
+                                            accent={group.accent}
+                                            onClose={() => void actions.closeSession(summary.sessionId)}
+                                            onSendPrompt={actions.sendPrompt}
+                                            onAbort={actions.abortPrompt}
+                                            onSetModel={actions.setModel}
+                                            onSetThinkingLevel={actions.setThinkingLevel}
+                                            onPickAttachments={actions.pickAttachments}
+                                            onRemoveAttachment={actions.removeAttachment}
+                                            onClearAttachments={actions.clearAttachments}
+                                            onGetSessionTree={actions.getSessionTree}
+                                            onNavigateTree={actions.navigateTree}
+                                            onRunSlashCommand={actions.runSlashCommand}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </section>
+
+                                  {nextGroup ? (
+                                    <button
+                                      type="button"
+                                      className="my-10 hidden w-3 shrink-0 cursor-col-resize rounded-full border border-border/40 bg-card/50 transition-colors hover:bg-card/80 lg:block"
+                                      aria-label={`Resize columns between ${group.project.name} and ${nextGroup.project.name}`}
+                                      onPointerDown={(event) => {
+                                        event.preventDefault();
+                                        startProjectColumnResize(group.project.id, nextGroup.project.id, event.clientX);
+                                      }}
+                                    />
+                                  ) : null}
+                                </Fragment>
+                              );
+                            })}
                           </div>
                         </div>
                       </section>
@@ -537,13 +711,7 @@ export function App() {
                     )}
 
                     <section className="workspace-panel rounded-[30px] border border-border/70 px-4 py-4 shadow-sm">
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-semibold">Master session</h3>
-                          <p className="text-xs text-muted-foreground">
-                            Talk here to create sessions, delegate work, and steer the canvas.
-                          </p>
-                        </div>
+                      <div className="mb-3 flex items-center justify-end gap-3">
                         {controllerState?.isStreaming ? (
                           <span className="rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success">
                             running
@@ -586,7 +754,7 @@ export function App() {
                         />
                       ) : (
                         <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
-                          Controller session is loading…
+                          Master session is loading…
                         </div>
                       )}
                     </section>
@@ -649,7 +817,7 @@ export function App() {
                   {selectedUtilityPanel === "files" ? (
                     <FileTreePanel
                       projectName={activeProject?.name ?? "Project files"}
-                      projectPath={activeProject?.path ?? focusedGuiState?.cwd ?? null}
+                      projectPath={activeProject?.path ?? null}
                       nodes={fileTree.projectId === activeProject?.id ? fileTree.nodes : []}
                       loading={fileTree.loading && fileTree.projectId === activeProject?.id}
                       errorText={fileTree.projectId === activeProject?.id ? fileTree.errorText : null}
@@ -707,6 +875,8 @@ export function App() {
                 settings={snapshot.settings}
                 snapshot={snapshot}
                 onOpenMode={(mode) => void actions.setMode(mode)}
+                onChooseMasterSessionDirectory={() => void actions.chooseMasterSessionDirectory()}
+                onSetMasterSessionDirectoryToHome={() => void actions.setMasterSessionDirectoryToHome()}
               />
             </section>
           ) : null}

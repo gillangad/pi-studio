@@ -43,6 +43,7 @@ Examples:
 - resource loading
 - extension discovery integration
 - controller and worker session lifecycle
+- persistence of the global master-session working directory
 - event bridging into desktop-safe view models
 - hosted TUI session management
 - terminal hosting support
@@ -56,7 +57,7 @@ Owns user-facing application surfaces.
 
 Examples:
 
-- worker session card surfaces
+- canvas worker session pane surfaces
 - controller composer surface
 - hosted TUI surface
 - settings surface
@@ -168,7 +169,7 @@ That means:
 - Pi remains the source of truth for extension/resource behavior.
 - Studio adds desktop-native shell and surface layers.
 - Shared first-party behavior should be Pi-native whenever practical.
-- Core desktop runtime concerns such as worker visibility and session routing remain host-owned even when Pi accesses them through a tool.
+- Core desktop runtime concerns such as master cwd selection, worker visibility, project grouping, and session routing remain host-owned even when Pi accesses them through a tool.
 - GUI and TUI should stay operationally aligned, even when they are backed by different runtime surfaces.
 
 ## Update Policy

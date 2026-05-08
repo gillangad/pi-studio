@@ -143,6 +143,7 @@ type SessionOpenConfig = {
   role: StudioSessionRole;
   options: OpenSessionOptions;
   sessionDir?: string;
+  runtimeProjectId?: string;
 };
 
 type SessionInfoLike = {
@@ -167,7 +168,8 @@ const FILE_TREE_DEPTH_LIMIT = 4;
 const FILE_TREE_IGNORES = new Set([".git", "node_modules", "out", "dist", ".next"]);
 const SEARCH_RESULT_LIMIT = 50;
 const CONTROLLER_SESSION_ID = "controller";
-const CONTROLLER_SESSION_ROOT = path.join(getAgentDir(), "pi-studio", "controllers");
+const CONTROLLER_WORKSPACE_ID = "__master__";
+const CONTROLLER_SESSION_DIR = path.join(getAgentDir(), "pi-studio", "master");
 const BUILTIN_SLASH_COMMANDS = [
   { name: "settings", description: "Open settings menu" },
   { name: "model", description: "Select model (opens selector UI)" },
@@ -211,6 +213,7 @@ export class StudioHost {
     projects: [],
     activeProjectId: null,
     activeMode: "gui",
+    masterSessionPath: null,
     projectFavorites: {},
     threadMetadataByProject: {},
     gitCommentsByProject: {},
@@ -228,7 +231,7 @@ export class StudioHost {
   private resourceLoaderLastReloadMsByProject: Record<string, Partial<Record<ResourceLoaderProfile, number>>> = {};
   private currentProjectPath: string | null = null;
   private currentSessionFile: string | null = null;
-  private currentSessionTitle = "Session canvas";
+  private currentSessionTitle = "Canvas";
   private guiMessages = [] as StudioSnapshot["gui"]["messages"];
   private guiStreaming = false;
   private guiStatusText: string | null = null;
@@ -366,18 +369,42 @@ export class StudioHost {
     return this.workspaceState.studioSessionsByProject[projectId]!;
   }
 
-  private controllerSessionDir(projectId: string) {
-    return path.join(CONTROLLER_SESSION_ROOT, projectId);
+  private getHomeDirectoryPath() {
+    try {
+      return path.resolve(app.getPath("home"));
+    } catch {
+      return path.resolve(process.cwd());
+    }
+  }
+
+  private getMasterSessionPath() {
+    return path.resolve(this.workspaceState.masterSessionPath ?? this.getHomeDirectoryPath());
+  }
+
+  private getControllerWorkspaceProject(): ProjectRecord {
+    const masterPath = this.getMasterSessionPath();
+    return {
+      id: CONTROLLER_WORKSPACE_ID,
+      name: path.basename(masterPath) || masterPath,
+      path: masterPath,
+    };
+  }
+
+  private controllerSessionDir() {
+    return CONTROLLER_SESSION_DIR;
+  }
+
+  private updateControllerProjectBinding() {
+    const runtime = this.getControllerRuntime();
+    if (!runtime) return;
+    runtime.projectId = this.workspaceState.activeProjectId ?? CONTROLLER_WORKSPACE_ID;
   }
 
   private isControllerSessionFile(sessionFile?: string) {
     if (!sessionFile) return false;
 
-    const activeProjectId = this.workspaceState.activeProjectId;
-    if (!activeProjectId) return false;
-
     const normalized = path.resolve(sessionFile);
-    const controllerRoot = path.resolve(this.controllerSessionDir(activeProjectId));
+    const controllerRoot = path.resolve(this.controllerSessionDir());
     return normalized.startsWith(controllerRoot);
   }
 
@@ -392,11 +419,54 @@ export class StudioHost {
     }
   }
 
+  private workerSessionIdPrefix(projectId: string) {
+    return `worker-${projectId.slice(0, 4)}-`;
+  }
+
+  private formatWorkerSessionId(projectId: string, number: number) {
+    return `${this.workerSessionIdPrefix(projectId)}${number}`;
+  }
+
   private nextWorkerSessionId(projectId: string) {
     const studioState = this.getStudioProjectState(projectId);
     const nextNumber = Math.max(1, studioState.nextWorkerNumber);
     studioState.nextWorkerNumber = nextNumber + 1;
-    return `worker-${nextNumber}`;
+    return this.formatWorkerSessionId(projectId, nextNumber);
+  }
+
+  private normalizeStudioSessionIds() {
+    const usedIds = new Set<string>();
+
+    for (const project of this.workspaceState.projects) {
+      const studioState = this.getStudioProjectState(project.id);
+      const nextOrder: string[] = [];
+      const nextFilesBySessionId: Record<string, string> = {};
+      let maxNumber = 0;
+
+      for (const previousSessionId of studioState.workerSessionOrder) {
+        const sessionFile = studioState.sessionFilesBySessionId[previousSessionId];
+        const parsedNumber = Number(previousSessionId.match(/(\d+)$/)?.[1] ?? "0");
+        const preferredNumber = parsedNumber > 0 ? parsedNumber : maxNumber + 1;
+        let candidate = this.formatWorkerSessionId(project.id, preferredNumber);
+        let nextNumber = preferredNumber;
+
+        while (usedIds.has(candidate)) {
+          nextNumber += 1;
+          candidate = this.formatWorkerSessionId(project.id, nextNumber);
+        }
+
+        usedIds.add(candidate);
+        nextOrder.push(candidate);
+        if (sessionFile) {
+          nextFilesBySessionId[candidate] = sessionFile;
+        }
+        maxNumber = Math.max(maxNumber, nextNumber);
+      }
+
+      studioState.workerSessionOrder = nextOrder;
+      studioState.sessionFilesBySessionId = nextFilesBySessionId;
+      studioState.nextWorkerNumber = Math.max(maxNumber + 1, studioState.nextWorkerNumber, 1);
+    }
   }
 
   private recordWorkerSession(projectId: string, sessionId: string, sessionFile: string | null) {
@@ -423,7 +493,7 @@ export class StudioHost {
     this.currentResourceLoader = null;
     this.currentProjectPath = projectPath;
     this.currentSessionFile = null;
-    this.currentSessionTitle = "Session canvas";
+    this.currentSessionTitle = "Canvas";
     this.guiMessages = [];
     this.guiStreaming = false;
     this.guiStatusText = null;
@@ -460,8 +530,7 @@ export class StudioHost {
 
     if (!this.activeGuiSessionId || !this.guiSessions[this.activeGuiSessionId]) {
       this.activeGuiSessionId = null;
-      const activeProject = this.getActiveProject();
-      this.clearLegacyGuiState(activeProject?.path ?? null);
+      this.clearLegacyGuiState(this.getMasterSessionPath());
     }
   }
 
@@ -504,16 +573,25 @@ export class StudioHost {
     return preview ? preview.slice(0, 160) : null;
   }
 
-  private async restoreProjectStudioSessions(project: ProjectRecord) {
-    await this.disposeAllGuiRuntimes();
+  private async openControllerSession(options: OpenSessionOptions = { kind: "continue" }) {
+    const controllerProject = this.getControllerWorkspaceProject();
+    const existing = this.getControllerRuntime();
+    if (existing?.projectPath === controllerProject.path && existing.sessionFile && options.kind === "continue") {
+      this.updateControllerProjectBinding();
+      return;
+    }
 
-    await this.openSessionForProject(project, {
+    await this.openSessionForProject(controllerProject, {
       sessionId: CONTROLLER_SESSION_ID,
       role: "controller",
-      options: { kind: "continue" },
-      sessionDir: this.controllerSessionDir(project.id),
+      options,
+      sessionDir: this.controllerSessionDir(),
+      runtimeProjectId: this.workspaceState.activeProjectId ?? CONTROLLER_WORKSPACE_ID,
     });
+    this.updateControllerProjectBinding();
+  }
 
+  private async restoreWorkerSessionsForProject(project: ProjectRecord) {
     const studioState = this.getStudioProjectState(project.id);
     const restoredWorkerIds: string[] = [];
 
@@ -537,9 +615,18 @@ export class StudioHost {
         .map((sessionId) => [sessionId, this.guiSessions[sessionId]?.sessionFile ?? studioState.sessionFilesBySessionId[sessionId]])
         .filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0),
     );
+  }
+
+  private async restoreVisibleStudioSessions() {
+    await this.disposeAllGuiRuntimes();
+    await this.openControllerSession({ kind: "continue" });
+
+    for (const project of this.workspaceState.projects) {
+      await this.restoreWorkerSessionsForProject(project);
+    }
 
     this.activeGuiSessionId = null;
-    this.clearLegacyGuiState(project.path);
+    this.clearLegacyGuiState(this.getMasterSessionPath());
 
     await this.persistWorkspace();
   }
@@ -554,10 +641,7 @@ export class StudioHost {
     });
 
     this.workspaceState = state;
-    for (const studioState of Object.values(this.workspaceState.studioSessionsByProject)) {
-      studioState.workerSessionOrder = [];
-      studioState.sessionFilesBySessionId = {};
-    }
+    this.normalizeStudioSessionIds();
 
     if ((this.workspaceState.activeMode as string) === "cockpit") {
       this.workspaceState.activeMode = "gui";
@@ -572,10 +656,12 @@ export class StudioHost {
 
     await this.refreshAllThreads();
 
-    const activeProject = this.getActiveProject();
-    if (activeProject) {
-      await this.restoreProjectStudioSessions(activeProject);
-      await this.refreshGitState();
+    if (this.workspaceState.projects.length > 0) {
+      await this.restoreVisibleStudioSessions();
+      const activeProject = this.getActiveProject();
+      if (activeProject) {
+        await this.refreshGitState();
+      }
     }
 
     if (this.workspaceState.activeMode === "tui") {
@@ -623,10 +709,12 @@ export class StudioHost {
     });
 
     const activeProjectId = this.workspaceState.activeProjectId;
-    const studioProjectState = activeProjectId ? this.getStudioProjectState(activeProjectId) : null;
     const workerSessionEntries = Object.entries(this.guiSessions).filter(([, runtime]) => runtime.role === "worker");
     const controllerRuntime = this.getControllerRuntime();
     const activeRuntime = this.getGuiRuntime(this.activeGuiSessionId) ?? null;
+    const orderedWorkerSessionIds = this.workspaceState.projects.flatMap((project) =>
+      this.getStudioProjectState(project.id).workerSessionOrder,
+    );
 
     return {
       projects,
@@ -638,7 +726,7 @@ export class StudioHost {
         projectId: activeProjectId,
         controllerSessionId: controllerRuntime?.id ?? null,
         workerSessionIds:
-          studioProjectState?.workerSessionOrder.filter((sessionId) =>
+          orderedWorkerSessionIds.filter((sessionId) =>
             workerSessionEntries.some(([entrySessionId]) => entrySessionId === sessionId),
           ) ?? workerSessionEntries.map(([sessionId]) => sessionId),
         sessions: Object.fromEntries(
@@ -783,9 +871,11 @@ export class StudioHost {
       git: this.gitState,
       settings: {
         agentDir: getAgentDir(),
-        currentProjectPath: this.currentProjectPath,
+        currentProjectPath: this.getActiveProject()?.path ?? null,
         currentSessionFile: activeRuntime?.sessionFile ?? this.currentSessionFile,
         currentMode: this.workspaceState.activeMode,
+        masterSessionPath: this.getMasterSessionPath(),
+        homeDirectoryPath: this.getHomeDirectoryPath(),
       },
     };
   }
@@ -803,6 +893,42 @@ export class StudioHost {
     return this.addProject(result.filePaths[0]);
   }
 
+  async promptForMasterSessionDirectory() {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      title: "Set master session directory",
+      defaultPath: this.getMasterSessionPath(),
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return this.getSnapshot();
+    }
+
+    return this.setMasterSessionDirectory(result.filePaths[0]);
+  }
+
+  async setMasterSessionDirectoryToHome() {
+    return this.setMasterSessionDirectory(this.getHomeDirectoryPath());
+  }
+
+  async setMasterSessionDirectory(directoryPath: string) {
+    const resolvedPath = path.resolve(directoryPath);
+    const details = await stat(resolvedPath);
+    if (!details.isDirectory()) {
+      throw new Error(`${resolvedPath} is not a directory.`);
+    }
+
+    this.workspaceState.masterSessionPath = resolvedPath;
+    delete this.resourceLoadersByProject[CONTROLLER_WORKSPACE_ID];
+    delete this.resourceLoaderLastReloadMsByProject[CONTROLLER_WORKSPACE_ID];
+
+    await this.persistWorkspace();
+    await this.openControllerSession({ kind: "continue" });
+    this.clearLegacyGuiState(this.getMasterSessionPath());
+    this.emitSnapshot();
+    return this.getSnapshot();
+  }
+
   async addProject(projectPath: string) {
     await stat(projectPath);
     const project = this.store.createProject(projectPath);
@@ -814,10 +940,12 @@ export class StudioHost {
     this.workspaceState.activeProjectId = project.id;
     await this.persistWorkspace();
     await this.refreshProjectThreads(project);
-    await this.restoreProjectStudioSessions(project);
+    this.updateControllerProjectBinding();
+    this.clearLegacyGuiState(this.getMasterSessionPath());
     void this.refreshGitState().catch(() => {
       // Keep project add responsive even if git probing fails.
     });
+    this.emitSnapshot();
     return this.getSnapshot();
   }
 
@@ -828,7 +956,8 @@ export class StudioHost {
     this.workspaceState.activeProjectId = project.id;
     await this.persistWorkspace();
     await this.refreshProjectThreads(project);
-    await this.restoreProjectStudioSessions(project);
+    this.updateControllerProjectBinding();
+    this.clearLegacyGuiState(this.getMasterSessionPath());
     void this.refreshGitState().catch(() => {
       // Keep project switching responsive even if git probing fails.
     });
@@ -846,6 +975,7 @@ export class StudioHost {
       }
     }
 
+    this.emitSnapshot();
     return this.getSnapshot();
   }
 
@@ -927,12 +1057,14 @@ export class StudioHost {
     }
 
     await this.persistWorkspace();
+    this.updateControllerProjectBinding();
 
     if (removedActive) {
       const project = this.getActiveProject();
       if (project) {
-        await this.restoreProjectStudioSessions(project);
         await this.refreshGitState();
+      } else {
+        this.clearLegacyGuiState(this.getMasterSessionPath());
       }
     }
 
@@ -967,6 +1099,7 @@ export class StudioHost {
 
       if (changed) {
         await this.persistWorkspace();
+        this.updateControllerProjectBinding();
       }
 
       const workerSessionId = this.nextWorkerSessionId(project.id);
@@ -984,7 +1117,7 @@ export class StudioHost {
       sessionId,
       role: sessionId === CONTROLLER_SESSION_ID ? "controller" : "worker",
       options: { kind: "new" },
-      sessionDir: sessionId === CONTROLLER_SESSION_ID ? this.controllerSessionDir(project.id) : undefined,
+      sessionDir: sessionId === CONTROLLER_SESSION_ID ? this.controllerSessionDir() : undefined,
     });
     return this.getSnapshot();
   }
@@ -1009,11 +1142,13 @@ export class StudioHost {
 
       if (changed) {
         await this.persistWorkspace();
+        this.updateControllerProjectBinding();
       }
 
       const existingRuntime = this.getWorkerRuntimes(project.id).find((runtime) => runtime.sessionFile === sessionFile);
       if (existingRuntime) {
         await this.persistWorkspace();
+        this.updateControllerProjectBinding();
         this.emitSnapshot();
         return this.getSnapshot();
       }
@@ -1033,7 +1168,7 @@ export class StudioHost {
       sessionId,
       role: sessionId === CONTROLLER_SESSION_ID ? "controller" : "worker",
       options: { kind: "open", sessionFile },
-      sessionDir: sessionId === CONTROLLER_SESSION_ID ? this.controllerSessionDir(project.id) : undefined,
+      sessionDir: sessionId === CONTROLLER_SESSION_ID ? this.controllerSessionDir() : undefined,
     });
     return this.getSnapshot();
   }
@@ -1066,14 +1201,13 @@ export class StudioHost {
   }
 
   private listStudioWorkerSessions() {
-    const activeProjectId = this.workspaceState.activeProjectId;
-    const runtimesById = new Map(
-      this.getWorkerRuntimes(activeProjectId ?? undefined).map((runtime) => [runtime.id, runtime] as const),
+    const runtimesById = new Map(this.getWorkerRuntimes().map((runtime) => [runtime.id, runtime] as const));
+    const orderedIds = this.workspaceState.projects.flatMap((project) =>
+      this.getStudioProjectState(project.id).workerSessionOrder,
     );
-    const orderedIds =
-      activeProjectId ? this.getStudioProjectState(activeProjectId).workerSessionOrder : Array.from(runtimesById.keys());
+    const missingIds = Array.from(runtimesById.keys()).filter((sessionId) => !orderedIds.includes(sessionId));
 
-    return orderedIds
+    return [...orderedIds, ...missingIds]
       .map((sessionId) => runtimesById.get(sessionId))
       .filter((runtime): runtime is GuiSessionRuntime => Boolean(runtime))
       .map((runtime) => ({
@@ -1433,7 +1567,7 @@ export class StudioHost {
             sessionId: runtimeSessionId,
             role: runtime.role,
             options: { kind: "open", sessionFile: forkedSessionFile },
-            sessionDir: runtime.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
+            sessionDir: runtime.role === "controller" ? this.controllerSessionDir() : undefined,
           });
           this.setRuntimeStatus(this.getGuiRuntime(runtimeSessionId) ?? runtime, { statusText: "Forked current session.", errorText: null }, runtimeSessionId);
           return { handled: true, statusText: "Forked current session." };
@@ -1453,7 +1587,7 @@ export class StudioHost {
             sessionId: runtimeSessionId,
             role: runtime.role,
             options: { kind: "open", sessionFile: targetPath },
-            sessionDir: runtime.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
+            sessionDir: runtime.role === "controller" ? this.controllerSessionDir() : undefined,
           });
           return { handled: true, statusText: "Resumed requested session." };
         }
@@ -2198,7 +2332,7 @@ export class StudioHost {
     project: ProjectRecord,
     config: SessionOpenConfig,
   ) {
-    const { sessionId, role, options, sessionDir } = config;
+    const { sessionId, role, options, sessionDir, runtimeProjectId } = config;
     const existing = this.guiSessions[sessionId];
     if (existing) {
       this.disposeGuiRuntime(sessionId);
@@ -2246,7 +2380,7 @@ export class StudioHost {
       role,
       session,
       unsubscribe: null,
-      projectId: project.id,
+      projectId: runtimeProjectId ?? project.id,
       projectPath: project.path,
       sessionFile: session.sessionFile ?? null,
       sessionTitle: normalizeThreadTitle(session.sessionName),
@@ -2268,8 +2402,8 @@ export class StudioHost {
     this.guiSessions[sessionId] = runtime;
 
     if (role === "worker") {
-      this.recordWorkerSession(project.id, sessionId, runtime.sessionFile);
-      await this.ensureBuiltinThreadMetadata(project.id, runtime.sessionFile, usePiStudioBuiltins);
+      this.recordWorkerSession(runtime.projectId, sessionId, runtime.sessionFile);
+      await this.ensureBuiltinThreadMetadata(runtime.projectId, runtime.sessionFile, usePiStudioBuiltins);
     }
 
     await this.bindExtensions(session, sessionId);
@@ -2281,6 +2415,10 @@ export class StudioHost {
 
     this.syncSessionState(sessionId);
     await this.refreshSlashCommands(sessionId);
+
+    if (role !== "worker") {
+      return;
+    }
 
     if (options.kind === "new") {
       await this.refreshProjectThreads(project);
@@ -2331,7 +2469,7 @@ export class StudioHost {
           sessionId,
           role: this.guiSessions[sessionId]?.role ?? "worker",
           options: { kind: "new" },
-          sessionDir: this.guiSessions[sessionId]?.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
+          sessionDir: this.guiSessions[sessionId]?.role === "controller" ? this.controllerSessionDir() : undefined,
         });
       },
       onSwitchSession: async (sessionPath: string) => {
@@ -2345,7 +2483,7 @@ export class StudioHost {
           sessionId,
           role: this.guiSessions[sessionId]?.role ?? "worker",
           options: { kind: "open", sessionFile: sessionPath },
-          sessionDir: this.guiSessions[sessionId]?.role === "controller" ? this.controllerSessionDir(project.id) : undefined,
+          sessionDir: this.guiSessions[sessionId]?.role === "controller" ? this.controllerSessionDir() : undefined,
         });
         return true;
       },
@@ -2371,7 +2509,8 @@ export class StudioHost {
     runtime.sessionFile = runtime.session.sessionFile ?? runtime.sessionFile;
     runtime.lastActivityAt = new Date().toISOString();
     runtime.sessionTitle = normalizeThreadTitle(
-      runtime.session.sessionName ?? (runtime.projectId ? this.threadCache[runtime.projectId]?.[0]?.title : runtime.sessionTitle),
+      runtime.session.sessionName ??
+        (runtime.role === "worker" && runtime.projectId ? this.threadCache[runtime.projectId]?.[0]?.title : runtime.sessionTitle),
     );
 
     if (runtime.role === "worker" && runtime.sessionFile) {

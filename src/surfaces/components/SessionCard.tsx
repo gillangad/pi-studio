@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 type SessionCardProps = {
   summary: StudioSessionSummary;
   gui: GuiState;
+  accent?: string;
   onClose: () => void;
   onSendPrompt: (text: string, sessionId?: string) => Promise<unknown> | unknown;
   onAbort: (sessionId?: string) => Promise<unknown> | unknown;
@@ -34,6 +35,7 @@ function statusLabel(summary: StudioSessionSummary) {
 export function SessionCard({
   summary,
   gui,
+  accent,
   onClose,
   onSendPrompt,
   onAbort,
@@ -51,8 +53,17 @@ export function SessionCard({
   return (
     <article
       className="workspace-panel flex min-h-[460px] min-w-0 flex-col overflow-hidden rounded-[28px] border border-border/70 shadow-sm transition-all duration-150"
+      style={
+        accent
+          ? {
+              borderColor: `${accent}55`,
+              boxShadow: `0 14px 32px ${accent}12`,
+            }
+          : undefined
+      }
       aria-label={summary.sessionTitle}
     >
+      {accent ? <div className="h-1.5 shrink-0" style={{ backgroundColor: accent }} /> : null}
       <header className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">

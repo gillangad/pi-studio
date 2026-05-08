@@ -49,6 +49,13 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - [x] Reconcile docs and tests around the slimmer utility panel model
 - [x] Re-run Windows verification, rebuild, and relink
 
+## Current Pass
+
+- [x] Persist a configurable master session directory and expose it in settings
+- [x] Simplify the canvas header and master bar chrome
+- [x] Group session panes by project with shared project styling and column behavior
+- [x] Mirror changes to Windows, verify, commit, and push
+
 ## Progress Log
 
 - 2026-05-08: Reviewed the current post-cleanup codebase. Confirmed that the host already supports multiple GUI session runtimes internally via `guiSessions`, optional `sessionId` parameters in the bridge methods, and per-session prompt handling. This will be extended into a host-owned controller/worker model instead of inventing a second orchestration path.
@@ -61,3 +68,6 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - 2026-05-08: Started the next refinement pass to remove the temporary session overview surface entirely. The canvas will stay peer-to-peer, and the utility panel will slim back down to browser, files, terminal, and diff until a better session-management surface is designed.
 - 2026-05-08: Removed the session overview utility surface from the GUI. The right-side utility area now only hosts browser, files, terminal, and diff surfaces, and worker management is back to happening directly on the canvas plus through the master composer.
 - 2026-05-08: Verified this refinement in the Windows workspace because local npm commands cannot execute reliably from the UNC-mounted WSL path in PowerShell. `npm run typecheck`, `npm run test`, `npm run build`, and `npm link` all pass in `C:\Users\Angad\Projects\pi-studio`.
+- 2026-05-08: Began the next canvas refinement pass. This one keeps the existing sidebar and session-control behavior intact while introducing a persistent master-session directory, removing extra explanatory header copy, and regrouping session panes by project using a more deliberate column-and-pane model.
+- 2026-05-08: Finished the canvas/master-directory refinement pass. The top-right canvas chrome now centers on the master cwd, settings can pin that cwd explicitly or reset it to the platform home directory, and worker sessions now render inside project-grouped pane columns with Mosaic-inspired column resizing while keeping the existing sidebar and session control intact.
+- 2026-05-08: Re-verified this pass in `C:\Users\Angad\Projects\pi-studio` with `npm run typecheck`, `npm run test`, `npm run build`, and `npm link`.

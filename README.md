@@ -32,6 +32,9 @@ The project terminal utility remains a separate raw shell surface for terminal w
 
 The current GUI is centered on:
 
-- a multi-session canvas of live worker session cards
+- a canvas of live worker session panes, grouped by project
 - a bottom master composer backed by a dedicated controller session
+- a persistent master-session working directory that can be set explicitly in settings
 - a right-side utility panel for browser, files, and terminal surfaces
+
+The master composer is global to the workspace shell rather than tied to one visible worker pane. Its cwd is shown at the top-right of the canvas and can be pointed at a shared parent folder, a project root, or the platform home directory depending on how the user wants Pi Studio to roam across projects.

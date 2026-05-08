@@ -6,6 +6,8 @@ type SettingsViewProps = {
   settings: SettingsState;
   snapshot: StudioSnapshot;
   onOpenMode: (mode: StudioMode) => void;
+  onChooseMasterSessionDirectory: () => void;
+  onSetMasterSessionDirectoryToHome: () => void;
 };
 
 function StatCard({ label, value }: { label: string; value: string }) {
@@ -120,7 +122,13 @@ function ResourceGroupCard({
   );
 }
 
-export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewProps) {
+export function SettingsView({
+  settings,
+  snapshot,
+  onOpenMode,
+  onChooseMasterSessionDirectory,
+  onSetMasterSessionDirectoryToHome,
+}: SettingsViewProps) {
   return (
     <Card className="flex h-full min-h-0 w-full flex-col overflow-hidden border-border/70 bg-card/80">
       <CardHeader>
@@ -133,6 +141,7 @@ export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewPro
           <StatCard label="Agent directory" value={settings.agentDir ?? "Unknown"} />
           <StatCard label="Current project" value={settings.currentProjectPath ?? "None selected"} />
           <StatCard label="Current session" value={settings.currentSessionFile ?? "No active session"} />
+          <StatCard label="Master directory" value={settings.masterSessionPath ?? "Unknown"} />
           <StatCard label="Current mode" value={settings.currentMode} />
           <StatCard label="Projects" value={String(snapshot.projects.length)} />
           <StatCard
@@ -150,6 +159,12 @@ export function SettingsView({ settings, snapshot, onOpenMode }: SettingsViewPro
           </Button>
           <Button type="button" variant="outline" onClick={() => onOpenMode("git")}>
             Open git/diff surface
+          </Button>
+          <Button type="button" variant="outline" onClick={onChooseMasterSessionDirectory}>
+            Choose master directory
+          </Button>
+          <Button type="button" variant="outline" onClick={onSetMasterSessionDirectoryToHome}>
+            Set to home directory
           </Button>
         </div>
 

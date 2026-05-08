@@ -15,6 +15,7 @@ function createState(partial: Partial<WorkspaceState>): WorkspaceState {
     projects: [],
     activeProjectId: null,
     activeMode: "gui",
+    masterSessionPath: null,
     projectFavorites: {},
     threadMetadataByProject: {},
     gitCommentsByProject: {},

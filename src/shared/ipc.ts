@@ -38,6 +38,8 @@ export const IPC_CHANNELS = {
     setThinkingLevel: "pi-studio:set-thinking-level",
     setStreamingBehavior: "pi-studio:set-streaming-behavior",
     setMode: "pi-studio:set-mode",
+    chooseMasterSessionDirectory: "pi-studio:choose-master-session-directory",
+    setMasterSessionDirectoryToHome: "pi-studio:set-master-session-directory-to-home",
     startTui: "pi-studio:start-tui",
     stopTui: "pi-studio:stop-tui",
     resizeTui: "pi-studio:resize-tui",
@@ -174,6 +176,8 @@ export type DesktopBridge = {
   setThinkingLevel(level: string, sessionId?: string): Promise<StudioSnapshot>;
   setStreamingBehavior(mode: StreamingBehaviorPreference): Promise<StudioSnapshot>;
   setMode(mode: StudioMode): Promise<StudioSnapshot>;
+  chooseMasterSessionDirectory(): Promise<StudioSnapshot>;
+  setMasterSessionDirectoryToHome(): Promise<StudioSnapshot>;
   startTui(payload?: TuiSessionPayload): Promise<StudioSnapshot>;
   stopTui(payload?: TuiSessionPayload): Promise<StudioSnapshot>;
   resizeTui(size: TerminalResize): void;

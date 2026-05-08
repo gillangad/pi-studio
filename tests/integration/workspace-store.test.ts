@@ -25,6 +25,7 @@ describe("WorkspaceStore", () => {
       projects: [store.createProject("/tmp/demo")],
       activeProjectId: "demo",
       activeMode: "gui",
+      masterSessionPath: null,
       projectFavorites: {},
       threadMetadataByProject: {},
       gitCommentsByProject: {},

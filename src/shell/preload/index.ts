@@ -46,6 +46,8 @@ const bridge: DesktopBridge = {
     ),
   setStreamingBehavior: (mode) => ipcRenderer.invoke(IPC_CHANNELS.invoke.setStreamingBehavior, mode),
   setMode: (mode) => ipcRenderer.invoke(IPC_CHANNELS.invoke.setMode, mode),
+  chooseMasterSessionDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.invoke.chooseMasterSessionDirectory),
+  setMasterSessionDirectoryToHome: () => ipcRenderer.invoke(IPC_CHANNELS.invoke.setMasterSessionDirectoryToHome),
   startTui: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.startTui, payload),
   stopTui: (payload) => ipcRenderer.invoke(IPC_CHANNELS.invoke.stopTui, payload),
   resizeTui: (size) => ipcRenderer.send(IPC_CHANNELS.invoke.resizeTui, size),

@@ -234,6 +234,12 @@ function registerIpcHandlers() {
     host?.setStreamingBehavior(mode),
   );
   ipcMain.handle(IPC_CHANNELS.invoke.setMode, async (_event, mode) => host?.setMode(mode));
+  ipcMain.handle(IPC_CHANNELS.invoke.chooseMasterSessionDirectory, async () =>
+    host?.promptForMasterSessionDirectory(),
+  );
+  ipcMain.handle(IPC_CHANNELS.invoke.setMasterSessionDirectoryToHome, async () =>
+    host?.setMasterSessionDirectoryToHome(),
+  );
   ipcMain.handle(IPC_CHANNELS.invoke.startTui, async (_event, payload?: { sessionId?: string }) =>
     host?.startTui(payload?.sessionId ?? "default"),
   );

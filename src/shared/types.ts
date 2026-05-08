@@ -282,6 +282,8 @@ export type SettingsState = {
   currentProjectPath: string | null;
   currentSessionFile: string | null;
   currentMode: StudioMode;
+  masterSessionPath: string | null;
+  homeDirectoryPath: string | null;
 };
 
 export type StudioSnapshot = {

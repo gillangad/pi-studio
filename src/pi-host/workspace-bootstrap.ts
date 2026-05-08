@@ -16,6 +16,7 @@ export type WorkspaceState = {
   projects: ProjectRecord[];
   activeProjectId: string | null;
   activeMode: StudioMode;
+  masterSessionPath: string | null;
   projectFavorites: Record<string, boolean>;
   threadMetadataByProject: Record<string, Record<string, ThreadMetadata>>;
   gitCommentsByProject: Record<string, GitComment[]>;

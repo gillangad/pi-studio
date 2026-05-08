@@ -53,13 +53,19 @@ const emptyResources = {
   agentsFilePaths: [],
 };
 
-function makeGuiState(sessionId: string, title: string, sessionFile: string): GuiState {
+function makeGuiState(
+  sessionId: string,
+  title: string,
+  sessionFile: string | null,
+  projectId = "p1",
+  cwd = "/tmp/demo",
+): GuiState {
   return {
     sessionId,
-    projectId: "p1",
+    projectId,
     sessionFile,
     sessionTitle: title,
-    cwd: "/tmp/demo",
+    cwd,
     isStreaming: false,
     messages: [],
     resources: emptyResources,
@@ -78,9 +84,9 @@ function makeGuiState(sessionId: string, title: string, sessionFile: string): Gu
   };
 }
 
-const workerOne = makeGuiState("worker-1", "Thread one", "/tmp/demo/session.jsonl");
-const workerTwo = makeGuiState("worker-2", "Thread two", "/tmp/demo/session-2.jsonl");
-const controller = makeGuiState("controller", "Master controller", "/tmp/controller/session.jsonl");
+const workerOne = makeGuiState("worker-a1-1", "Thread one", "/tmp/demo/session.jsonl", "p1", "/tmp/demo");
+const workerTwo = makeGuiState("worker-b2-1", "Thread two", "/tmp/alpha/session-2.jsonl", "p2", "/tmp/alpha");
+const controller = makeGuiState("controller", "Master controller", "/tmp/controller/session.jsonl", "p1", "/tmp/projects");
 
 const snapshot: StudioSnapshot = {
   projects: [
@@ -116,7 +122,21 @@ const snapshot: StudioSnapshot = {
         running: false,
       },
     ],
-    p2: [],
+    p2: [
+      {
+        id: "t3",
+        sessionId: "s3",
+        sessionFile: "/tmp/alpha/session-2.jsonl",
+        title: "Thread two",
+        updatedAt: new Date(Date.now() - 8_000).toISOString(),
+        updatedAtMs: Date.now() - 8_000,
+        ageLabel: "now",
+        messageCount: 3,
+        isPinned: false,
+        isArchived: false,
+        running: false,
+      },
+    ],
   },
   activeProjectId: "p1",
   activeMode: "gui",
@@ -124,10 +144,10 @@ const snapshot: StudioSnapshot = {
   studio: {
     projectId: "p1",
     controllerSessionId: "controller",
-    workerSessionIds: ["worker-1", "worker-2"],
+    workerSessionIds: ["worker-a1-1", "worker-b2-1"],
     sessions: {
-      "worker-1": {
-        sessionId: "worker-1",
+      "worker-a1-1": {
+        sessionId: "worker-a1-1",
         role: "worker",
         projectId: "p1",
         sessionFile: "/tmp/demo/session.jsonl",
@@ -139,13 +159,13 @@ const snapshot: StudioSnapshot = {
         lastMessagePreview: "Fix the sidebar bug",
         lastActivityAt: new Date().toISOString(),
       },
-      "worker-2": {
-        sessionId: "worker-2",
+      "worker-b2-1": {
+        sessionId: "worker-b2-1",
         role: "worker",
-        projectId: "p1",
-        sessionFile: "/tmp/demo/session-2.jsonl",
+        projectId: "p2",
+        sessionFile: "/tmp/alpha/session-2.jsonl",
         sessionTitle: "Thread two",
-        cwd: "/tmp/demo",
+        cwd: "/tmp/alpha",
         isStreaming: false,
         statusText: null,
         errorText: null,
@@ -156,10 +176,10 @@ const snapshot: StudioSnapshot = {
   },
   gui: {
     ...workerOne,
-    activeSessionId: "worker-1",
+    activeSessionId: "worker-a1-1",
     sessions: {
-      "worker-1": workerOne,
-      "worker-2": workerTwo,
+      "worker-a1-1": workerOne,
+      "worker-b2-1": workerTwo,
     },
   },
   tui: {
@@ -193,6 +213,8 @@ const snapshot: StudioSnapshot = {
     currentProjectPath: "/tmp/demo",
     currentSessionFile: "/tmp/demo/session.jsonl",
     currentMode: "gui",
+    masterSessionPath: "/tmp/projects",
+    homeDirectoryPath: "/home/test",
   },
 };
 
@@ -205,10 +227,10 @@ const blankSnapshot: StudioSnapshot = {
     sessions: {},
   },
   gui: {
-    ...makeGuiState("", "Session canvas", ""),
+    ...makeGuiState("", "Canvas", null, "p1", "/tmp/projects"),
     projectId: "p1",
     sessionFile: null,
-    cwd: "/tmp/demo",
+    cwd: "/tmp/projects",
     activeSessionId: undefined,
     sessions: {},
   },
@@ -251,6 +273,8 @@ describe("App", () => {
       setThinkingLevel: vi.fn().mockResolvedValue(snapshot),
       setStreamingBehavior: vi.fn().mockResolvedValue(snapshot),
       setMode: vi.fn().mockResolvedValue(snapshot),
+      chooseMasterSessionDirectory: vi.fn().mockResolvedValue(snapshot),
+      setMasterSessionDirectoryToHome: vi.fn().mockResolvedValue(snapshot),
       startTui: vi.fn().mockResolvedValue(snapshot),
       stopTui: vi.fn().mockResolvedValue(snapshot),
       startTerminal: vi.fn().mockResolvedValue(snapshot),
@@ -294,10 +318,12 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Worker sessions")).toBeInTheDocument();
-      expect(screen.getByText("Master session")).toBeInTheDocument();
+      expect(screen.getByText("/tmp/projects")).toBeInTheDocument();
+      expect(screen.getAllByText("demo").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("alpha").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
+      expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
     });
   });
@@ -309,7 +335,7 @@ describe("App", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Master session")).toBeInTheDocument();
+      expect(screen.getByText("/tmp/projects")).toBeInTheDocument();
       expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
       expect(screen.queryByText(/Focused:/i)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeEnabled();
@@ -346,7 +372,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(bridge.sendPrompt).toHaveBeenCalledWith({
         text: "Fix the failing tests",
-        sessionId: "worker-1",
+        sessionId: "worker-a1-1",
       });
     });
   });
@@ -358,7 +384,7 @@ describe("App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Close Thread two" }));
 
     await waitFor(() => {
-      expect(bridge.closeSession).toHaveBeenCalledWith("worker-2");
+      expect(bridge.closeSession).toHaveBeenCalledWith("worker-b2-1");
     });
   });
 
