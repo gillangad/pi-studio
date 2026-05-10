@@ -15,6 +15,7 @@ type ChatViewProps = {
   composerValue?: string;
   onComposerValueChange?: (value: string) => void;
   compact?: boolean;
+  showComposer?: boolean;
   composerPlaceholder?: string;
   emptyTitle?: string;
   emptyDescription?: string;
@@ -40,6 +41,7 @@ export function ChatView({
   composerValue,
   onComposerValueChange,
   compact = false,
+  showComposer = true,
   composerPlaceholder,
   emptyTitle = "Start a Pi session",
   emptyDescription = "Send your first prompt to begin a thread.",
@@ -298,37 +300,39 @@ export function ChatView({
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          compact ? "border-t border-border/50 bg-background px-3 py-2.5" : "border-t border-border/50 bg-background px-4 py-3 sm:px-5",
-          gui.isStreaming && "shadow-inner",
-        )}
-      >
-        <div className={compact ? "mx-auto w-full" : "chat-width-shell mx-auto w-full"}>
-          <Composer
-            busy={gui.isStreaming}
-            value={resolvedComposerValue}
-            onValueChange={setComposerValue}
-            onSubmit={send}
-            onAbort={() => onAbort(sessionId)}
-            models={gui.availableModels}
-            currentModel={gui.model}
-            thinkingLevel={gui.thinkingLevel}
-            availableThinkingLevels={gui.availableThinkingLevels}
-            attachments={gui.attachments}
-            slashCommands={gui.slashCommands}
-            onSetModel={(provider, modelId) => void onSetModel(provider, modelId, sessionId)}
-            onSetThinkingLevel={(level) => void onSetThinkingLevel(level, sessionId)}
-            onPickAttachments={() => void onPickAttachments(sessionId)}
-            onRemoveAttachment={(attachmentId) => void onRemoveAttachment(attachmentId, sessionId)}
-            onClearAttachments={() => void onClearAttachments(sessionId)}
-            agentMenuOpen={agentMenuOpen}
-            onAgentMenuOpenChange={setAgentMenuOpen}
-            compact={compact}
-            placeholder={composerPlaceholder}
-          />
+      {showComposer ? (
+        <div
+          className={cn(
+            compact ? "border-t border-border/50 bg-background px-3 py-2.5" : "border-t border-border/50 bg-background px-4 py-3 sm:px-5",
+            gui.isStreaming && "shadow-inner",
+          )}
+        >
+          <div className={compact ? "mx-auto w-full" : "chat-width-shell mx-auto w-full"}>
+            <Composer
+              busy={gui.isStreaming}
+              value={resolvedComposerValue}
+              onValueChange={setComposerValue}
+              onSubmit={send}
+              onAbort={() => onAbort(sessionId)}
+              models={gui.availableModels}
+              currentModel={gui.model}
+              thinkingLevel={gui.thinkingLevel}
+              availableThinkingLevels={gui.availableThinkingLevels}
+              attachments={gui.attachments}
+              slashCommands={gui.slashCommands}
+              onSetModel={(provider, modelId) => void onSetModel(provider, modelId, sessionId)}
+              onSetThinkingLevel={(level) => void onSetThinkingLevel(level, sessionId)}
+              onPickAttachments={() => void onPickAttachments(sessionId)}
+              onRemoveAttachment={(attachmentId) => void onRemoveAttachment(attachmentId, sessionId)}
+              onClearAttachments={() => void onClearAttachments(sessionId)}
+              agentMenuOpen={agentMenuOpen}
+              onAgentMenuOpenChange={setAgentMenuOpen}
+              compact={compact}
+              placeholder={composerPlaceholder}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <SessionTreeDialog
         open={treeDialogOpen}

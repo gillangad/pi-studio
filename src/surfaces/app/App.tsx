@@ -781,6 +781,7 @@ export function App() {
                                 gui={controllerState}
                                 sessionId={controllerState.sessionId}
                                 compact
+                                showComposer={false}
                                 composerValue={controllerComposerValue}
                                 onComposerValueChange={setControllerComposerValue}
                                 composerPlaceholder="Ask Pi to create a session, delegate work, or steer the canvas"

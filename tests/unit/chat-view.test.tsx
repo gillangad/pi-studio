@@ -228,6 +228,29 @@ describe("ChatView", () => {
     expect(screen.getByDisplayValue("Original question")).toBeInTheDocument();
   });
 
+  it("can render a transcript without a composer", () => {
+    render(
+      <ChatView
+        gui={createGuiState([{ id: "a1", role: "assistant", content: ["Master reply"], timestamp: 1000 }])}
+        compact
+        showComposer={false}
+        onSendPrompt={vi.fn()}
+        onAbort={vi.fn()}
+        onSetModel={vi.fn()}
+        onSetThinkingLevel={vi.fn()}
+        onPickAttachments={vi.fn()}
+        onRemoveAttachment={vi.fn()}
+        onClearAttachments={vi.fn()}
+        onGetSessionTree={vi.fn().mockResolvedValue(emptyTree)}
+        onNavigateTree={vi.fn().mockResolvedValue({ cancelled: false })}
+        onRunSlashCommand={vi.fn().mockResolvedValue({ handled: true })}
+      />,
+    );
+
+    expect(screen.getByText("Master reply")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(DEFAULT_PLACEHOLDER)).not.toBeInTheDocument();
+  });
+
   it("shows only user and assistant entries in /tree by default", async () => {
     const onGetSessionTree = vi.fn().mockResolvedValue({
       leafId: "assistant-node",
