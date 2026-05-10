@@ -56,6 +56,14 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - [x] Group session panes by project with shared project styling and column behavior
 - [x] Mirror changes to Windows, verify, commit, and push
 
+## Current Pass 2
+
+- [x] Add a popup transcript/chat surface for the master session while keeping the bottom master bar
+- [x] Remove the temporary Mosaic-style accent coloring and return to the neutral Pi Studio theme
+- [x] Hide the legacy thread sidebar in code without deleting its implementation
+- [x] Move GUI/TUI and settings controls into the top header
+- [x] Mirror changes to Windows, verify, commit, and push
+
 ## Progress Log
 
 - 2026-05-08: Reviewed the current post-cleanup codebase. Confirmed that the host already supports multiple GUI session runtimes internally via `guiSessions`, optional `sessionId` parameters in the bridge methods, and per-session prompt handling. This will be extended into a host-owned controller/worker model instead of inventing a second orchestration path.
@@ -71,3 +79,6 @@ This pass intentionally excludes deeper follow-on systems outside the current se
 - 2026-05-08: Began the next canvas refinement pass. This one keeps the existing sidebar and session-control behavior intact while introducing a persistent master-session directory, removing extra explanatory header copy, and regrouping session panes by project using a more deliberate column-and-pane model.
 - 2026-05-08: Finished the canvas/master-directory refinement pass. The top-right canvas chrome now centers on the master cwd, settings can pin that cwd explicitly or reset it to the platform home directory, and worker sessions now render inside project-grouped pane columns with Mosaic-inspired column resizing while keeping the existing sidebar and session control intact.
 - 2026-05-08: Re-verified this pass in `C:\Users\Angad\Projects\pi-studio` with `npm run typecheck`, `npm run test`, `npm run build`, and `npm link`.
+- 2026-05-10: Started the next shell refinement pass. This one adds a visible popup transcript for the master session, hides the legacy thread sidebar without deleting it, moves GUI/TUI and settings controls into the top header, and backs out the temporary Mosaic accent styling so the canvas returns to the older neutral Pi Studio look.
+- 2026-05-10: Finished the shell refinement pass. The master bar now has a real expandable transcript surface for responses and tool calls, the header now carries GUI/TUI plus settings controls, the thread sidebar is hidden behind an explicit feature flag instead of being deleted, and the project grouping visuals are back on the neutral Pi Studio theme instead of the temporary Mosaic accent palette.
+- 2026-05-10: Re-verified this pass in `C:\Users\Angad\Projects\pi-studio` with `npm run typecheck`, `npm run test`, `npm run build`, and `npm link`.

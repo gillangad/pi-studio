@@ -1,8 +1,9 @@
-import { FolderTree, Globe, TerminalSquare } from "lucide-react";
+import { FolderTree, Globe, Settings, TerminalSquare } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { FileTreeNode, GuiState, ProjectRecord, StudioSessionSummary } from "../../shared/types";
 import { Sidebar } from "../components/Sidebar";
 import { BrowserPanel } from "../components/BrowserPanel";
+import { ChatView } from "../components/ChatView";
 import { Composer } from "../components/Composer";
 import { SessionCard } from "../components/SessionCard";
 import { TerminalPanel } from "../components/TerminalPanel";
@@ -28,7 +29,6 @@ type WorkerSessionEntry = { summary: StudioSessionSummary; gui: GuiState };
 type ProjectSessionGroup = {
   project: ProjectRecord;
   sessions: WorkerSessionEntry[];
-  accent: string;
 };
 
 const SIDEBAR_EXPANDED_MIN_WIDTH = 260;
@@ -40,7 +40,8 @@ const BROWSER_PANEL_MIN_WIDTH = 420;
 const SESSION_COLUMN_MIN_UNITS = 90;
 const SESSION_COLUMN_MAX_UNITS = 320;
 const SESSION_COLUMN_UNIT_PIXELS = 4;
-const PROJECT_ACCENTS = ["#4f9cf9", "#f28c28", "#2aa876", "#e05d5d", "#b06cf7", "#d4a72c"];
+// Keep the old thread sidebar implementation in code for now so it can be restored later if needed.
+const THREAD_SIDEBAR_HIDDEN_FOR_NOW = true;
 
 function projectKey(projectId: string) {
   return `project::${projectId}`;
@@ -122,18 +123,6 @@ function readInitialProjectColumnUnits() {
   return readJsonRecord<ProjectColumnUnits>("pi-studio-project-column-units");
 }
 
-function hashString(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
-
-function colorForProject(projectId: string) {
-  return PROJECT_ACCENTS[hashString(projectId) % PROJECT_ACCENTS.length] ?? PROJECT_ACCENTS[0];
-}
-
 export function App() {
   const { snapshot, bootstrapError, actions } = useStudioState();
   const [theme, setTheme] = useState<StudioTheme>(readInitialTheme);
@@ -142,6 +131,7 @@ export function App() {
   const [utilityPanelWidth, setUtilityPanelWidth] = useState(readInitialUtilityPanelWidth);
   const [controllerComposerValue, setControllerComposerValue] = useState("");
   const [controllerAgentMenuOpen, setControllerAgentMenuOpen] = useState(false);
+  const [controllerTranscriptOpen, setControllerTranscriptOpen] = useState(false);
   const [projectColumnUnits, setProjectColumnUnits] = useState<ProjectColumnUnits>(readInitialProjectColumnUnits);
   const [utilityPanelByProject, setUtilityPanelByProject] = useState<UtilityPanelByProject>(() =>
     readJsonRecord<UtilityPanelByProject>("pi-studio-utility-panel-by-project"),
@@ -236,7 +226,6 @@ export function App() {
         return {
           project,
           sessions,
-          accent: colorForProject(project.id),
         };
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
@@ -344,7 +333,7 @@ export function App() {
     }
   };
 
-  const sidebarRenderedWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
+  const sidebarRenderedWidth = THREAD_SIDEBAR_HIDDEN_FOR_NOW ? 0 : sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth;
   const hasSideUtilityPanel = Boolean(selectedUtilityPanel && selectedUtilityPanel !== "terminal");
   const totalProjectColumnUnits = useMemo(
     () =>
@@ -354,6 +343,13 @@ export function App() {
       ),
     [projectColumnUnits, projectSessionGroups],
   );
+  const headerPathLabel =
+    activeMode === "gui"
+      ? controllerState?.cwd ?? snapshot?.settings.masterSessionPath ?? "No master directory"
+      : snapshot?.settings.currentProjectPath ??
+        controllerState?.cwd ??
+        snapshot?.settings.masterSessionPath ??
+        "No project path";
 
   const startSidebarResize = useCallback(
     (pointerStartX: number) => {
@@ -473,76 +469,123 @@ export function App() {
 
   return (
     <main className="flex h-screen overflow-hidden bg-background text-foreground">
-      <div
-        className="relative shrink-0"
-        style={{ width: sidebarRenderedWidth }}
-      >
-        <Sidebar
-          projects={snapshot.projects}
-          activeProjectId={snapshot.activeProjectId}
-          threadsByProject={snapshot.threadsByProject}
-          activeSessionFile={focusedGuiState?.sessionFile ?? null}
-          activeMode={snapshot.activeMode}
-          theme={theme}
-          collapsed={sidebarCollapsed}
-          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
-          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-          onSetMode={(mode) => void actions.setMode(mode)}
-          onAddProject={() => void actions.addProject()}
-          onSelectProject={(projectId) => void actions.selectProject(projectId)}
-          onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
-          onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
-          onRemoveProject={(projectId) => void actions.removeProject(projectId)}
-          onSearchSessions={(query) => actions.searchSessions(query)}
-          onCreateThread={(projectId) => void actions.createThread(projectId)}
-          onOpenThread={(projectId, sessionFile) => openGuiThread(projectId, sessionFile)}
-          onDeleteThread={(projectId, sessionFile) => void actions.deleteThread(projectId, sessionFile)}
-          onToggleThreadPinned={(projectId, sessionFile) =>
-            void actions.toggleThreadPinned(projectId, sessionFile)
-          }
-          onToggleThreadArchived={(projectId, sessionFile) =>
-            void actions.toggleThreadArchived(projectId, sessionFile)
-          }
-        />
-
-        {!sidebarCollapsed ? (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize sidebar"
-            tabIndex={0}
-            className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none"
-            onPointerDown={(event) => {
-              event.preventDefault();
-              startSidebarResize(event.clientX);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") {
-                event.preventDefault();
-                setSidebarWidth((current) => clampSidebarWidth(current - 16));
-              }
-              if (event.key === "ArrowRight") {
-                event.preventDefault();
-                setSidebarWidth((current) => clampSidebarWidth(current + 16));
-              }
-            }}
+      {!THREAD_SIDEBAR_HIDDEN_FOR_NOW ? (
+        <div
+          className="relative shrink-0"
+          style={{ width: sidebarRenderedWidth }}
+        >
+          <Sidebar
+            projects={snapshot.projects}
+            activeProjectId={snapshot.activeProjectId}
+            threadsByProject={snapshot.threadsByProject}
+            activeSessionFile={focusedGuiState?.sessionFile ?? null}
+            activeMode={snapshot.activeMode}
+            theme={theme}
+            collapsed={sidebarCollapsed}
+            onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+            onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+            onSetMode={(mode) => void actions.setMode(mode)}
+            onAddProject={() => void actions.addProject()}
+            onSelectProject={(projectId) => void actions.selectProject(projectId)}
+            onReorderProjects={(projectIds) => void actions.reorderProjects(projectIds)}
+            onRenameProject={(projectId, name) => void actions.renameProject(projectId, name)}
+            onRemoveProject={(projectId) => void actions.removeProject(projectId)}
+            onSearchSessions={(query) => actions.searchSessions(query)}
+            onCreateThread={(projectId) => void actions.createThread(projectId)}
+            onOpenThread={(projectId, sessionFile) => openGuiThread(projectId, sessionFile)}
+            onDeleteThread={(projectId, sessionFile) => void actions.deleteThread(projectId, sessionFile)}
+            onToggleThreadPinned={(projectId, sessionFile) =>
+              void actions.toggleThreadPinned(projectId, sessionFile)
+            }
+            onToggleThreadArchived={(projectId, sessionFile) =>
+              void actions.toggleThreadArchived(projectId, sessionFile)
+            }
           />
-        ) : null}
-      </div>
+
+          {!sidebarCollapsed ? (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize sidebar"
+              tabIndex={0}
+              className="absolute right-0 top-0 z-20 h-full w-2 cursor-col-resize touch-none"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                startSidebarResize(event.clientX);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft") {
+                  event.preventDefault();
+                  setSidebarWidth((current) => clampSidebarWidth(current - 16));
+                }
+                if (event.key === "ArrowRight") {
+                  event.preventDefault();
+                  setSidebarWidth((current) => clampSidebarWidth(current + 16));
+                }
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="relative flex min-w-0 flex-1">
-        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          {isWorkspaceMode ? (
-            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="Canvas">
-              <header className="flex items-center justify-end gap-3 px-5 py-3">
-                <div
-                  className="min-w-0 max-w-[52%] truncate rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground"
-                  title={controllerState?.cwd ?? snapshot.settings.masterSessionPath ?? "No master directory"}
-                >
-                  {controllerState?.cwd ?? snapshot.settings.masterSessionPath ?? "No master directory"}
-                </div>
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3">
+            <div
+              className="min-w-0 max-w-[54%] truncate rounded-full border border-border/70 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground"
+              title={headerPathLabel}
+            >
+              {headerPathLabel}
+            </div>
 
-                <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-full border border-border/70 bg-card/50 p-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeMode === "gui" ? "secondary" : "ghost"}
+                  className="rounded-full px-3"
+                  onClick={() => void actions.setMode("gui")}
+                >
+                  GUI
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={activeMode === "tui" ? "secondary" : "ghost"}
+                  className="rounded-full px-3"
+                  onClick={() => void actions.setMode("tui")}
+                >
+                  TUI
+                </Button>
+              </div>
+
+              {activeMode === "gui" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={controllerTranscriptOpen ? "secondary" : "ghost"}
+                  className="rounded-full px-3"
+                  onClick={() => setControllerTranscriptOpen((current) => !current)}
+                  aria-pressed={controllerTranscriptOpen}
+                >
+                  Master
+                </Button>
+              ) : null}
+
+              <Button
+                type="button"
+                size="icon"
+                variant={activeMode === "settings" ? "secondary" : "ghost"}
+                onClick={() => void actions.setMode("settings")}
+                aria-label="Open settings"
+                title="Settings"
+              >
+                <Settings size={16} />
+              </Button>
+
+              {activeMode === "gui" ? (
+                <>
                   <Button
                     type="button"
                     size="icon"
@@ -576,9 +619,14 @@ export function App() {
                   >
                     <Globe size={16} />
                   </Button>
-                </div>
-              </header>
+                </>
+              ) : null}
+            </div>
+          </header>
 
+        <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          {isWorkspaceMode ? (
+            <section className="flex min-h-0 min-w-0 flex-1 flex-col pt-2" aria-label="Canvas">
               <div className="relative min-h-0 flex-1 px-3 pb-3">
                 <div
                   className="grid h-full min-h-0"
@@ -614,26 +662,16 @@ export function App() {
                               return (
                                 <Fragment key={group.project.id}>
                                   <section
-                                    className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-[28px] border bg-card/40"
+                                    className="flex min-h-0 shrink-0 flex-col overflow-hidden rounded-[28px] border border-border/70 bg-card/35"
                                     style={{
                                       flexBasis: totalProjectColumnUnits > 0 ? `${(units / totalProjectColumnUnits) * 100}%` : "100%",
                                       minWidth: `${Math.max(440, group.sessions.length * 380 + Math.max(0, group.sessions.length - 1) * 16 + 40)}px`,
-                                      borderColor: `${group.accent}44`,
-                                      boxShadow: `inset 0 1px 0 ${group.accent}22`,
-                                      background: `linear-gradient(180deg, ${group.accent}12 0%, rgba(0,0,0,0) 22%), rgba(255,255,255,0.01)`,
                                     }}
                                   >
-                                    <div
-                                      className="border-b px-4 py-3"
-                                      style={{ borderColor: `${group.accent}2e` }}
-                                    >
+                                    <div className="border-b border-border/60 px-4 py-3">
                                       <div className="flex items-center justify-between gap-3">
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-2">
-                                            <span
-                                              className="h-2.5 w-2.5 rounded-full"
-                                              style={{ backgroundColor: group.accent }}
-                                            />
                                             <span className="truncate text-sm font-semibold text-foreground">
                                               {group.project.name}
                                             </span>
@@ -642,13 +680,7 @@ export function App() {
                                             {group.project.path}
                                           </div>
                                         </div>
-                                        <span
-                                          className="rounded-full px-2 py-0.5 text-[11px] font-medium"
-                                          style={{
-                                            backgroundColor: `${group.accent}22`,
-                                            color: group.accent,
-                                          }}
-                                        >
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                                           {group.sessions.length}
                                         </span>
                                       </div>
@@ -671,7 +703,6 @@ export function App() {
                                             key={summary.sessionId}
                                             summary={summary}
                                             gui={gui}
-                                            accent={group.accent}
                                             onClose={() => void actions.closeSession(summary.sessionId)}
                                             onSendPrompt={actions.sendPrompt}
                                             onAbort={actions.abortPrompt}
@@ -711,12 +742,24 @@ export function App() {
                     )}
 
                     <section className="workspace-panel rounded-[30px] border border-border/70 px-4 py-4 shadow-sm">
-                      <div className="mb-3 flex items-center justify-end gap-3">
-                        {controllerState?.isStreaming ? (
-                          <span className="rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success">
-                            running
-                          </span>
-                        ) : null}
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-foreground">Master bar</div>
+                        <div className="flex items-center gap-2">
+                          {controllerState?.isStreaming ? (
+                            <span className="rounded-full bg-success/12 px-2 py-0.5 text-[11px] font-medium text-success">
+                              running
+                            </span>
+                          ) : null}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={controllerTranscriptOpen ? "secondary" : "ghost"}
+                            className="rounded-full px-3"
+                            onClick={() => setControllerTranscriptOpen((current) => !current)}
+                          >
+                            {controllerTranscriptOpen ? "Hide chat" : "Open chat"}
+                          </Button>
+                        </div>
                       </div>
 
                       {controllerState?.errorText ? (
@@ -731,27 +774,54 @@ export function App() {
                       ) : null}
 
                       {controllerState ? (
-                        <Composer
-                          busy={controllerState.isStreaming}
-                          value={controllerComposerValue}
-                          onValueChange={setControllerComposerValue}
-                          onSubmit={sendControllerPrompt}
-                          onAbort={() => actions.abortPrompt(controllerState.sessionId)}
-                          models={controllerState.availableModels}
-                          currentModel={controllerState.model}
-                          thinkingLevel={controllerState.thinkingLevel}
-                          availableThinkingLevels={controllerState.availableThinkingLevels}
-                          attachments={controllerState.attachments}
-                          slashCommands={controllerState.slashCommands}
-                          onSetModel={(provider, modelId) => void actions.setModel(provider, modelId, controllerState.sessionId)}
-                          onSetThinkingLevel={(level) => void actions.setThinkingLevel(level, controllerState.sessionId)}
-                          onPickAttachments={() => void actions.pickAttachments(controllerState.sessionId)}
-                          onRemoveAttachment={(attachmentId) => void actions.removeAttachment(attachmentId, controllerState.sessionId)}
-                          onClearAttachments={() => void actions.clearAttachments(controllerState.sessionId)}
-                          agentMenuOpen={controllerAgentMenuOpen}
-                          onAgentMenuOpenChange={setControllerAgentMenuOpen}
-                          placeholder="Ask Pi to create a session, delegate work, or steer the canvas"
-                        />
+                        <>
+                          {controllerTranscriptOpen ? (
+                            <div className="mb-3 h-[380px] overflow-hidden rounded-[24px] border border-border/70 bg-background/55">
+                              <ChatView
+                                gui={controllerState}
+                                sessionId={controllerState.sessionId}
+                                compact
+                                composerValue={controllerComposerValue}
+                                onComposerValueChange={setControllerComposerValue}
+                                composerPlaceholder="Ask Pi to create a session, delegate work, or steer the canvas"
+                                emptyTitle="Master session"
+                                emptyDescription="The master session transcript will appear here as it responds and calls tools."
+                                onSendPrompt={actions.sendPrompt}
+                                onAbort={actions.abortPrompt}
+                                onSetModel={actions.setModel}
+                                onSetThinkingLevel={actions.setThinkingLevel}
+                                onPickAttachments={actions.pickAttachments}
+                                onRemoveAttachment={actions.removeAttachment}
+                                onClearAttachments={actions.clearAttachments}
+                                onGetSessionTree={actions.getSessionTree}
+                                onNavigateTree={actions.navigateTree}
+                                onRunSlashCommand={actions.runSlashCommand}
+                              />
+                            </div>
+                          ) : null}
+
+                          <Composer
+                            busy={controllerState.isStreaming}
+                            value={controllerComposerValue}
+                            onValueChange={setControllerComposerValue}
+                            onSubmit={sendControllerPrompt}
+                            onAbort={() => actions.abortPrompt(controllerState.sessionId)}
+                            models={controllerState.availableModels}
+                            currentModel={controllerState.model}
+                            thinkingLevel={controllerState.thinkingLevel}
+                            availableThinkingLevels={controllerState.availableThinkingLevels}
+                            attachments={controllerState.attachments}
+                            slashCommands={controllerState.slashCommands}
+                            onSetModel={(provider, modelId) => void actions.setModel(provider, modelId, controllerState.sessionId)}
+                            onSetThinkingLevel={(level) => void actions.setThinkingLevel(level, controllerState.sessionId)}
+                            onPickAttachments={() => void actions.pickAttachments(controllerState.sessionId)}
+                            onRemoveAttachment={(attachmentId) => void actions.removeAttachment(attachmentId, controllerState.sessionId)}
+                            onClearAttachments={() => void actions.clearAttachments(controllerState.sessionId)}
+                            agentMenuOpen={controllerAgentMenuOpen}
+                            onAgentMenuOpenChange={setControllerAgentMenuOpen}
+                            placeholder="Ask Pi to create a session, delegate work, or steer the canvas"
+                          />
+                        </>
                       ) : (
                         <div className="rounded-2xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
                           Master session is loading…
@@ -880,6 +950,7 @@ export function App() {
               />
             </section>
           ) : null}
+        </div>
         </div>
       </section>
     </main>

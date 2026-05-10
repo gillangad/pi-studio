@@ -324,7 +324,9 @@ describe("App", () => {
       expect(screen.getAllByText("Thread one").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Thread two").length).toBeGreaterThan(0);
       expect(screen.queryByText("Worker sessions")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Workspace sidebar")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Toggle browser panel" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open settings" })).toBeInTheDocument();
     });
   });
 
@@ -357,6 +359,18 @@ describe("App", () => {
         text: "Tell worker-2 to inspect auth flow",
         sessionId: "controller",
       });
+    });
+  });
+
+  it("shows the master session transcript when the header toggle is opened", async () => {
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Master" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Master session")).toBeInTheDocument();
+      expect(screen.getByText("The master session transcript will appear here as it responds and calls tools.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Hide chat" })).toBeInTheDocument();
     });
   });
 
